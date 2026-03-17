@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+.vscode/
 
 # Snowflake / Credentials (絶対に含めない)
 .env
