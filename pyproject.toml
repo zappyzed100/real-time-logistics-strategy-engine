@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "faker>=40.11.0",
-    "numpy>=2.4.3",
+    "numpy==2.4.2",
     "python-dotenv>=1.2.2",
     "snowflake-snowpark-python[pandas]>=1.47.0",
 ]
