@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: fct_delivery_analysis
+    description: "配送コスト分析用の最終ファクトテーブル。Python UDFを用いて計算された配送コストを含む。"
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+      - name: delivery_cost
+        description: "計算された配送コスト（円）。"
+        # 一旦削除して not_null に変えるか、空にする
+        tests:
+          - not_null

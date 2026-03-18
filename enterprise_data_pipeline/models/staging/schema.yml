@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "クレンジング済みの注文データ。Snowflakeの生データをソースとする。"
+    columns:
+      - name: order_id
+        description: "注文の主キー"
+        tests:
+          - unique
+          - not_null
+      - name: product_id
+        description: "注文された商品のID。PRODUCTSテーブルとの整合性をチェック。"
+        tests:
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+
+  - name: stg_products
+    description: "商品マスターデータ。"
+    columns:
+      - name: product_id
+        description: "商品の主キー"
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_logistics_centers
+    description: "物流拠点のマスターデータ。"
+    columns:
+      - name: center_id
+        description: "拠点の主キー"
+        tests:
+          - unique
+          - not_null
