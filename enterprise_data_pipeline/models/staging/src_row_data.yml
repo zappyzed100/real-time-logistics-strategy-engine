@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw_data
+    description: "Snowflake上の生データ（Bronze層）"
+    database: OPTIMIZER_DB
+    schema: PUBLIC
+    tables:
+      - name: ORDERS
+        description: "注文履歴データ"
+      - name: PRODUCTS
+        description: "商品マスター"
+      - name: LOGISTICS_CENTERS
+        description: "物流拠点マスター"
