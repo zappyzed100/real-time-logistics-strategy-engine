@@ -1,10 +1,58 @@
 # enterprise-data-platform-snowflake
 
-Snowpark, dbt, および Streamlit を活用したエンドツーエンドのデータパイプライン。
+配送コスト最適化ロジックを Snowflake 上の **Vectorized Python UDF** として実装し、大規模データに対するパフォーマンス検証と CI/CD パイプラインを統合したデータエンジニアリング・ポートフォリオです。
 
-## プロジェクト構成
-- `ddl/`: Snowflake テーブル定義
-- `src/udf/`: Snowpark Python UDF ロジック
-- `src/streamlit/`: 可視化ダッシュボード
-- `tests/`: 自動テスト (pytest)
-- `.github/workflows/`: CI/CD パイプライン
+---
+
+## 🚀 プロジェクトのハイライト
+* **Snowpark Vectorized UDF**: Pandas を用いたベクトル演算により、10,000件の幾何計算を高速にバッチ処理。
+* **パフォーマンス・ベンチマーク**: 純粋な SQL と Python UDF の実行速度を定量的に比較検証。
+* **モダンな開発環境**: `uv` (Astral) による高速な依存関係管理と、Snowflake 内蔵の Python ランタイム（Anaconda 供給パッケージ）とのバージョン整合を徹底。
+* **自動化 CI パイプライン**: GitHub Actions による Lint (flake8) と Unit Test (pytest) の自動実行環境を構築。
+
+---
+
+## 🏗 アーキテクチャ
+
+
+
+1.  **Local Development**: `uv` + `pytest` でロジックの正確性をローカルで担保。
+2.  **Deployment**: Snowpark Session を介して Python ロジックを Snowflake 内の Internal Stage（@udf_stage）へデプロイ。
+3.  **Execution**: Snowflake 上で `CALCULATE_DELIVERY_COST` 関数として登録し、SQL から直接呼び出し可能に。
+
+---
+
+## 📊 パフォーマンス検証結果
+
+10,000件の注文データに対し、ハバースサイン公式（地球の曲率を考慮した2点間距離）を用いた配送コスト計算の実行速度を比較しました。
+
+| 実装手法 | 10,000件の処理時間 | スループット | 技術的考察 |
+| :--- | :--- | :--- | :--- |
+| **Pure SQL** | **651 ms** | ~15,360 rec/sec | エンジン直結の最適化により最速。 |
+| **Python UDF** | **4.17 s** | ~2,396 rec/sec | **Pandasによるベクトル演算**。可読性・テスト性が高い。 |
+
+**分析:**
+Python UDF は SQL 比で約6.4倍の時間を要しましたが、これは Python サンドボックスの起動とデータ転送のオーバーヘッドによるものです。1万件で4秒台という数値は大規模バッチにおいて十分に実用的であり、複雑なビジネスロジックをテスト可能な Python で記述し、開発効率を向上させる設計としています。
+
+---
+
+## 🛠 技術スタック
+* **Data Warehouse**: Snowflake
+* **Framework**: Snowpark for Python
+* **Package Manager**: `uv` (Astral)
+* **Testing/CI**: `pytest`, `flake8`, GitHub Actions
+* **Libraries**: `pandas`, `numpy (2.4.2)`, `python-dotenv`
+
+---
+
+## 📂 ディレクトリ構造
+```text
+.
+├── .github/workflows/    # CI (GitHub Actions) 設定
+├── src/
+│   ├── udf/              # UDF コアロジック (Pandasベース)
+│   ├── scripts/          # デプロイおよび性能計測スクリプト
+│   └── data/             # テスト用ダミーデータ生成
+├── tests/                # ユニットテスト (pytest)
+├── pyproject.toml        # プロジェクト定義・依存関係
+└── .env                  # Snowflake 接続設定（非公開）
