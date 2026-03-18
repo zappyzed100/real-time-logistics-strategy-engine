@@ -22,7 +22,7 @@ def run_benchmark():
         # 1. 大規模データの読み込み
         # ※#21で作成し、ロード済みの large_orders テーブルを想定
         df_orders = session.table("orders")
-        df_centers = session.table("logistics_centers").filter(F.col("center_id") == 1)
+        df_centers = session.table("logistics_centers")
         df_products = session.table("products")
 
         # 2. データのジョイン（注文・商品・拠点を結合して計算に必要な値を揃える）

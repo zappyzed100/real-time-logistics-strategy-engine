@@ -7,20 +7,24 @@ import os
 def generate_orders(num_records=10000):
     fake = Faker("ja_JP")
 
-    # 既存のマスターデータを読み込んでIDリストを取得（整合性確保のため）
+    # 既存のマスターデータを読み込んでIDリストを取得
     products_df = pd.read_csv("data/products.csv")
     product_ids = products_df["product_id"].tolist()
 
-    # 注文データの生成
     orders = []
     for i in range(1, num_records + 1):
+        # 日本の範囲に絞って生成
+        # latitude: 31.0 to 45.0, longitude: 130.0 to 145.0
+        lat = float(fake.coordinate(center=38.0, radius=7.0))
+        lon = float(fake.coordinate(center=137.0, radius=7.0))
+
         orders.append(
             {
-                "order_id": i + 1000,  # 既存データと被らないように開始番号を調整
+                "order_id": i + 1000,
                 "product_id": np.random.choice(product_ids),
                 "quantity": np.random.randint(1, 10),
-                "customer_lat": float(fake.latitude()),
-                "customer_lon": float(fake.longitude()),
+                "customer_lat": lat,
+                "customer_lon": lon,
                 "order_date": fake.date_between(start_date="-1y", end_date="today"),
             }
         )

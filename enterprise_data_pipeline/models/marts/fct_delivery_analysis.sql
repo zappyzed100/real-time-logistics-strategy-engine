@@ -30,8 +30,7 @@ final as (
     join products p on o.product_id = p.product_id
     -- 今回は簡易化のため、全注文を特定の拠点（例: CENTER_ID=1）に紐付けるか、
     -- 実際のロジックに合わせて JOIN してください
-    cross join centers c 
-    where c.center_id = 1 
+    cross join centers c
 )
 
 select * from final
