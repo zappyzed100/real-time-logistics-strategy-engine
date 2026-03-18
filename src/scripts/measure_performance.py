@@ -57,10 +57,10 @@ def run_benchmark():
         end_time = time.time()
 
         duration = end_time - start_time
-        print(f"--- Benchmark Results ---")
+        print("--- Benchmark Results ---")
         print(f"Execution Time: {duration:.2f} seconds")
         print(f"Throughput: {len(final_results) / duration:.2f} records/sec")
-        print(f"--------------------------")
+        print("--------------------------")
 
     finally:
         session.close()

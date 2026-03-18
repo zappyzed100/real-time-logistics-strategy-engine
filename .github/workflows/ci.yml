@@ -6,36 +6,34 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
       with:
         # キャッシュを有効にして実行速度を向上
         enable-cache: true
         version: "latest"
 
-    - name: Set up Python
-      # .python-version ファイルがある場合、自動的にそのバージョンが使用されます
-      run: uv python install
+    - name: Set up Python 3.11
+      run: uv python install 3.11
 
     - name: Install dependencies
       # uv sync で pyproject.toml / uv.lock から環境を完全再現
-      run: uv sync --all-groups
+      run: uv sync --frozen --all-groups
 
     - name: Lint with flake8
       # uv run を通すことで、仮想環境内のライブラリを使用
       run: |
         uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        uv run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Test with pytest
       # src/connection_test.py が pytest の収集対象になりエラーを吐くのを防ぐため、

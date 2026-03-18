@@ -17,3 +17,9 @@ Thumbs.db
 
 # Data files (必要に応じて追加)
 data/*.csv
+
+# Logs
+logs/
+
+# dbt
+enterprise_data_pipeline/profiles.yml  
