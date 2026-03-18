@@ -10,15 +10,14 @@ centers as (
     select * from {{ ref('stg_logistics_centers') }}
 ),
 
-final as (
+calculated as (
     select
         o.order_id,
         o.ordered_at,
         p.product_name,
         p.weight_kg,
         c.center_name,
-        -- ここで以前作成した Snowpark UDF を呼び出す
-        -- 引数: (拠点の緯度, 拠点の経度, 顧客の緯度, 顧客の経度, 商品重量)
+        -- Snowpark UDF を呼び出してコストを計算
         CALCULATE_DELIVERY_COST(
             c.latitude,
             c.longitude,
@@ -28,9 +27,9 @@ final as (
         ) as delivery_cost
     from orders o
     join products p on o.product_id = p.product_id
-    -- 今回は簡易化のため、全注文を特定の拠点（例: CENTER_ID=1）に紐付けるか、
-    -- 実際のロジックに合わせて JOIN してください
-    cross join centers c
+    cross join centers c -- 全ての注文と全拠点の組み合わせを作成
 )
 
-select * from final
+select * from calculated
+-- 注文(order_id)ごとに、配送コスト(delivery_cost)が最小の1行だけを選択
+qualify row_number() over (partition by order_id order by delivery_cost asc) = 1
