@@ -171,7 +171,13 @@ if all(col in filtered_df.columns for col in map_cols):
         layers=[customer_layer, center_layer],
         initial_view_state=view_state,
         tooltip={
-            "html": "<b>注文ID:</b> {ORDER_ID}<br><b>配送拠点:</b> {CENTER_NAME}<br><hr><b>重量:</b> {WEIGHT_KG} kg<br><b>配送コスト:</b> ¥{SIMULATED_COST}",
+            "html": (
+                "<b>注文ID:</b> {ORDER_ID}<br>"
+                "<b>配送拠点:</b> {CENTER_NAME}<br>"
+                "<hr>"
+                "<b>重量:</b> {WEIGHT_KG} kg<br>"
+                "<b>配送コスト:</b> ¥{SIMULATED_COST}"
+            ),
             "style": {"color": "white", "backgroundColor": "steelblue"},
         },
     )
