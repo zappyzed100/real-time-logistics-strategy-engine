@@ -14,6 +14,7 @@ calculated as (
     select
         o.order_id,
         o.ordered_at,
+        o.quantity,
         p.product_name,
         p.weight_kg,
         c.center_name,
@@ -28,7 +29,7 @@ calculated as (
             c.longitude,
             o.customer_lat,
             o.customer_lon,
-            p.weight_kg
+            p.weight_kg * o.quantity
         ) as delivery_cost
     from orders o
     join products p on o.product_id = p.product_id

@@ -6,6 +6,7 @@ renamed as (
     select
         "ORDER_ID" as order_id,
         "PRODUCT_ID" as product_id,
+        "QUANTITY" as quantity,
         "CUSTOMER_LAT" as customer_lat,
         "CUSTOMER_LON" as customer_lon,
         -- 文字列をタイムスタンプ型へキャスト
