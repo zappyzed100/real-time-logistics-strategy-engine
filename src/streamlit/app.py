@@ -1,6 +1,8 @@
 import streamlit as st
 from snowflake.snowpark import Session
 import pandas as pd
+import pydeck as pdk
+import json
 
 # ページ設定
 st.set_page_config(page_title="Logistics KPI Dashboard", layout="wide")
@@ -28,18 +30,6 @@ df = get_analysis_data()
 
 # Snowflake/Pandas間で列名の大文字小文字が揺れることがあるため正規化
 df.columns = [str(col).upper() for col in df.columns]
-
-required_columns = [
-    "DELIVERY_COST",
-    "ORDER_ID",
-    "ORDER_DATE",
-    "PRODUCT_CATEGORY",
-    "WAREHOUSE_NAME",
-]
-missing_columns = [col for col in required_columns if col not in df.columns]
-if missing_columns:
-    st.error(f"必須カラムが不足しています: {', '.join(missing_columns)}")
-    st.stop()
 
 # --- 1. 主要 KPI の表示 ---
 st.subheader("Key Performance Indicators")
@@ -83,3 +73,86 @@ with tab2:
         warehouse_summary.style.format({"DELIVERY_COST": "¥{:,.0f}"}),
         use_container_width=True,
     )
+
+# --- 4. 地理情報の可視化 (pydeck) ---
+st.subheader("配送エリア・コスト分布の地理的分析")
+
+# ツールチップに表示したいデバッグ用カラムを追加
+debug_cols = ["WEIGHT_KG", "DELIVERY_COST"]  # もし距離カラムがあれば追加してください
+map_cols = ["CUSTOMER_LAT", "CUSTOMER_LON", "CENTER_LAT", "CENTER_LON"] + debug_cols
+
+if all(col in df.columns for col in map_cols):
+    plot_df = df.dropna(subset=map_cols).copy()
+
+    # 1. 拠点データの抽出
+    center_df = (
+        plot_df[["CENTER_NAME", "CENTER_LAT", "CENTER_LON"]].drop_duplicates().copy()
+    )
+
+    # 2. 顧客プロットの色計算
+    def calculate_colors(df_input):
+        cost = df_input["DELIVERY_COST"]
+        v_min = cost.min()
+        v_max = cost.quantile(0.95)
+        if v_max == v_min:
+            v_max = v_min + 1
+
+        norm_cost = ((cost - v_min) / (v_max - v_min)).clip(0, 1)
+
+        df_input["COLOR_R"] = 255
+        df_input["COLOR_G"] = (255 * (1 - norm_cost)).astype(int)
+        df_input["COLOR_B"] = 0
+        return df_input
+
+    # --- 強制シリアライズ関数 ---
+    def sanitize_data(df_input):
+        return json.loads(df_input.to_json(orient="records"))
+
+    # 3. 顧客レイヤー
+    customer_layer = pdk.Layer(
+        "ScatterplotLayer",
+        sanitize_data(calculate_colors(plot_df)),
+        get_position=["CUSTOMER_LON", "CUSTOMER_LAT"],
+        get_color="[COLOR_R, COLOR_G, COLOR_B, 140]",
+        get_radius=3000,
+        pickable=True,
+    )
+
+    # 4. 拠点レイヤー
+    center_layer = pdk.Layer(
+        "ScatterplotLayer",
+        sanitize_data(center_df),
+        get_position=["CENTER_LON", "CENTER_LAT"],
+        get_color=[0, 100, 255, 200],
+        get_radius=15000,
+        pickable=True,
+    )
+
+    # 5. 初期表示設定
+    view_state = pdk.ViewState(
+        latitude=36.0,
+        longitude=138.0,
+        zoom=5,
+        pitch=45,
+    )
+
+    # 6. Deck オブジェクト（ツールチップに重量などを追加）
+    r = pdk.Deck(
+        layers=[customer_layer, center_layer],
+        initial_view_state=view_state,
+        tooltip={
+            "html": """
+                <b>注文ID:</b> {ORDER_ID}<br/>
+                <b>配送拠点:</b> {CENTER_NAME}<br/>
+                <hr style='margin: 5px 0;'>
+                <b>重量:</b> {WEIGHT_KG} kg<br/>
+                <b>配送コスト:</b> ¥{DELIVERY_COST}<br/>
+            """,
+            "style": {"color": "white", "backgroundColor": "steelblue"},
+        },
+    )
+
+    st.pydeck_chart(r)
+
+else:
+    st.warning(f"地図表示に必要なカラムが不足しています。必要: {map_cols}")
