@@ -1,0 +1,21 @@
+# ---------------------------------------------------------
+# Data Directories (Exclude large files, keep structure)
+# ---------------------------------------------------------
+# すべてのデータファイルを一旦除外
+01_raw/*
+01_raw/estat/*
+01_raw/mlit/*
+02_processed/*
+04_out/*
+
+# ただし、ディレクトリ構造を維持するための .gitkeep は許可
+!01_raw/.gitkeep
+!01_raw/estat/
+!01_raw/estat/.gitkeep
+!01_raw/mlit/
+!01_raw/mlit/.gitkeep
+!02_processed/.gitkeep
+!04_out/.gitkeep
+
+# 03_seed は手動マスタなので Git 管理に含める（除外しない）
+!03_seed/

@@ -8,7 +8,7 @@ def generate_orders(num_records=10000):
     fake = Faker("ja_JP")
 
     # 既存のマスターデータを読み込んでIDリストを取得
-    products_df = pd.read_csv("data/products.csv")
+    products_df = pd.read_csv("data/03_seed/products.csv")
     product_ids = products_df["product_id"].tolist()
 
     orders = []
@@ -34,8 +34,8 @@ def generate_orders(num_records=10000):
 
 def generate_inventory():
     # 拠点と商品の全組み合わせに対して在庫を生成
-    products_df = pd.read_csv("data/products.csv")
-    centers_df = pd.read_csv("data/logistics_centers.csv")
+    products_df = pd.read_csv("data/03_seed/products.csv")
+    centers_df = pd.read_csv("data/03_seed/logistics_centers.csv")
 
     inventory = []
     for c_id in centers_df["center_id"]:
@@ -51,17 +51,17 @@ def generate_inventory():
 
 
 def main():
-    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/04_out", exist_ok=True)
 
     print("Generating 10,000 orders...")
     orders_df = generate_orders(10000)
-    orders_df.to_csv("data/large_orders.csv", index=False)
+    orders_df.to_csv("data/04_out/orders.csv", index=False)
 
     print("Generating full inventory matrix...")
     inventory_df = generate_inventory()
-    inventory_df.to_csv("data/large_inventory.csv", index=False)
+    inventory_df.to_csv("data/04_out/inventory.csv", index=False)
 
-    print("Done. Files saved to data/ directory.")
+    print("Done. Files saved to data/04_out/ directory.")
 
 
 if __name__ == "__main__":
