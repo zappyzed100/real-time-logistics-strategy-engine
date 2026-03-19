@@ -18,8 +18,5 @@ creds.json
 .DS_Store
 Thumbs.db
 
-# Data files (必要に応じて追加)
-data/*.csv
-
 # Logs
 logs/

@@ -14,22 +14,27 @@ calculated as (
     select
         o.order_id,
         o.ordered_at,
+        o.quantity,
         p.product_name,
         p.weight_kg,
         c.center_name,
+        -- 地図表示のために座標を保持
+        o.customer_lat,
+        o.customer_lon,
+        c.latitude as center_lat,
+        c.longitude as center_lon,
         -- Snowpark UDF を呼び出してコストを計算
         CALCULATE_DELIVERY_COST(
             c.latitude,
             c.longitude,
             o.customer_lat,
             o.customer_lon,
-            p.weight_kg
+            p.weight_kg * o.quantity
         ) as delivery_cost
     from orders o
     join products p on o.product_id = p.product_id
-    cross join centers c -- 全ての注文と全拠点の組み合わせを作成
+    cross join centers c
 )
 
 select * from calculated
--- 注文(order_id)ごとに、配送コスト(delivery_cost)が最小の1行だけを選択
 qualify row_number() over (partition by order_id order by delivery_cost asc) = 1
