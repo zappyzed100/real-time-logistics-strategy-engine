@@ -15,7 +15,15 @@
 !01_raw/mlit/
 !01_raw/mlit/.gitkeep
 !02_intermediate/.gitkeep
+!02_intermediate/estat/
+!02_intermediate/mlit/
 !04_out/.gitkeep
+
+# 02_intermediate でランダムな緯度経度を生成するためのファイルは Git 管理に含める（除外しない）
+02_intermediate/estat/*
+02_intermediate/mlit/*
+!02_intermediate/estat/b01_01_lite.csv
+!02_intermediate/mlit/mlit_a_lite.csv
 
 # 03_seed は手動マスタなので Git 管理に含める（除外しない）
 !03_seed/
