@@ -1,40 +1,7 @@
-with orders as (
-    select * from {{ ref('stg_orders') }}
-),
-
-products as (
-    select * from {{ ref('stg_products') }}
-),
-
-centers as (
-    select * from {{ ref('stg_logistics_centers') }}
-),
-
-calculated as (
-    select
-        o.order_id,
-        o.ordered_at,
-        o.quantity,
-        p.product_name,
-        p.weight_kg,
-        c.center_name,
-        -- 地図表示のために座標を保持
-        o.customer_lat,
-        o.customer_lon,
-        c.latitude as center_lat,
-        c.longitude as center_lon,
-        -- Snowpark UDF を呼び出してコストを計算
-        CALCULATE_DELIVERY_COST(
-            c.latitude,
-            c.longitude,
-            o.customer_lat,
-            o.customer_lon,
-            p.weight_kg * o.quantity
-        ) as delivery_cost
-    from orders o
-    join products p on o.product_id = p.product_id
-    cross join centers c
+with candidate_costs as (
+    select * from {{ ref('int_delivery_cost_candidates') }}
 )
 
-select * from calculated
-qualify row_number() over (partition by order_id order by delivery_cost asc) = 1
+select *
+from candidate_costs
+qualify row_number() over (partition by order_id order by delivery_cost asc, center_name asc) = 1

@@ -1,32 +1,23 @@
 -- 使用環境の指定
-USE WAREHOUSE OPTIMIZER_WH;
-USE DATABASE OPTIMIZER_DB;
-USE SCHEMA PUBLIC;
+USE WAREHOUSE DEV_DBT_WH;
+USE DATABASE DEV_SILVER_DB;
+USE SCHEMA CLEANSED;
 
 -- 0) 任意: 実行前にウォームアップしたい場合は同クエリを1回流す
 
--- 1) ベンチ対象クエリ（Pure SQL）
+-- 1) ベンチ対象クエリ（dbt の Pure SQL モデルをそのまま評価）
+-- enterprise_data_pipeline/models/intermediate/int_delivery_cost_candidates.sql を
+-- Silver の view として実行するため、dbt 本体と同じ SQL を測定できる。
 SELECT
-  o."ORDER_ID",
-  (
-    6371 * 2 * ASIN(
-      SQRT(
-        POWER(SIN(RADIANS((o."CUSTOMER_LAT" - lc."LATITUDE") / 2)), 2) +
-        COS(RADIANS(lc."LATITUDE")) * COS(RADIANS(o."CUSTOMER_LAT")) *
-        POWER(SIN(RADIANS((o."CUSTOMER_LON" - lc."LONGITUDE") / 2)), 2)
-      )
-    )
-  ) * p."WEIGHT_KG" * 10.0 AS "DELIVERY_COST"
-FROM "ORDERS" o
-JOIN "PRODUCTS" p
-  ON o."PRODUCT_ID" = p."PRODUCT_ID"
-CROSS JOIN "LOGISTICS_CENTERS" lc;
+  ORDER_ID,
+  DELIVERY_COST
+FROM INT_DELIVERY_COST_CANDIDATES;
 
 -- 2) 直前クエリIDを保存（ここは必ずベンチクエリ直後）
 SET BENCH_QID = (SELECT LAST_QUERY_ID());
 
 -- 3) いつもの確認クエリ（これは後で実行してOK）
-SELECT * FROM "OPTIMIZER_DB"."PUBLIC"."STG_ORDERS" LIMIT 10;
+SELECT * FROM DEV_GOLD_DB.MARKETING_MART.FCT_DELIVERY_ANALYSIS LIMIT 10;
 
 -- 4) 実行時間とスループットを表示
 SELECT
