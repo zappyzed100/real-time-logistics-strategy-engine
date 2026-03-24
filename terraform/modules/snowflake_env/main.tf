@@ -359,6 +359,16 @@ resource "snowflake_grant_privileges_to_account_role" "loader_wh_usage" {
 }
 
 # ------ bronze ------
+resource "snowflake_grant_privileges_to_account_role" "loader_bronze_db_usage" {
+  account_role_name = snowflake_account_role.loader_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.bronze.name
+  }
+}
+
 resource "snowflake_grant_privileges_to_account_role" "loader_bronze_usage" {
   account_role_name = snowflake_account_role.loader_role.name
   privileges        = ["USAGE"]
@@ -455,6 +465,16 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_wh_usage" {
 }
 
 # ------ bronze ------
+resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_db_usage" {
+  account_role_name = snowflake_account_role.dbt_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.bronze.name
+  }
+}
+
 resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_usage" {
   account_role_name = snowflake_account_role.dbt_role.name
   privileges        = ["USAGE"]
@@ -498,6 +518,16 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_select_future"
 }
 
 # ------ silver ------
+resource "snowflake_grant_privileges_to_account_role" "dbt_silver_db_usage" {
+  account_role_name = snowflake_account_role.dbt_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.silver.name
+  }
+}
+
 resource "snowflake_grant_privileges_to_account_role" "dbt_silver_usage" {
   account_role_name = snowflake_account_role.dbt_role.name
   privileges        = ["USAGE"]
@@ -517,6 +547,16 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_cleansed_all" {
 }
 
 # ------ gold ------
+resource "snowflake_grant_privileges_to_account_role" "dbt_gold_db_usage" {
+  account_role_name = snowflake_account_role.dbt_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.gold.name
+  }
+}
+
 resource "snowflake_grant_privileges_to_account_role" "dbt_gold_usage" {
   account_role_name = snowflake_account_role.dbt_role.name
   privileges        = ["USAGE"]
