@@ -11,18 +11,18 @@ resource "snowflake_account_role" "loader_role" {
   name = "${local.env}_LOADER_ROLE"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
 resource "snowflake_user" "loader_user" {
   name         = "${local.env}_LOADER_USER"
   login_name   = "${local.env}_LOADER_USER"
-  password     = var.loader_user_password
+  rsa_public_key = var.loader_user_rsa_public_key
   default_role = snowflake_account_role.loader_role.name
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -36,18 +36,18 @@ resource "snowflake_account_role" "dbt_role" {
   name = "${local.env}_DBT_ROLE"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
 resource "snowflake_user" "dbt_user" {
   name         = "${local.env}_DBT_USER"
   login_name   = "${local.env}_DBT_USER"
-  password     = var.dbt_user_password
+  rsa_public_key = var.dbt_user_rsa_public_key
   default_role = snowflake_account_role.dbt_role.name
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -66,6 +66,10 @@ resource "snowflake_warehouse" "loader_wh" {
   auto_suspend        = 60            # 60秒間クエリがないと自動停止
   auto_resume         = true          # クエリが来たら自動で再起動
   initially_suspended = true          # 作成直後は停止状態にする
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
 resource "snowflake_warehouse" "dbt_wh" {
@@ -74,6 +78,9 @@ resource "snowflake_warehouse" "dbt_wh" {
   auto_suspend        = 60
   auto_resume         = true
   initially_suspended = true
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
 # ============================================================
@@ -85,7 +92,7 @@ resource "snowflake_database" "bronze" {
   name = "${local.env}_BRONZE_DB"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -94,7 +101,7 @@ resource "snowflake_schema" "bronze_raw" {
   name     = "RAW_DATA" # 外部から取り込んだそのままのデータが入る場所
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -103,7 +110,7 @@ resource "snowflake_database" "silver" {
   name = "${local.env}_SILVER_DB"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -112,7 +119,7 @@ resource "snowflake_schema" "silver_cleansed" {
   name     = "CLEANSED" # 型変換やクレンジング後のデータ
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -121,7 +128,7 @@ resource "snowflake_database" "gold" {
   name = "${local.env}_GOLD_DB"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -130,7 +137,7 @@ resource "snowflake_schema" "gold_mart" {
   name     = "MARKETING_MART"
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
@@ -527,3 +534,24 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_mart_all" {
     schema_name = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
   }
 }
+
+# ============================================================
+# Network Policy
+# ============================================================
+
+# ネットワークポリシー本体の定義
+# resource "snowflake_network_policy" "api_access_policy" {
+#   name    = "${local.env}_API_NETWORK_POLICY"
+#   comment = "Allow access from specific CIDR blocks"
+# 
+#  # 例：特定のVPCやオフィスのIP
+#   allowed_ip_list = ["1.2.3.4/32", "192.168.0.0/24"]
+#    lifecycle {
+#      prevent_destroy = false
+#    }
+# }
+
+# ユーザーへの適用
+# resource "snowflake_user_public_keys" "loader_user_network" {
+#   # ...（既存のユーザー設定）...
+# }

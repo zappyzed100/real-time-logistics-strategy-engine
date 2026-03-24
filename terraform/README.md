@@ -52,13 +52,15 @@ HCP Terraform はリモートで実行されるため、ローカルの `.tfvars
 - URL: `https://app.terraform.io/app/<org>/<workspace>/settings/vars`
 - 種別: **Terraform variable** を選択
 
-| 変数名                           | Sensitive | 種別      | 内容 (例)                                         |
-|----------------------------------|-----------|-----------|---------------------------------------------------|
-| snowflake_organization_name      | —         | Terraform | SNOWFLAKE_ACCOUNTの前半分                           |
-| snowflake_account_name           | —         | Terraform | SNOWFLAKE_ACCOUNTの後半分                       |
-| dev_loader_user_password         | ✅         | Terraform | (作成するLoaderユーザーの初期パスワード)           |
-| dev_dbt_user_password            | ✅         | Terraform | (作成するdbtユーザーの初期パスワード)              |
-| snowflake_user                   | —         | Environment | TF_PROVISIONER (Terraform実行用ユーザー)          |
-| snowflake_private_key            | ✅         | Environment | -----BEGIN RSA PRIVATE KEY----- ... (秘密鍵の中身) |
+| 変数名                           | Sensitive | 種別        | 内容 (例)                                                   |
+|----------------------------------|-----------|-------------|-------------------------------------------------------------|
+| snowflake_organization_name      | —         | Terraform   | SNOWFLAKE_ACCOUNTの前半分                                   |
+| snowflake_account_name           | —         | Terraform   | SNOWFLAKE_ACCOUNTの後半分                                   |
+| dev_loader_user_rsa_public_key   | ✅         | Terraform   | (作成するLoaderユーザーの公開鍵: PEM本文)                   |
+| dev_dbt_user_rsa_public_key      | ✅         | Terraform   | (作成するdbtユーザーの公開鍵: PEM本文)                      |
+| snowflake_user                   | —         | Terraform   | TF_PROVISIONER (Terraform実行用ユーザー)                    |
+| snowflake_private_key            | ✅         | Terraform   | -----BEGIN RSA PRIVATE KEY----- ... (秘密鍵の中身)          |
 
 登録後は `terraform plan` だけで実行できます（`init` の再実行は不要）。
+
+`snowflake_private_key` は HCP の入力都合で改行が `\n` になる場合がありますが、コード側で改行復元して利用しています。

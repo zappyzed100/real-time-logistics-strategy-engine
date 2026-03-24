@@ -2,7 +2,7 @@
 module "dev" {
   source = "./modules/snowflake_env"
 
-  env                  = "DEV"
-  loader_user_password = var.dev_loader_user_password
-  dbt_user_password    = var.dev_dbt_user_password
+  env                         = "DEV"
+  loader_user_rsa_public_key  = var.dev_loader_user_rsa_public_key
+  dbt_user_rsa_public_key     = var.dev_dbt_user_rsa_public_key
 }

@@ -11,9 +11,17 @@ terraform {
   backend "remote" {}
 }
 
+locals {
+  snowflake_user_effective = var.snowflake_user != null ? var.snowflake_user : var.SNOWFLAKE_USER
+  snowflake_private_key_raw = var.snowflake_private_key != null ? var.snowflake_private_key : var.SNOWFLAKE_PRIVATE_KEY
+  snowflake_private_key_effective = local.snowflake_private_key_raw != null ? replace(local.snowflake_private_key_raw, "\\n", "\n") : null
+}
+
 provider "snowflake" {
   organization_name = var.snowflake_organization_name
   account_name      = var.snowflake_account_name
+  user              = local.snowflake_user_effective
+  private_key       = local.snowflake_private_key_effective
   role              = "ACCOUNTADMIN"
 
   # プレビュー機能を有効化する設定を追加

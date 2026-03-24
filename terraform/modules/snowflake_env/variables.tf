@@ -8,14 +8,14 @@ variable "env" {
   }
 }
 
-variable "loader_user_password" {
+variable "loader_user_rsa_public_key" {
   type        = string
   sensitive   = true
-  description = "Loaderユーザーのパスワード"
+  description = "LoaderユーザーのRSA公開鍵"
 }
 
-variable "dbt_user_password" {
+variable "dbt_user_rsa_public_key" {
   type        = string
   sensitive   = true
-  description = "dbtユーザーのパスワード"
+  description = "dbtユーザーのRSA公開鍵"
 }
