@@ -562,6 +562,7 @@ name = "enterprise-data-platform-snowflake"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "dbt-snowflake" },
     { name = "faker" },
     { name = "numpy" },
@@ -578,6 +579,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=45.0.0" },
     { name = "dbt-snowflake", specifier = ">=1.11.3" },
     { name = "faker", specifier = ">=40.11.0" },
     { name = "numpy", specifier = "==2.4.2" },
