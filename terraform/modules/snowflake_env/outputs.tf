@@ -23,6 +23,11 @@ output "dbt_role_name" {
   value       = snowflake_account_role.dbt_role.name
 }
 
+output "streamlit_role_name" {
+  description = "streamlitロール名"
+  value       = snowflake_account_role.streamlit_role.name
+}
+
 output "bronze_raw_stage_name" {
   description = "Bronze RAW ステージ名"
   value       = snowflake_stage_internal.bronze_raw_stage.name

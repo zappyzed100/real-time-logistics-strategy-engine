@@ -9,6 +9,11 @@ variable "dev_dbt_user_rsa_public_key" {
   sensitive = true
 }
 
+variable "dev_streamlit_user_rsa_public_key" {
+  type      = string
+  sensitive = true
+}
+
 variable "snowflake_organization_name" {
   type        = string
   description = "Snowflakeの組織名"
@@ -55,18 +60,4 @@ variable "SNOWFLAKE_PRIVATE_KEY" {
   nullable    = true
   sensitive   = true
   description = "互換: 旧変数名のSnowflake秘密鍵"
-}
-
-variable "dev_loader_user_password" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
-
-variable "dev_dbt_user_password" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
 }

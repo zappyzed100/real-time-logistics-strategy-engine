@@ -56,6 +56,32 @@ resource "snowflake_grant_account_role" "dbt_role_grant" {
   user_name = snowflake_user.dbt_user.name
 }
 
+# --- Streamlit Reader ---
+
+resource "snowflake_account_role" "streamlit_role" {
+  name = "${local.env}_STREAMLIT_READ_ROLE"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "snowflake_user" "streamlit_user" {
+  name            = "${local.env}_STREAMLIT_USER"
+  login_name      = "${local.env}_STREAMLIT_USER"
+  # 必要に応じてパスワード認証またはキーペア認証を選択
+  rsa_public_key  = var.streamlit_user_rsa_public_key 
+  default_role    = snowflake_account_role.streamlit_role.name
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "snowflake_grant_account_role" "streamlit_role_grant" {
+  role_name = snowflake_account_role.streamlit_role.name
+  user_name = snowflake_user.streamlit_user.name
+}
+
 # ============================================================
 # Warehouses
 # ============================================================
@@ -74,6 +100,17 @@ resource "snowflake_warehouse" "loader_wh" {
 
 resource "snowflake_warehouse" "dbt_wh" {
   name                = "${local.env}_DBT_WH"
+  warehouse_size      = "X-SMALL"
+  auto_suspend        = 60
+  auto_resume         = true
+  initially_suspended = true
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "snowflake_warehouse" "streamlit_wh" {
+  name                = "${local.env}_STREAMLIT_WH"
   warehouse_size      = "X-SMALL"
   auto_suspend        = 60
   auto_resume         = true
@@ -572,6 +609,94 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_mart_all" {
 
   on_schema {
     schema_name = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+  }
+}
+
+# ============================================================
+# Grants — streamlit Role
+# ============================================================
+
+# --- warehouse ---
+resource "snowflake_grant_privileges_to_account_role" "streamlit_wh_usage" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "WAREHOUSE"
+    object_name = snowflake_warehouse.streamlit_wh.name
+  }
+}
+
+# --- gold ---
+# データベースへのアクセス権限
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_db_usage" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.gold.name
+  }
+}
+
+# ターゲットスキーマへのアクセス権限
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_usage" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["USAGE"]
+
+  on_schema {
+    schema_name = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+  }
+}
+
+# --- SELECT Privileges (Current & Future) ---
+# 既存および将来作成される全てのテーブルへの参照権限
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_tables_select" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["SELECT"]
+
+  on_schema_object {
+    all {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    }
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_future_tables_select" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["SELECT"]
+
+  on_schema_object {
+    future {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    }
+  }
+}
+
+# 既存および将来作成される全てのビューへの参照権限
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_views_select" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["SELECT"]
+
+  on_schema_object {
+    all {
+      object_type_plural = "VIEWS"
+      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    }
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_future_views_select" {
+  account_role_name = snowflake_account_role.streamlit_role.name
+  privileges        = ["SELECT"]
+
+  on_schema_object {
+    future {
+      object_type_plural = "VIEWS"
+      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    }
   }
 }
 

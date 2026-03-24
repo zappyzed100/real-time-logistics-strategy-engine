@@ -19,3 +19,9 @@ variable "dbt_user_rsa_public_key" {
   sensitive   = true
   description = "dbtユーザーのRSA公開鍵"
 }
+
+variable "streamlit_user_rsa_public_key" {
+  type        = string
+  sensitive   = true
+  description = "dbtユーザーのRSA公開鍵"
+}
