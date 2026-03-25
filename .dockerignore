@@ -1,0 +1,74 @@
+# --- Git ---
+
+.git
+.gitignore
+
+# --- Python / uv (Astral) ---
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Snowflake / Credentials / Secrets ---
+
+# コンテナには環境変数で渡すため、ファイルは持ち込まない
+
+.env
+creds.json
+*.pem
+*.key
+.netrc
+
+# --- Streamlit ---
+
+.streamlit/config.toml
+.streamlit/secrets.toml
+
+# --- dbt ---
+
+target/
+dbt_packages/
+dbt_modules/
+logs/
+enterprise_data_pipeline/target/
+enterprise_data_pipeline/logs/
+
+# --- Large Local Data ---
+
+data/
+benchmark/
+
+# --- Dagster ---
+
+# ローカルの実行履歴などは持ち込まない
+
+*.dagster
+
+# --- Terraform / IaC ---
+
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*backend.hcl
+
+# --- IDE / OS / Clutter ---
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+
+# --- Build Artifacts ---
+
+dist/
+build/
+*.egg-info/

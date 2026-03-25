@@ -1,0 +1,64 @@
+services:
+  # Streamlit: フロントエンド/ダッシュボード
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: real-time-logistics-strategy-engine:latest
+    container_name: real-time-logistics-strategy-engine-streamlit
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/.venv
+    # コンテナを落とさず維持するための設定
+    tty: true
+    stdin_open: true
+    command: streamlit run src/streamlit/app.py --server.address 0.0.0.0 --server.port 8501
+
+  # FastAPI: ロジック/APIレイヤー
+  api:
+    profiles: [ "api" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: real-time-logistics-strategy-engine:latest
+    container_name: real-time-logistics-strategy-engine-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/.venv
+    tty: true
+    stdin_open: true
+    command: python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Dagster: オーケストレーション
+  dagster:
+    profiles: [ "orchestration" ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: real-time-logistics-strategy-engine:latest
+    container_name: real-time-logistics-strategy-engine-dagster
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DAGSTER_HOME: /tmp/dagster_home
+    volumes:
+      - .:/app
+      - /app/.venv
+    tty: true
+    stdin_open: true
+    command: dagster dev -h 0.0.0.0 -p 3000
+
+# 共通のネットワーク設定
+networks:
+  default:
+    name: real-time-logistics-strategy-engine-network
