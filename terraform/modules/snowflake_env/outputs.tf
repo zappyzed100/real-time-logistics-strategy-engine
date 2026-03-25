@@ -1,16 +1,16 @@
 output "bronze_db_name" {
   description = "Bronze DB 名"
-  value       = snowflake_database.bronze.name
+  value       = local.bronze_db_name
 }
 
 output "silver_db_name" {
   description = "Silver DB 名"
-  value       = snowflake_database.silver.name
+  value       = local.silver_db_name
 }
 
 output "gold_db_name" {
   description = "Gold DB 名"
-  value       = snowflake_database.gold.name
+  value       = local.gold_db_name
 }
 
 output "loader_role_name" {

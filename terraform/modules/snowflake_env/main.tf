@@ -1,5 +1,11 @@
 locals {
-  env = upper(var.env)
+  env                = upper(var.env)
+  bronze_db_name     = "${upper(var.env)}_BRONZE_DB"
+  silver_db_name     = "${upper(var.env)}_SILVER_DB"
+  gold_db_name       = "${upper(var.env)}_GOLD_DB"
+  bronze_schema_name = "RAW_DATA"
+  silver_schema_name = "CLEANSED"
+  gold_schema_name   = "MARKETING_MART"
 }
 
 # ============================================================
@@ -121,72 +127,14 @@ resource "snowflake_warehouse" "streamlit_wh" {
 }
 
 # ============================================================
-# Databases & Schemas
-# ============================================================
-
-# --- Bronze Layer (生データ) ---
-resource "snowflake_database" "bronze" {
-  name = "${local.env}_BRONZE_DB"
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-resource "snowflake_schema" "bronze_raw" {
-  database = snowflake_database.bronze.name
-  name     = "RAW_DATA" # 外部から取り込んだそのままのデータが入る場所
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-# --- Silver Layer (中間加工) ---
-resource "snowflake_database" "silver" {
-  name = "${local.env}_SILVER_DB"
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-resource "snowflake_schema" "silver_cleansed" {
-  database = snowflake_database.silver.name
-  name     = "CLEANSED" # 型変換やクレンジング後のデータ
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-# --- Gold Layer (展示層) ---
-resource "snowflake_database" "gold" {
-  name = "${local.env}_GOLD_DB"
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-resource "snowflake_schema" "gold_mart" {
-  database = snowflake_database.gold.name
-  name     = "MARKETING_MART"
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-# ============================================================
 # Stage
 # ============================================================
 
 # 内部ステージ（PUTコマンドの宛先）
 resource "snowflake_stage_internal" "bronze_raw_stage" {
   name     = "${local.env}_BRONZE_RAW_STAGE"
-  database = snowflake_database.bronze.name
-  schema   = snowflake_schema.bronze_raw.name
+  database = local.bronze_db_name
+  schema   = local.bronze_schema_name
 }
 
 # ============================================================
@@ -194,8 +142,8 @@ resource "snowflake_stage_internal" "bronze_raw_stage" {
 # ============================================================
 
 resource "snowflake_table" "orders" {
-  database = snowflake_database.bronze.name
-  schema   = snowflake_schema.bronze_raw.name
+  database = local.bronze_db_name
+  schema   = local.bronze_schema_name
   name     = "ORDERS"
 
   # ID類も一旦 STRING で受けることで、予期せぬ文字列混入による停止を防ぐ
@@ -247,8 +195,8 @@ resource "snowflake_table" "orders" {
 }
 
 resource "snowflake_table" "inventory" {
-  database = snowflake_database.bronze.name
-  schema   = snowflake_schema.bronze_raw.name
+  database = local.bronze_db_name
+  schema   = local.bronze_schema_name
   name     = "INVENTORY"
 
   column {
@@ -281,8 +229,8 @@ resource "snowflake_table" "inventory" {
 }
 
 resource "snowflake_table" "logistics_centers" {
-  database = snowflake_database.bronze.name
-  schema   = snowflake_schema.bronze_raw.name
+  database = local.bronze_db_name
+  schema   = local.bronze_schema_name
   name     = "LOGISTICS_CENTERS"
 
   column {
@@ -320,8 +268,8 @@ resource "snowflake_table" "logistics_centers" {
 }
 
 resource "snowflake_table" "products" {
-  database = snowflake_database.bronze.name
-  schema   = snowflake_schema.bronze_raw.name
+  database = local.bronze_db_name
+  schema   = local.bronze_schema_name
   name     = "PRODUCTS"
 
   column {
@@ -369,8 +317,8 @@ resource "snowflake_table" "products" {
 
 resource "snowflake_file_format" "csv_format" {
   name        = "${local.env}_CSV_FORMAT"
-  database    = snowflake_database.bronze.name
-  schema      = snowflake_schema.bronze_raw.name
+  database    = local.bronze_db_name
+  schema      = local.bronze_schema_name
   format_type = "CSV"
 
   field_delimiter              = ","
@@ -402,7 +350,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_bronze_db_usage" {
 
   on_account_object {
     object_type = "DATABASE"
-    object_name = snowflake_database.bronze.name
+    object_name = local.bronze_db_name
   }
 }
 
@@ -411,7 +359,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_bronze_usage" {
   privileges        = ["USAGE"]
 
   on_schema {
-    all_schemas_in_database = snowflake_database.bronze.name
+    all_schemas_in_database = local.bronze_db_name
   }
 }
 
@@ -420,7 +368,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_raw_schema_usage" 
   privileges        = ["USAGE"]
 
   on_schema {
-    schema_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}"
+    schema_name = "${local.bronze_db_name}.${local.bronze_schema_name}"
   }
 }
 
@@ -430,7 +378,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_stage_read_write" 
 
   on_schema_object {
     object_type = "STAGE"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_stage_internal.bronze_raw_stage.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_stage_internal.bronze_raw_stage.name}"
   }
 }
 
@@ -441,7 +389,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_orders_insert" {
 
   on_schema_object {
     object_type = "TABLE"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_table.orders.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_table.orders.name}"
   }
 }
 
@@ -451,7 +399,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_inventory_insert" 
 
   on_schema_object {
     object_type = "TABLE"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_table.inventory.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_table.inventory.name}"
   }
 }
 
@@ -461,7 +409,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_logistics_insert" 
 
   on_schema_object {
     object_type = "TABLE"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_table.logistics_centers.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_table.logistics_centers.name}"
   }
 }
 
@@ -471,7 +419,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_products_insert" {
 
   on_schema_object {
     object_type = "TABLE"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_table.products.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_table.products.name}"
   }
 }
 
@@ -482,7 +430,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_ff_usage" {
 
   on_schema_object {
     object_type = "FILE FORMAT"
-    object_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}.${snowflake_file_format.csv_format.name}"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_file_format.csv_format.name}"
   }
 }
 
@@ -508,7 +456,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_db_usage" {
 
   on_account_object {
     object_type = "DATABASE"
-    object_name = snowflake_database.bronze.name
+    object_name = local.bronze_db_name
   }
 }
 
@@ -517,7 +465,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_usage" {
   privileges        = ["USAGE"]
 
   on_schema {
-    all_schemas_in_database = snowflake_database.bronze.name
+    all_schemas_in_database = local.bronze_db_name
   }
 }
 
@@ -526,7 +474,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_raw_usage" {
   privileges        = ["USAGE"]
 
   on_schema {
-    schema_name = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}"
+    schema_name = "${local.bronze_db_name}.${local.bronze_schema_name}"
   }
 }
 
@@ -537,7 +485,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_select" {
   on_schema_object {
     all {
       object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}"
+      in_schema          = "${local.bronze_db_name}.${local.bronze_schema_name}"
     }
   }
 }
@@ -549,7 +497,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_select_future"
   on_schema_object {
     future {
       object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.bronze.name}.${snowflake_schema.bronze_raw.name}"
+      in_schema          = "${local.bronze_db_name}.${local.bronze_schema_name}"
     }
   }
 }
@@ -561,7 +509,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_silver_db_usage" {
 
   on_account_object {
     object_type = "DATABASE"
-    object_name = snowflake_database.silver.name
+    object_name = local.silver_db_name
   }
 }
 
@@ -570,7 +518,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_silver_usage" {
   privileges        = ["USAGE"]
 
   on_schema {
-    all_schemas_in_database = snowflake_database.silver.name
+    all_schemas_in_database = local.silver_db_name
   }
 }
 
@@ -579,7 +527,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_cleansed_all" {
   all_privileges    = true
 
   on_schema {
-    schema_name = "${snowflake_database.silver.name}.${snowflake_schema.silver_cleansed.name}"
+    schema_name = "${local.silver_db_name}.${local.silver_schema_name}"
   }
 }
 
@@ -590,7 +538,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_gold_db_usage" {
 
   on_account_object {
     object_type = "DATABASE"
-    object_name = snowflake_database.gold.name
+    object_name = local.gold_db_name
   }
 }
 
@@ -599,7 +547,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_gold_usage" {
   privileges        = ["USAGE"]
 
   on_schema {
-    all_schemas_in_database = snowflake_database.gold.name
+    all_schemas_in_database = local.gold_db_name
   }
 }
 
@@ -608,7 +556,7 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_mart_all" {
   all_privileges    = true
 
   on_schema {
-    schema_name = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    schema_name = "${local.gold_db_name}.${local.gold_schema_name}"
   }
 }
 
@@ -635,7 +583,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_db_usage" 
 
   on_account_object {
     object_type = "DATABASE"
-    object_name = snowflake_database.gold.name
+    object_name = local.gold_db_name
   }
 }
 
@@ -645,7 +593,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_usage
   privileges        = ["USAGE"]
 
   on_schema {
-    schema_name = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+    schema_name = "${local.gold_db_name}.${local.gold_schema_name}"
   }
 }
 
@@ -658,7 +606,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_table
   on_schema_object {
     all {
       object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+      in_schema          = "${local.gold_db_name}.${local.gold_schema_name}"
     }
   }
 }
@@ -670,7 +618,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_futur
   on_schema_object {
     future {
       object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+      in_schema          = "${local.gold_db_name}.${local.gold_schema_name}"
     }
   }
 }
@@ -683,7 +631,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_views
   on_schema_object {
     all {
       object_type_plural = "VIEWS"
-      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+      in_schema          = "${local.gold_db_name}.${local.gold_schema_name}"
     }
   }
 }
@@ -695,7 +643,7 @@ resource "snowflake_grant_privileges_to_account_role" "streamlit_gold_mart_futur
   on_schema_object {
     future {
       object_type_plural = "VIEWS"
-      in_schema          = "${snowflake_database.gold.name}.${snowflake_schema.gold_mart.name}"
+      in_schema          = "${local.gold_db_name}.${local.gold_schema_name}"
     }
   }
 }
