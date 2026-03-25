@@ -52,15 +52,12 @@ docker compose --profile api --profile orchestration up --build
 
 Snowflake の基盤リソースは `terraform/` 内で定義されており、Docker コンテナから HCP Terraform 経由で適用します。
 
-```bash
-# コンテナ内での操作例
-cd terraform
-terraform login
-terraform init -reconfigure -backend-config="backend.hcl" -backend-config="backend.dev.hcl"
-terraform apply
-```
+> **初回セットアップ（キーペア認証・Bootstrap SQL・Workspace 変数登録）は [`terraform/README.md`](terraform/README.md) のセクション 0 を参照してください。**
 
-注意: `SNOWFLAKE_PRIVATE_KEY` 等の改行を含む変数は、HCP Terraform の Workspace Variables に Category `terraform` として登録してください。
+```bash
+# .env の APP_ENV に応じて DEV / PROD を自動判定して適用
+./terraform/tf apply
+```
 
 ## 4. データパイプラインと蒸留プロセス
 
