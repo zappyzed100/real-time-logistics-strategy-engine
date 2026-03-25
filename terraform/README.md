@@ -1,105 +1,128 @@
 # Terraform 運用ガイド
 
-このディレクトリでは HCP Terraform (remote backend) を利用します。
+本プロジェクトでは HCP Terraform (Remote Backend) を利用します。
 
 ## 基本方針
 
-- backend 設定は `backend.hcl` + `backend.<env>.hcl` で分離する
-- workspace 切替時は `terraform init -reconfigure` を実行する
-- 実行変数は HCP Terraform の Workspace Variables で管理する
+- Backend設定の分離: `backend.hcl`（共通）と `backend.<env>.hcl`（環境別）を組み合わせて使用する
+- 環境切り替え: Workspace の切り替えは `terraform init -reconfigure` で行う
+- 変数管理: 実行変数は HCP Terraform の Workspace Variables で一元管理し、ローカルの `.tfvars` は使用しない
 
-Terraform backend 設定は通常の入力変数で動的切替できないため、環境ごとの backend ファイルを使っています。
+## 1. HCP Terraform セットアップ
 
-## backend ファイルの作り方
+### 1.1. リソースの準備
 
-### 1. 共通ファイル: `backend.hcl`
+1. HCP Terraform アカウントおよび Organization を作成
+2. 実行先となる以下の標準 Workspace を作成
+
+- DEV: `dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms`
+- PROD: `prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms`
+
+### 1.2. 変数の登録
+
+Workspace 内の `Settings` > `Variables` から登録してください。
+
+| Key                              | Value                            | Category  | Sensitive |
+|----------------------------------|----------------------------------|-----------|-----------|
+| dev_loader_user_rsa_public_key   | (Public Key)                     | terraform | No        |
+| dev_dbt_user_rsa_public_key      | (Public Key)                     | terraform | No        |
+| dev_streamlit_user_rsa_public_key| (Public Key)                     | terraform | No        |
+| snowflake_organization_name      | (Account名の前半分)               | terraform | No        |
+| snowflake_account_name           | (Account名の後半分)               | terraform | No        |
+| SNOWFLAKE_USER                   | (User Name)                      | env       | No        |
+| SNOWFLAKE_PRIVATE_KEY            | (Private Key)                    | terraform | Yes       |
+| SNOWFLAKE_AUTHENTICATOR          | SNOWFLAKE_JWT                    | env       | No        |
+
+Note:
+
+- Sensitive 設定した値は後から参照できません。元データは鍵管理システム等で安全に保管してください。
+- `SNOWFLAKE_PRIVATE_KEY` はは改行コードを含むマルチライン形式のデータであるため、
+HCP Terraform 上では Category: terraform として登録を推奨します。
+- `SNOWFLAKE_PRIVATE_KEY` の改行コード（`\n`）は、コード側で自動復元されます。
+
+### 1.3. CLI 認証
+
+```bash
+terraform login
+```
+
+## 2. Backend 設定ファイルの作成
+
+HCP Terraform の backend 設定は変数が使えないため、以下の外部ファイルを作成して `init` 時に読み込みます。
+
+共通設定: `backend.hcl`
 
 ```hcl
-# Git管理しない
 organization = "<your-hcp-organization>"
 ```
 
-### 2. DEV 用: `backend.dev.hcl`
+環境別設定: `backend.dev.hcl`
 
 ```hcl
 workspaces {
-  name = "<dev-workspace-name>"
+  name = "dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms"
 }
 ```
 
-### 3. PROD 用: `backend.prod.hcl`
+環境別設定: `backend.prod.hcl`
 
 ```hcl
 workspaces {
-  name = "<prod-workspace-name>"
+  name = "prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms"
 }
 ```
 
-## 実行手順
+`.example` ファイルも用意しています。必要に応じてコピーして利用してください。
 
-### 1. 事前準備
+```bash
+cp backend.hcl.example backend.hcl
+cp backend.dev.hcl.example backend.dev.hcl
+cp backend.prod.hcl.example backend.prod.hcl
+```
 
-```powershell
-terraform login
+## 3. 実行手順
+
+Docker コンテナ内で実行する場合も、初回は `terraform login` による認可が必要です。
+
+### 3.1. DEV 環境の操作
+
+```bash
 cd terraform
-```
-
-### 2. DEV ワークスペース
-
-```powershell
 terraform init -reconfigure -backend-config="backend.hcl" -backend-config="backend.dev.hcl"
 terraform plan
 terraform apply
 ```
 
-### 3. PROD ワークスペース
+### 3.2. PROD 環境の操作
 
-```powershell
+```bash
+cd terraform
 terraform init -reconfigure -backend-config="backend.hcl" -backend-config="backend.prod.hcl"
 terraform plan
 terraform apply
 ```
 
-## 変数管理
+## 4. 設計判断（ADR）
 
-HCP Terraform はリモート実行のため、ローカル `.tfvars` は使いません。
-Workspace の Variables 画面に登録してください。
+### 4.1. `lifecycle.prevent_destroy = false` の採用
 
-- URL: `https://app.terraform.io/app/<org>/<workspace>/settings/vars`
-- 種別: `Terraform variable`
+`modules/snowflake_env/main.tf` の主要リソースで、あえて削除保護を無効化しています。
 
-| 変数名                         | Sensitive | 内容 (例)                                         |
-|--------------------------------|-----------|---------------------------------------------------|
-| snowflake_organization_name    | いいえ    | SNOWFLAKE_ACCOUNT の前半分                        |
-| snowflake_account_name         | いいえ    | SNOWFLAKE_ACCOUNT の後半分                        |
-| snowflake_user                 | いいえ    | TF_PROVISIONER (Terraform実行ユーザー)            |
-| snowflake_private_key          | はい      | RSA秘密鍵 PEM 本文                                |
-| dev_loader_user_rsa_public_key | はい      | LoaderユーザーのRSA公開鍵 PEM 本文                |
-| dev_dbt_user_rsa_public_key    | はい      | dbtユーザーのRSA公開鍵 PEM 本文                   |
+理由:
 
-`snowflake_private_key` は入力時に改行が `\n` になっていても、コード側で改行復元して利用します。
+- 開発・検証フェーズにおける「破壊と再作成」のサイクルを優先するため
 
-## lifecycle.prevent_destroy を false にしている理由
+運用方針:
 
-`modules/snowflake_env/main.tf` の主要リソースで `prevent_destroy = false` を明示しています。
+- 構築完了後、本番環境で保護を強める場合は、Database/Schema/Role 等の重要リソースから順次 `true` へ変更を推奨
 
-理由は次の通りです。
+### 4.2. Network Policy の未適用理由
 
-- 初期構築時に import/再作成の調整が必要になるケースがある
-- 学習・検証フェーズで作っては壊すサイクルが発生する
-- 既存リソースとの差分解消で destroy が必要になる場面がある
+理由:
 
-本番で保護を強める場合は、Database/Schema/Role/User から順に `true` へ戻す運用を推奨します。
+- HCP Terraform の実行元 IP アドレスが固定ではないため、安易な制限は接続断やロックアウトを招くリスクがある
 
-## Network Policy をあえて設定しない理由
+運用方針:
 
-`modules/snowflake_env/main.tf` 末尾の Network Policy はサンプルとしてコメントアウトしています。
-
-現時点で適用しない理由は次の通りです。
-
-- 実行環境（HCP Terraform 実行元IP）が固定ではなく、固定CIDR前提だと接続断が起きやすい
-- 開発段階ではまずデータ基盤リソースの安定化を優先したい
-- 誤ったIP制限は管理者自身のロックアウトにつながる
-
-Network Policy を導入する場合は、実行元IPを設計で確定させてから別PRで段階導入する方針とします。
+- 接続元（実行環境）の構成が確定した段階で、別途 Network Policy の導入を検討する
 
