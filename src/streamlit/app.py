@@ -124,11 +124,11 @@ warehouse_summary = (
 )
 
 with tab1:
-    st.bar_chart(warehouse_summary["SIMULATED_COST"], use_container_width=True)
+    st.bar_chart(warehouse_summary["SIMULATED_COST"], width="stretch")
 with tab2:
     st.dataframe(
         warehouse_summary.style.format({"SIMULATED_COST": "¥{:,.0f}"}),
-        use_container_width=True,
+        width="stretch",
     )
 
 # --- 4. 地理情報の可視化 (pydeck) ---
