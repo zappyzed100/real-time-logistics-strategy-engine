@@ -35,6 +35,13 @@ target/
 dbt_packages/
 dbt_modules/
 logs/
+enterprise_data_pipeline/target/
+enterprise_data_pipeline/logs/
+
+# --- Large Local Data ---
+
+data/
+benchmark/
 
 # --- Dagster ---
 
