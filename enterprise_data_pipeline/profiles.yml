@@ -3,14 +3,14 @@ enterprise_data_pipeline:
     dev:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_DBT_USER', env_var('SNOWFLAKE_USER', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_USER')) }}"
+      user: "{{ env_var('SNOWFLAKE_DBT_USER', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_USER') }}"
       password: "{{ env_var('SNOWFLAKE_DBT_PASSWORD', env_var('SNOWFLAKE_PASSWORD', '')) }}"
-      private_key: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY', env_var('DEV_DBT_USER_RSA_PRIVATE_KEY', '')) }}"
+      private_key: "{{ '' if env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') else env_var('SNOWFLAKE_DBT_PRIVATE_KEY', env_var('DEV_DBT_USER_RSA_PRIVATE_KEY', '')) }}"
       private_key_path: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') }}"
       private_key_passphrase: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE', '') }}"
-      role: "{{ env_var('SNOWFLAKE_DBT_ROLE', env_var('SNOWFLAKE_ROLE', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_ROLE')) }}"
-      warehouse: "{{ env_var('SNOWFLAKE_DBT_WAREHOUSE', env_var('SNOWFLAKE_WAREHOUSE', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_WH')) }}"
-      database: "{{ env_var('SNOWFLAKE_SILVER_DATABASE', env_var('SNOWFLAKE_DATABASE', env_var('DBT_ENV_NAME', 'DEV') ~ '_SILVER_DB')) }}"
-      schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA', env_var('SNOWFLAKE_SCHEMA', 'CLEANSED')) }}"
+      role: "{{ env_var('SNOWFLAKE_DBT_ROLE', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_DBT_WAREHOUSE', env_var('DBT_ENV_NAME', 'DEV') ~ '_DBT_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_SILVER_DATABASE', env_var('DBT_ENV_NAME', 'DEV') ~ '_SILVER_DB') }}"
+      schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA', 'CLEANSED') }}"
       threads: 1
   target: dev
