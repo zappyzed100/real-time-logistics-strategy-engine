@@ -39,3 +39,6 @@ Thumbs.db
 
 # Logs
 logs/
+
+# 個人的メモ
+.memo/
