@@ -12,7 +12,8 @@ creds.json
 *.pem
 
 # Streamlit
-.streamlit/
+.streamlit/*
+!.streamlit/secrets.toml.example
 
 # Terraform の一時ディレクトリとプラグイン
 **/.terraform/
@@ -38,3 +39,6 @@ Thumbs.db
 
 # Logs
 logs/
+
+# 個人的メモ
+.memo/
