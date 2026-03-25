@@ -1,5 +1,5 @@
 # --- Build Stage ---
-FROM python:3.11-slim AS builder
+FROM python:3.11 AS builder
 
 # uvのインストール (再頒布性と速度のため、公式バイナリを使用)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # --- Runtime Stage ---
-FROM python:3.11-slim
+FROM python:3.11
 
 # runtimeでも uv/uvx を利用できるようにする
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
