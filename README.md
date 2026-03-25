@@ -6,6 +6,9 @@
 
 開発中
 
+## 2. 開発プロセス
+プロジェクト初期には機能実装を優先し大規模な PR を作成していましたが、中盤からは Atomic PR（関心事の分離） と Squash Merge を導入しました。過去の混在した履歴についてはあえて revert を実施し、コンポーネントごとに再構築するプロセスを記録することで、保守性と追跡性の高いリポジトリ運用を実証しています。
+
 ## 2. クイックスタート（Docker 実行）
 
 本プロジェクトは Docker コンテナ内での開発・実行を前提としています。ローカルマシンに Python や Terraform をインストールする必要はありません。
@@ -106,3 +109,4 @@ docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 - dbt モデルの詳細: `enterprise_data_pipeline/README.md`
 - Terraform 運用ガイド: `terraform/README.md`
 - Python モジュール詳細: `src/README.md`
+
