@@ -1,0 +1,38 @@
+{
+    "name": "real-time-logistics-strategy-engine",
+    "dockerComposeFile": [
+        "../docker-compose.yml"
+    ],
+    "service": "streamlit",
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    // 開発時にコンテナ側の command が自動実行されて終了するのを防ぐ
+    "overrideCommand": true,
+    "remoteUser": "root",
+    "forwardPorts": [
+        8501,
+        8000,
+        3000
+    ],
+    // 開発環境用に dev dependencies も含めて同期
+    "postCreateCommand": "uv sync --all-groups",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                // uv が作成する仮想環境の Python を使用
+                "python.defaultInterpreterPath": "/app/.venv/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "python.testing.pytestEnabled": true,
+                "editor.formatOnSave": true,
+                "editor.defaultFormatter": "charliermarsh.ruff"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "tamasfe.even-better-toml",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}
