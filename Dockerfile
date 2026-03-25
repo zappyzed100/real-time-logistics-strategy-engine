@@ -28,6 +28,14 @@ FROM python:3.11-slim
 # runtimeでも uv/uvx を利用できるようにする
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# 開発コンテナ内で Git 操作できるように最低限のツールを入れる
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # 日本語ロケールやタイムゾーンが必要な場合はここで設定
 ENV TZ=Asia/Tokyo \
     LANG=C.UTF-8 \
