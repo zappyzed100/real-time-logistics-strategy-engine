@@ -33,13 +33,13 @@ models:
   enterprise_data_pipeline:
     staging:
       +materialized: view
-      +database: "{{ env_var('SNOWFLAKE_SILVER_DATABASE_' ~ target.name | upper, env_var('SNOWFLAKE_SILVER_DATABASE', target.name | upper ~ '_SILVER_DB')) }}"
-      +schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA_' ~ target.name | upper, env_var('SNOWFLAKE_SILVER_SCHEMA', 'CLEANSED')) }}"
+      +database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_SILVER_DB') }}"
+      +schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA') }}"
     intermediate:
       +materialized: view
-      +database: "{{ env_var('SNOWFLAKE_SILVER_DATABASE_' ~ target.name | upper, env_var('SNOWFLAKE_SILVER_DATABASE', target.name | upper ~ '_SILVER_DB')) }}"
-      +schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA_' ~ target.name | upper, env_var('SNOWFLAKE_SILVER_SCHEMA', 'CLEANSED')) }}"
+      +database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_SILVER_DB') }}"
+      +schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA') }}"
     marts:
       +materialized: view
-      +database: "{{ env_var('SNOWFLAKE_GOLD_DATABASE_' ~ target.name | upper, env_var('SNOWFLAKE_GOLD_DATABASE', target.name | upper ~ '_GOLD_DB')) }}"
-      +schema: "{{ env_var('SNOWFLAKE_GOLD_SCHEMA_' ~ target.name | upper, env_var('SNOWFLAKE_GOLD_SCHEMA', 'MARKETING_MART')) }}"
+      +database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_GOLD_DB') }}"
+      +schema: "{{ env_var('SNOWFLAKE_GOLD_SCHEMA') }}"

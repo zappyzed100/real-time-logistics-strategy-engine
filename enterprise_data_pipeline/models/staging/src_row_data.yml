@@ -3,8 +3,8 @@ version: 2
 sources:
   - name: raw_data
     description: "Snowflake上の生データ（Bronze層）"
-    database: "{{ env_var('SNOWFLAKE_BRONZE_DATABASE_' ~ target.name | upper, env_var('SNOWFLAKE_BRONZE_DATABASE', target.name | upper ~ '_BRONZE_DB')) }}"
-    schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA_' ~ target.name | upper, env_var('SNOWFLAKE_BRONZE_SCHEMA', 'RAW_DATA')) }}"
+    database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_BRONZE_DB') }}"
+    schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA') }}"
     tables:
       - name: ORDERS
         description: "注文履歴データ"
