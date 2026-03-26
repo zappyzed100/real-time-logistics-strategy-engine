@@ -58,9 +58,12 @@ class SnowflakeLoader:
 
     def _require_env(self, key: str) -> str:
         value = os.getenv(key)
-        if not value:
+        if value is None:
             raise ValueError(f"Environment variable {key} is required")
-        return value
+        normalized_value = value.strip()
+        if not normalized_value:
+            raise ValueError(f"Environment variable {key} is required")
+        return normalized_value
 
     def _load_private_key(self) -> bytes:
         key_candidates = (
