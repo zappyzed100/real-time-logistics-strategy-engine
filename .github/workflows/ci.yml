@@ -75,6 +75,12 @@ jobs:
       env:
         APP_ENV: ${{ matrix.app_env }}
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+        DEV_BRONZE_DB: ${{ vars.DEV_BRONZE_DB || 'DEV_BRONZE_DB' }}
+        DEV_SILVER_DB: ${{ vars.DEV_SILVER_DB || 'DEV_SILVER_DB' }}
+        DEV_GOLD_DB: ${{ vars.DEV_GOLD_DB || 'DEV_GOLD_DB' }}
+        PROD_BRONZE_DB: ${{ vars.PROD_BRONZE_DB || 'PROD_BRONZE_DB' }}
+        PROD_SILVER_DB: ${{ vars.PROD_SILVER_DB || 'PROD_SILVER_DB' }}
+        PROD_GOLD_DB: ${{ vars.PROD_GOLD_DB || 'PROD_GOLD_DB' }}
         DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
         PROD_DBT_USER: ${{ secrets.PROD_DBT_USER }}
         SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
@@ -119,6 +125,9 @@ jobs:
       env:
         APP_ENV: dev
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+        DEV_BRONZE_DB: ${{ vars.DEV_BRONZE_DB || 'DEV_BRONZE_DB' }}
+        DEV_SILVER_DB: ${{ vars.DEV_SILVER_DB || 'DEV_SILVER_DB' }}
+        DEV_GOLD_DB: ${{ vars.DEV_GOLD_DB || 'DEV_GOLD_DB' }}
         DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
         SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
         DEV_DBT_ROLE: ${{ secrets.DEV_DBT_ROLE }}
