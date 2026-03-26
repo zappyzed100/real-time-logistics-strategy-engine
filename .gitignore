@@ -6,6 +6,9 @@ venv/
 .venv/
 .vscode/
 
+# GitHub
+.github/copilot-instructions.md
+
 # Snowflake / Credentials (絶対に含めない)
 .env
 creds.json
