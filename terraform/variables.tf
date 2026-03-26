@@ -1,13 +1,176 @@
 # terraform/variables.tf
+#
+# 命名値は .env.shared / .env から terraform/tf が TF_VAR_* として注入する。
+# HCP Workspace Variables には主に機密値（鍵等）を設定する想定。
+
 variable "app_env" {
   type        = string
-  default     = "dev"
   description = "実行環境 (dev または prod)"
 
   validation {
     condition     = contains(["dev", "prod"], lower(var.app_env))
     error_message = "app_env には dev または prod を指定してください。"
   }
+}
+
+variable "DEV_TF_ADMIN_ROLE" {
+  type        = string
+  description = "DEV 環境で Terraform 実行に使用する Snowflake ロール名"
+}
+
+variable "PROD_TF_ADMIN_ROLE" {
+  type        = string
+  description = "PROD 環境で Terraform 実行に使用する Snowflake ロール名"
+}
+
+variable "SNOWFLAKE_BRONZE_SCHEMA" {
+  type        = string
+  description = "Bronze schema 名（全環境共通）"
+}
+
+variable "SNOWFLAKE_SILVER_SCHEMA" {
+  type        = string
+  description = "Silver schema 名（全環境共通）"
+}
+
+variable "SNOWFLAKE_GOLD_SCHEMA" {
+  type        = string
+  description = "Gold schema 名（全環境共通）"
+}
+
+variable "SNOWFLAKE_BRONZE_STAGE" {
+  type        = string
+  description = "Bronze stage 名（全環境共通）"
+}
+
+variable "DEV_BRONZE_DB" {
+  type        = string
+  description = "DEV Bronze DB 名"
+}
+
+variable "DEV_SILVER_DB" {
+  type        = string
+  description = "DEV Silver DB 名"
+}
+
+variable "DEV_GOLD_DB" {
+  type        = string
+  description = "DEV Gold DB 名"
+}
+
+variable "PROD_BRONZE_DB" {
+  type        = string
+  description = "PROD Bronze DB 名"
+}
+
+variable "PROD_SILVER_DB" {
+  type        = string
+  description = "PROD Silver DB 名"
+}
+
+variable "PROD_GOLD_DB" {
+  type        = string
+  description = "PROD Gold DB 名"
+}
+
+variable "DEV_LOADER_USER" {
+  type        = string
+  description = "DEV Loader user 名"
+}
+
+variable "DEV_LOADER_ROLE" {
+  type        = string
+  description = "DEV Loader role 名"
+}
+
+variable "DEV_LOADER_WH" {
+  type        = string
+  description = "DEV Loader warehouse 名"
+}
+
+variable "DEV_LOADER_FILE_FORMAT_NAME" {
+  type        = string
+  description = "DEV Loader file format 名"
+}
+
+variable "PROD_LOADER_USER" {
+  type        = string
+  description = "PROD Loader user 名"
+}
+
+variable "PROD_LOADER_ROLE" {
+  type        = string
+  description = "PROD Loader role 名"
+}
+
+variable "PROD_LOADER_WH" {
+  type        = string
+  description = "PROD Loader warehouse 名"
+}
+
+variable "PROD_LOADER_FILE_FORMAT_NAME" {
+  type        = string
+  description = "PROD Loader file format 名"
+}
+
+variable "DEV_DBT_USER" {
+  type        = string
+  description = "DEV dbt user 名"
+}
+
+variable "DEV_DBT_ROLE" {
+  type        = string
+  description = "DEV dbt role 名"
+}
+
+variable "DEV_DBT_WH" {
+  type        = string
+  description = "DEV dbt warehouse 名"
+}
+
+variable "PROD_DBT_USER" {
+  type        = string
+  description = "PROD dbt user 名"
+}
+
+variable "PROD_DBT_ROLE" {
+  type        = string
+  description = "PROD dbt role 名"
+}
+
+variable "PROD_DBT_WH" {
+  type        = string
+  description = "PROD dbt warehouse 名"
+}
+
+variable "DEV_STREAMLIT_USER" {
+  type        = string
+  description = "DEV Streamlit user 名"
+}
+
+variable "DEV_STREAMLIT_ROLE" {
+  type        = string
+  description = "DEV Streamlit role 名"
+}
+
+variable "DEV_STREAMLIT_WH" {
+  type        = string
+  description = "DEV Streamlit warehouse 名"
+}
+
+variable "PROD_STREAMLIT_USER" {
+  type        = string
+  description = "PROD Streamlit user 名"
+}
+
+variable "PROD_STREAMLIT_ROLE" {
+  type        = string
+  description = "PROD Streamlit role 名"
+}
+
+variable "PROD_STREAMLIT_WH" {
+  type        = string
+  description = "PROD Streamlit warehouse 名"
 }
 
 variable "loader_user_rsa_public_key" {
@@ -112,7 +275,7 @@ variable "SNOWFLAKE_ROLE" {
   type        = string
   default     = null
   nullable    = true
-  description = "Terraform 実行時に使用する Snowflake ロール。未設定時は環境に応じて DEV_TF_ADMIN_ROLE / PROD_TF_ADMIN_ROLE を自動選択"
+  description = "Terraform 実行時に使用する Snowflake ロール。未設定時は {ENV}_TF_ADMIN_ROLE を自動選択"
 }
 
 # 互換性のための旧変数名（HCP側が未切替でも動作させる）
