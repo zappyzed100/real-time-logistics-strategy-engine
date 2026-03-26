@@ -95,7 +95,19 @@ def _snowflake_connection(target: str):
     )
 
 
+def _activate_warehouse(conn, target: str) -> None:
+    suffix = _suffix(target)
+    warehouse = _resolve("SNOWFLAKE_DBT_WAREHOUSE", target, f"{suffix}_DBT_WH")
+    cur = conn.cursor()
+    try:
+        cur.execute(f"USE WAREHOUSE {warehouse}")
+    finally:
+        cur.close()
+
+
 def _drop_views(conn, target: str) -> None:
+    _activate_warehouse(conn, target)
+
     suffix = _suffix(target)
     silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
     silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
@@ -137,6 +149,8 @@ def _run_dbt(target: str, repo_root: Path) -> None:
 
 
 def _assert_views(conn, target: str) -> None:
+    _activate_warehouse(conn, target)
+
     suffix = _suffix(target)
     silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
     silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
