@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -70,6 +71,22 @@ def _write_private_key_file(env: dict[str, str]) -> str | None:
     return key_path
 
 
+def _resolve_dbt_command(args: list[str]) -> list[str]:
+    # Prefer the dbt console script in the same virtual environment as this Python.
+    python_path = Path(sys.executable)
+    candidate_names = ("dbt", "dbt.exe")
+    for name in candidate_names:
+        candidate = python_path.with_name(name)
+        if candidate.exists():
+            return [str(candidate), *args]
+
+    dbt_script = shutil.which("dbt")
+    if dbt_script:
+        return [dbt_script, *args]
+
+    return [str(python_path), "-m", "dbt.cli.main", *args]
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[3]
     project_dir = repo_root / "enterprise_data_pipeline"
@@ -82,14 +99,7 @@ def main() -> int:
     env.setdefault("DBT_PROFILES_DIR", str(project_dir))
     temp_key_path = _write_private_key_file(env)
 
-    dbt_executable = Path(sys.executable).with_name("dbt.exe")
-    if not dbt_executable.exists():
-        dbt_executable = Path(sys.executable)
-
-    if dbt_executable.name.lower() == "dbt.exe":
-        command = [str(dbt_executable), *sys.argv[1:]]
-    else:
-        command = [str(dbt_executable), "-m", "dbt.cli.main", *sys.argv[1:]]
+    command = _resolve_dbt_command(sys.argv[1:])
 
     try:
         completed = subprocess.run(command, cwd=project_dir, env=env, check=False)
