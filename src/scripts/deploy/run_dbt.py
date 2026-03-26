@@ -20,6 +20,9 @@ def _sanitize_runtime_env(env: dict[str, str]) -> None:
     # Guard against CRLF-contaminated values (e.g. account ends with '\r').
     for key in (
         "SNOWFLAKE_ACCOUNT",
+        "SNOWFLAKE_BRONZE_SCHEMA",
+        "SNOWFLAKE_SILVER_SCHEMA",
+        "SNOWFLAKE_GOLD_SCHEMA",
         "DEV_DBT_USER",
         "DEV_DBT_ROLE",
         "DEV_DBT_WH",
@@ -84,6 +87,7 @@ def main() -> int:
     project_dir = repo_root / "enterprise_data_pipeline"
     cli_target = os.environ.get("APP_ENV", "")
 
+    load_dotenv(repo_root / ".env.shared")
     load_dotenv(repo_root / ".env", override=True)
 
     env = os.environ.copy()

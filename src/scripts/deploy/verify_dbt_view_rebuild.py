@@ -28,14 +28,11 @@ def _normalized_env(name: str, fallback: str = "") -> str:
     return _env_with_fallback(name, fallback).strip()
 
 
-def _resolve(name: str, target: str, default: str = "") -> str:
-    scoped = _normalized_env(f"{name}_{_suffix(target)}")
-    if scoped:
-        return scoped
-    generic = _normalized_env(name)
-    if generic:
-        return generic
-    return default.strip() if default else default
+def _required(name: str) -> str:
+    value = _normalized_env(name)
+    if not value:
+        raise ValueError(f"{name} is required")
+    return value
 
 
 def _target_value(target: str, suffix_name: str) -> str:
@@ -77,17 +74,12 @@ def _load_private_key_der(target: str) -> bytes:
 
 
 def _snowflake_connection(target: str):
-    suffix = _suffix(target)
-
-    account = _normalized_env("SNOWFLAKE_ACCOUNT")
+    account = _required("SNOWFLAKE_ACCOUNT")
     user = _target_value(target, "DBT_USER")
     role = _target_value(target, "DBT_ROLE")
     warehouse = _target_value(target, "DBT_WH")
-    database = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
-    schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
-
-    if not account:
-        raise ValueError("SNOWFLAKE_ACCOUNT is required")
+    database = _target_value(target, "SILVER_DB")
+    schema = _required("SNOWFLAKE_SILVER_SCHEMA")
 
     private_key = _load_private_key_der(target)
 
@@ -103,11 +95,10 @@ def _snowflake_connection(target: str):
 
 
 def _drop_views(conn, target: str) -> None:
-    suffix = _suffix(target)
-    silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
-    silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
-    gold_db = _resolve("SNOWFLAKE_GOLD_DATABASE", target, f"{suffix}_GOLD_DB")
-    gold_schema = _resolve("SNOWFLAKE_GOLD_SCHEMA", target, "MARKETING_MART")
+    silver_db = _target_value(target, "SILVER_DB")
+    silver_schema = _required("SNOWFLAKE_SILVER_SCHEMA")
+    gold_db = _target_value(target, "GOLD_DB")
+    gold_schema = _required("SNOWFLAKE_GOLD_SCHEMA")
 
     views = [
         f"{silver_db}.{silver_schema}.stg_orders",
@@ -144,11 +135,10 @@ def _run_dbt(target: str, repo_root: Path) -> None:
 
 
 def _assert_views(conn, target: str) -> None:
-    suffix = _suffix(target)
-    silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
-    silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
-    gold_db = _resolve("SNOWFLAKE_GOLD_DATABASE", target, f"{suffix}_GOLD_DB")
-    gold_schema = _resolve("SNOWFLAKE_GOLD_SCHEMA", target, "MARKETING_MART")
+    silver_db = _target_value(target, "SILVER_DB")
+    silver_schema = _required("SNOWFLAKE_SILVER_SCHEMA")
+    gold_db = _target_value(target, "GOLD_DB")
+    gold_schema = _required("SNOWFLAKE_GOLD_SCHEMA")
 
     expected = {
         (silver_db.upper(), silver_schema.upper(), "STG_ORDERS"),
@@ -178,7 +168,8 @@ def _assert_views(conn, target: str) -> None:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[3]
-    load_dotenv(repo_root / ".env")
+    load_dotenv(repo_root / ".env.shared")
+    load_dotenv(repo_root / ".env", override=True)
 
     target = _target()
     print(f"[verify] APP_ENV={target}")
