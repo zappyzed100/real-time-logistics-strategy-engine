@@ -106,3 +106,12 @@ def test_load_csv_to_table_executes_generated_commands_in_order(monkeypatch, tmp
         expected_commands.copy_command,
     ]
     assert fake_conn.cursor_instance.closed is True
+
+
+def test_loader_trims_whitespace_from_required_account_env(monkeypatch):
+    set_loader_env(monkeypatch)
+    monkeypatch.setenv("SNOWFLAKE_ACCOUNT", "test-account\r\n")
+
+    loader = SnowflakeLoader(connect=False)
+
+    assert loader.account == "test-account"
