@@ -154,26 +154,36 @@ def _assert_views(conn, target: str) -> None:
     cur = conn.cursor()
     try:
         cur.execute(
-            """
+            f"""
             SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-            FROM INFORMATION_SCHEMA.VIEWS
-            WHERE
-                (TABLE_CATALOG = %s AND TABLE_SCHEMA = %s AND TABLE_NAME IN (%s, %s, %s, %s))
-                OR (TABLE_CATALOG = %s AND TABLE_SCHEMA = %s AND TABLE_NAME = %s)
+            FROM {silver_db}.INFORMATION_SCHEMA.VIEWS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME IN (%s, %s, %s, %s)
             """,
             (
-                silver_db.upper(),
                 silver_schema.upper(),
                 "STG_ORDERS",
                 "STG_PRODUCTS",
                 "STG_LOGISTICS_CENTERS",
                 "INT_DELIVERY_COST_CANDIDATES",
-                gold_db.upper(),
+            ),
+        )
+        silver_actual = {(r[0], r[1], r[2]) for r in cur.fetchall()}
+
+        cur.execute(
+            f"""
+            SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
+            FROM {gold_db}.INFORMATION_SCHEMA.VIEWS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = %s
+            """,
+            (
                 gold_schema.upper(),
                 "FCT_DELIVERY_ANALYSIS",
             ),
         )
-        actual = {(r[0], r[1], r[2]) for r in cur.fetchall()}
+        gold_actual = {(r[0], r[1], r[2]) for r in cur.fetchall()}
+        actual = silver_actual | gold_actual
     finally:
         cur.close()
 
