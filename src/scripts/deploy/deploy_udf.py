@@ -1,7 +1,9 @@
 import os
+
 from dotenv import load_dotenv
 from snowflake.snowpark import Session
 from snowflake.snowpark.types import FloatType, PandasSeriesType
+
 from src.udf.delivery_cost_calculator import calculate_delivery_cost_vec
 
 

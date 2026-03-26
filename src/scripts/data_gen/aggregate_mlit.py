@@ -16,9 +16,7 @@ from pathlib import Path
 ESTAT_PATH = Path(__file__).parents[3] / "data" / "01_raw" / "estat" / "b01_01.csv"
 RAW_DIR = Path(__file__).parents[3] / "data" / "01_raw" / "mlint"
 OUT_DIR = Path(__file__).parents[3] / "data" / "02_intermediate" / "mlit"
-ESTAT_INTERMEDIATE_DIR = (
-    Path(__file__).parents[3] / "data" / "02_intermediate" / "estat"
-)
+ESTAT_INTERMEDIATE_DIR = Path(__file__).parents[3] / "data" / "02_intermediate" / "estat"
 
 OUT_HEADER = ["市区町村名", "大字・丁目名", "小字・通称名", "緯度", "経度"]
 REQUIRED_SOURCE_COLUMNS = OUT_HEADER.copy()
@@ -47,10 +45,7 @@ def resolve_extract_columns(header: list[str], csv_path: Path) -> list[int] | No
 
     for column_name in REQUIRED_SOURCE_COLUMNS:
         if column_name not in header_index:
-            print(
-                "  必要列が見つかりません: "
-                f"{csv_path.relative_to(RAW_DIR)} / {column_name}"
-            )
+            print(f"  必要列が見つかりません: {csv_path.relative_to(RAW_DIR)} / {column_name}")
 
             return None
 
@@ -149,9 +144,7 @@ def write_filtered_intermediates() -> None:
         writer = csv.writer(f)
         writer.writerow(ESTAT_FILTERED_HEADER)
         writer.writerows(estat_rows)
-    print(
-        f"  書き込み完了: {estat_out.relative_to(Path(__file__).parents[3])}  ({len(estat_rows):,} 行)"
-    )
+    print(f"  書き込み完了: {estat_out.relative_to(Path(__file__).parents[3])}  ({len(estat_rows):,} 行)")
 
     # --- mlit_a filtered ---
     mlit_rows: list[list[str]] = []
@@ -176,9 +169,7 @@ def write_filtered_intermediates() -> None:
         writer = csv.writer(f)
         writer.writerow(OUT_HEADER)
         writer.writerows(mlit_rows)
-    print(
-        f"  書き込み完了: {mlit_out.relative_to(Path(__file__).parents[3])}  ({len(mlit_rows):,} 行)"
-    )
+    print(f"  書き込み完了: {mlit_out.relative_to(Path(__file__).parents[3])}  ({len(mlit_rows):,} 行)")
 
 
 def write_csv(path: Path, rows: list[list[str]]) -> None:
@@ -187,9 +178,7 @@ def write_csv(path: Path, rows: list[list[str]]) -> None:
         writer = csv.writer(f)
         writer.writerow(OUT_HEADER)
         writer.writerows(rows)
-    print(
-        f"  書き込み完了: {path.relative_to(Path(__file__).parents[3])}  ({len(rows):,} 行)"
-    )
+    print(f"  書き込み完了: {path.relative_to(Path(__file__).parents[3])}  ({len(rows):,} 行)")
 
 
 def build_mlit_intermediates() -> None:

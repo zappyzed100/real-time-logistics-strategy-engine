@@ -110,17 +110,17 @@ def _drop_views(conn, target: str) -> None:
     gold_schema = _resolve("SNOWFLAKE_GOLD_SCHEMA", target, "MARKETING_MART")
 
     views = [
-        f'{silver_db}.{silver_schema}.stg_orders',
-        f'{silver_db}.{silver_schema}.stg_products',
-        f'{silver_db}.{silver_schema}.stg_logistics_centers',
-        f'{silver_db}.{silver_schema}.int_delivery_cost_candidates',
-        f'{gold_db}.{gold_schema}.fct_delivery_analysis',
+        f"{silver_db}.{silver_schema}.stg_orders",
+        f"{silver_db}.{silver_schema}.stg_products",
+        f"{silver_db}.{silver_schema}.stg_logistics_centers",
+        f"{silver_db}.{silver_schema}.int_delivery_cost_candidates",
+        f"{gold_db}.{gold_schema}.fct_delivery_analysis",
     ]
 
     cur = conn.cursor()
     try:
         for view in views:
-            sql = f'DROP VIEW IF EXISTS {view}'
+            sql = f"DROP VIEW IF EXISTS {view}"
             print(f"[drop] {sql}")
             cur.execute(sql)
     finally:
@@ -161,16 +161,10 @@ def _assert_views(conn, target: str) -> None:
     cur = conn.cursor()
     try:
         cur.execute(f"SHOW VIEWS IN SCHEMA {silver_db}.{silver_schema}")
-        silver_actual = {
-            (str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper())
-            for r in cur.fetchall()
-        }
+        silver_actual = {(str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper()) for r in cur.fetchall()}
 
         cur.execute(f"SHOW VIEWS IN SCHEMA {gold_db}.{gold_schema}")
-        gold_actual = {
-            (str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper())
-            for r in cur.fetchall()
-        }
+        gold_actual = {(str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper()) for r in cur.fetchall()}
 
         actual = silver_actual | gold_actual
     finally:

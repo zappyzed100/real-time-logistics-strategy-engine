@@ -1,8 +1,9 @@
-import time
 import os
+import time
+
+import snowflake.snowpark.functions as F
 from dotenv import load_dotenv
 from snowflake.snowpark import Session
-import snowflake.snowpark.functions as F
 
 
 def run_benchmark():

@@ -31,9 +31,7 @@ DATASET_PATHS: dict[DatasetMode, tuple[Path, Path]] = {
 def normalize_dataset_mode(mode: str = "lite") -> DatasetMode:
     normalized_mode = mode.strip().lower()
     if normalized_mode not in DATASET_PATHS:
-        raise ValueError(
-            f"未対応のデータセット種別です: {mode}. 'lite' または 'strict' を指定してください"
-        )
+        raise ValueError(f"未対応のデータセット種別です: {mode}. 'lite' または 'strict' を指定してください")
     return normalized_mode  # type: ignore[return-value]
 
 
@@ -44,9 +42,7 @@ def get_dataset_paths(mode: str = "lite") -> tuple[Path, Path]:
     missing_paths = [path for path in (estat_path, mlit_path) if not path.exists()]
     if missing_paths:
         missing = ", ".join(str(path) for path in missing_paths)
-        raise FileNotFoundError(
-            f"{dataset_mode} 用データセットが見つかりません: {missing}"
-        )
+        raise FileNotFoundError(f"{dataset_mode} 用データセットが見つかりません: {missing}")
 
     return estat_path, mlit_path
 
@@ -105,16 +101,12 @@ def load_mlit_points_by_municipality(csv_path: Path) -> dict[str, list[LocationP
             except ValueError:
                 continue
 
-            points.setdefault(municipality, []).append(
-                (latitude, longitude, oaza, koaza)
-            )
+            points.setdefault(municipality, []).append((latitude, longitude, oaza, koaza))
 
     return points
 
 
-def jitter_lat_lon(
-    lat: float, lon: float, max_meters: float = JITTER_METERS
-) -> tuple[float, float]:
+def jitter_lat_lon(lat: float, lon: float, max_meters: float = JITTER_METERS) -> tuple[float, float]:
     distance_m = random.uniform(0.0, max_meters)
     angle = random.uniform(0.0, 2.0 * math.pi)
 

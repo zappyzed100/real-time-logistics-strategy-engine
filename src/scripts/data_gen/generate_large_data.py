@@ -3,8 +3,8 @@ import csv
 import os
 from datetime import datetime
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from src.utils.geospatial import build_generation_context, generate_random_locations
 
@@ -37,10 +37,7 @@ def _generate_order_dates(num_records: int) -> list[str]:
     today = datetime.now().date().isoformat()
     seconds = np.random.randint(0, 24 * 60 * 60, size=num_records)
 
-    return [
-        f"{today} {sec // 3600:02d}:{(sec % 3600) // 60:02d}:{sec % 60:02d}"
-        for sec in seconds
-    ]
+    return [f"{today} {sec // 3600:02d}:{(sec % 3600) // 60:02d}:{sec % 60:02d}" for sec in seconds]
 
 
 def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
@@ -133,9 +130,7 @@ def main():
 
     os.makedirs("data/04_out", exist_ok=True)
 
-    print(
-        f"Generating {args.number:,} orders (geo-mode={args.geo_mode}, chunk-size={args.chunk_size:,})..."
-    )
+    print(f"Generating {args.number:,} orders (geo-mode={args.geo_mode}, chunk-size={args.chunk_size:,})...")
     write_orders_csv(args.number, geo_mode=args.geo_mode, chunk_size=args.chunk_size)
 
     print("Generating full inventory matrix...")

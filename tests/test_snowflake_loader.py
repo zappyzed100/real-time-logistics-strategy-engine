@@ -63,8 +63,10 @@ def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_p
         "@DEV_BRONZE_DB.RAW_DATA.DEV_BRONZE_RAW_STAGE "
         "AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
     )
-    assert commands.copy_command == dedent(
-        f"""
+    assert (
+        commands.copy_command
+        == dedent(
+            f"""
         COPY INTO DEV_BRONZE_DB.RAW_DATA.ORDERS
         FROM (
             SELECT
@@ -78,7 +80,8 @@ def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_p
         ON_ERROR = 'ABORT_STATEMENT'
         PURGE = TRUE
         """
-    ).strip()
+        ).strip()
+    )
 
 
 def test_load_csv_to_table_executes_generated_commands_in_order(monkeypatch, tmp_path):

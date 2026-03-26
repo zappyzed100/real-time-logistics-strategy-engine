@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+
 from src.udf.delivery_cost_calculator import calculate_delivery_cost_vec
 
 
@@ -15,9 +16,7 @@ def test_calculate_delivery_cost_logic():
         }
     )
 
-    result = calculate_delivery_cost_vec(
-        data["c_lat"], data["c_lon"], data["cust_lat"], data["cust_lon"], data["weight"]
-    )
+    result = calculate_delivery_cost_vec(data["c_lat"], data["c_lon"], data["cust_lat"], data["cust_lon"], data["weight"])
 
     # 期待値の検証（約7km、2.5kg、10円/km/kg = 約175円前後）
     assert len(result) == 1

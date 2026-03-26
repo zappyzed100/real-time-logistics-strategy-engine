@@ -1,16 +1,18 @@
+import json
 import os
-import streamlit as st
-from dotenv import load_dotenv
-from snowflake.snowpark import Session
-from cryptography.hazmat.primitives.serialization import (
-    load_pem_private_key,
-    Encoding,
-    PrivateFormat,
-    NoEncryption,
-)
+
 import pandas as pd
 import pydeck as pdk
-import json
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    load_pem_private_key,
+)
+from dotenv import load_dotenv
+from snowflake.snowpark import Session
+
+import streamlit as st
 
 load_dotenv()
 
@@ -63,13 +65,9 @@ st.sidebar.header("🔍 フィルタリングと設定")
 
 # フィルタ項目
 min_date, max_date = df["ORDER_DATE"].min(), df["ORDER_DATE"].max()
-selected_dates = st.sidebar.date_input(
-    "分析期間", value=[min_date, max_date], min_value=min_date, max_value=max_date
-)
+selected_dates = st.sidebar.date_input("分析期間", value=[min_date, max_date], min_value=min_date, max_value=max_date)
 all_centers = sorted(df["CENTER_NAME"].unique())
-selected_centers = st.sidebar.multiselect(
-    "配送拠点", options=all_centers, default=all_centers
-)
+selected_centers = st.sidebar.multiselect("配送拠点", options=all_centers, default=all_centers)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ コストシミュレーション")
@@ -90,9 +88,7 @@ filtered_df = filtered_df[filtered_df["CENTER_NAME"].isin(selected_centers)]
 # シミュレーションコストの算出（以降の表示はすべてこれを使用）
 filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"] * weight_factor
 if target_center != "なし":
-    filtered_df.loc[
-        filtered_df["CENTER_NAME"] == target_center, "SIMULATED_COST"
-    ] += base_adjustment
+    filtered_df.loc[filtered_df["CENTER_NAME"] == target_center, "SIMULATED_COST"] += base_adjustment
 
 # ---------------------------------------------------------
 # 2. 主要 KPI の表示 (filtered_df を使用)
@@ -145,9 +141,7 @@ map_cols = [
 
 if all(col in filtered_df.columns for col in map_cols):
     plot_df = filtered_df.dropna(subset=map_cols).copy()
-    center_df = (
-        plot_df[["CENTER_NAME", "CENTER_LAT", "CENTER_LON"]].drop_duplicates().copy()
-    )
+    center_df = plot_df[["CENTER_NAME", "CENTER_LAT", "CENTER_LON"]].drop_duplicates().copy()
 
     def calculate_colors(df_input):
         cost = df_input["SIMULATED_COST"]

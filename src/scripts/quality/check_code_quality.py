@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DOTENV_FILES = (".env",)
 TEXT_FILE_SUFFIXES = (
@@ -109,31 +108,26 @@ def main() -> int:
         [
             "uv",
             "run",
-            "flake8",
+            "ruff",
+            "check",
             ".",
-            "--count",
-            "--select=E9,F63,F7,F82",
-            "--show-source",
-            "--statistics",
         ]
     )
     if lint_exit != 0:
         return lint_exit
 
-    style_exit = _run(
+    format_exit = _run(
         [
             "uv",
             "run",
-            "flake8",
+            "ruff",
+            "format",
+            "--check",
             ".",
-            "--count",
-            "--max-complexity=10",
-            "--max-line-length=127",
-            "--statistics",
         ]
     )
-    if style_exit != 0:
-        return style_exit
+    if format_exit != 0:
+        return format_exit
 
     repo_crlf_exit = _check_repo_crlf()
     if repo_crlf_exit != 0:

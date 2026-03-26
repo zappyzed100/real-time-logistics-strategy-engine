@@ -20,8 +20,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "flake8>=7.3.0",
     "pytest>=9.0.2",
+    "ruff>=0.13.0",
 ]
 
 [build-system]
@@ -34,3 +34,13 @@ packages = ["src"]
 [tool.dagster]
 module_name = "dagster_definitions"
 code_location_name = "real-time-logistics-strategy-engine"
+
+[tool.ruff]
+line-length = 127
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true

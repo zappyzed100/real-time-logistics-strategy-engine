@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def create_mlit_a_lite(b_file_path, m_file_path, output_path):
@@ -12,9 +12,7 @@ def create_mlit_a_lite(b_file_path, m_file_path, output_path):
 
     # 処理高速化のため、mlit_a_filteredを市区町村名ごとにグループ化してインデックスを保持
     # key: 市区町村名, value: その市区町村に該当する行のインデックス（numpy配列）
-    m_indices_by_city = {
-        name: group.index.values for name, group in df_m.groupby("市区町村名")
-    }
+    m_indices_by_city = {name: group.index.values for name, group in df_m.groupby("市区町村名")}
 
     results_indices = []
     seen_indices = set()

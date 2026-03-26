@@ -29,19 +29,11 @@ class SnowflakeLoader:
         self.account = self._require_env("SNOWFLAKE_ACCOUNT")
         self.user = os.getenv("SNOWFLAKE_LOADER_USER") or f"{self.env}_LOADER_USER"
         self.role = os.getenv("SNOWFLAKE_LOADER_ROLE") or f"{self.env}_LOADER_ROLE"
-        self.warehouse = (
-            os.getenv("SNOWFLAKE_LOADER_WAREHOUSE") or f"{self.env}_LOADER_WH"
-        )
-        self.database = (
-            os.getenv("SNOWFLAKE_LOADER_DATABASE") or f"{self.env}_BRONZE_DB"
-        )
+        self.warehouse = os.getenv("SNOWFLAKE_LOADER_WAREHOUSE") or f"{self.env}_LOADER_WH"
+        self.database = os.getenv("SNOWFLAKE_LOADER_DATABASE") or f"{self.env}_BRONZE_DB"
         self.schema = os.getenv("SNOWFLAKE_LOADER_SCHEMA") or "RAW_DATA"
-        self.stage_name = (
-            os.getenv("SNOWFLAKE_LOADER_STAGE") or f"{self.env}_BRONZE_RAW_STAGE"
-        )
-        self.file_format_name = (
-            os.getenv("SNOWFLAKE_LOADER_FILE_FORMAT") or f"{self.env}_CSV_FORMAT"
-        )
+        self.stage_name = os.getenv("SNOWFLAKE_LOADER_STAGE") or f"{self.env}_BRONZE_RAW_STAGE"
+        self.file_format_name = os.getenv("SNOWFLAKE_LOADER_FILE_FORMAT") or f"{self.env}_CSV_FORMAT"
         self.private_key = None
         self.conn = conn
 
@@ -51,9 +43,7 @@ class SnowflakeLoader:
     def _resolve_app_env(self) -> str:
         app_env = (os.getenv("APP_ENV") or "dev").strip().lower() or "dev"
         if app_env not in {"dev", "prod"}:
-            raise ValueError(
-                f"APP_ENV must be 'dev' or 'prod' (current: {app_env})"
-            )
+            raise ValueError(f"APP_ENV must be 'dev' or 'prod' (current: {app_env})")
         return app_env.upper()
 
     def _require_env(self, key: str) -> str:
@@ -71,14 +61,10 @@ class SnowflakeLoader:
             f"{self.env.lower()}_loader_user_rsa_private_key",
             "SNOWFLAKE_LOADER_PRIVATE_KEY",
         )
-        private_key_value = next(
-            (os.getenv(key) for key in key_candidates if os.getenv(key)), None
-        )
+        private_key_value = next((os.getenv(key) for key in key_candidates if os.getenv(key)), None)
         if not private_key_value:
             joined_keys = ", ".join(key_candidates)
-            raise ValueError(
-                f"Loader private key is required. Set one of: {joined_keys}"
-            )
+            raise ValueError(f"Loader private key is required. Set one of: {joined_keys}")
 
         private_key_text = private_key_value.replace("\\n", "\n")
         passphrase = os.getenv("SNOWFLAKE_LOADER_PRIVATE_KEY_PASSPHRASE")
@@ -117,13 +103,9 @@ class SnowflakeLoader:
         table_fqn = self._qualify(spec.table_name)
         file_format_fqn = self._qualify(self.file_format_name)
         staged_file_name = file_path.name
-        select_clause = ",\n".join(
-            f"        {select_item}" for select_item in spec.select_list
-        )
+        select_clause = ",\n".join(f"        {select_item}" for select_item in spec.select_list)
 
-        put_command = (
-            f"PUT 'file://{file_uri}' @{stage_fqn} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
-        )
+        put_command = f"PUT 'file://{file_uri}' @{stage_fqn} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
         copy_command = "\n".join(
             [
                 f"COPY INTO {table_fqn}",

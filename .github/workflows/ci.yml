@@ -30,8 +30,8 @@ jobs:
       run: uv sync --frozen --all-groups
 
     - name: Run code quality checks
-      # flake8 とコミット済みテキストファイルの CR 混入をまとめて確認する。
-      # .env は Git 管理外のため、このチェック対象には含めない。
+      # Ruff と CR 混入チェックをまとめて実行する。
+      # .env は Git 管理外だが、ローカルに存在する場合はスクリプト側で確認する。
       run: |
         uv run python src/scripts/quality/check_code_quality.py
 
