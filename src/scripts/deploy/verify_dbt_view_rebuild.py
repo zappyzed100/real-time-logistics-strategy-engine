@@ -38,6 +38,13 @@ def _resolve(name: str, target: str, default: str = "") -> str:
     return default.strip() if default else default
 
 
+def _target_value(target: str, suffix_name: str) -> str:
+    value = _normalized_env(f"{_suffix(target)}_{suffix_name}")
+    if not value:
+        raise ValueError(f"{_suffix(target)}_{suffix_name} is required")
+    return value
+
+
 def _load_private_key_der(target: str) -> bytes:
     suffix = _suffix(target)
 
@@ -73,9 +80,9 @@ def _snowflake_connection(target: str):
     suffix = _suffix(target)
 
     account = _normalized_env("SNOWFLAKE_ACCOUNT")
-    user = _resolve("SNOWFLAKE_DBT_USER", target, f"{suffix}_DBT_USER")
-    role = _resolve("SNOWFLAKE_DBT_ROLE", target, f"{suffix}_DBT_ROLE")
-    warehouse = _resolve("SNOWFLAKE_DBT_WAREHOUSE", target, f"{suffix}_DBT_WH")
+    user = _target_value(target, "DBT_USER")
+    role = _target_value(target, "DBT_ROLE")
+    warehouse = _target_value(target, "DBT_WH")
     database = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
     schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
 

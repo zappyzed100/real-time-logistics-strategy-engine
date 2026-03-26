@@ -83,16 +83,10 @@ jobs:
         PROD_GOLD_DB: ${{ vars.PROD_GOLD_DB || 'PROD_GOLD_DB' }}
         DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
         PROD_DBT_USER: ${{ secrets.PROD_DBT_USER }}
-        SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
-        SNOWFLAKE_DBT_USER_PROD: ${{ secrets.PROD_DBT_USER }}
         DEV_DBT_ROLE: ${{ secrets.DEV_DBT_ROLE }}
         PROD_DBT_ROLE: ${{ secrets.PROD_DBT_ROLE }}
-        SNOWFLAKE_DBT_ROLE_DEV: ${{ secrets.DEV_DBT_ROLE }}
-        SNOWFLAKE_DBT_ROLE_PROD: ${{ secrets.PROD_DBT_ROLE }}
         DEV_DBT_WH: ${{ secrets.DEV_DBT_WAREHOUSE }}
         PROD_DBT_WH: ${{ secrets.PROD_DBT_WAREHOUSE }}
-        SNOWFLAKE_DBT_WAREHOUSE_DEV: ${{ secrets.DEV_DBT_WAREHOUSE }}
-        SNOWFLAKE_DBT_WAREHOUSE_PROD: ${{ secrets.PROD_DBT_WAREHOUSE }}
         DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
@@ -129,11 +123,8 @@ jobs:
         DEV_SILVER_DB: ${{ vars.DEV_SILVER_DB || 'DEV_SILVER_DB' }}
         DEV_GOLD_DB: ${{ vars.DEV_GOLD_DB || 'DEV_GOLD_DB' }}
         DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
-        SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
         DEV_DBT_ROLE: ${{ secrets.DEV_DBT_ROLE }}
-        SNOWFLAKE_DBT_ROLE_DEV: ${{ secrets.DEV_DBT_ROLE }}
         DEV_DBT_WH: ${{ secrets.DEV_DBT_WAREHOUSE }}
-        SNOWFLAKE_DBT_WAREHOUSE_DEV: ${{ secrets.DEV_DBT_WAREHOUSE }}
         DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
