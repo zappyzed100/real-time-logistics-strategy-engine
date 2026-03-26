@@ -37,6 +37,16 @@
 
 リポジトリルートで作業します。
 
+### 3.0 環境切替の前提
+
+この README は dbt の実行手順を説明していますが、
+データロード (`src/infrastructure/snowflake_loader.py`) は別コンポーネントです。
+
+- `snowflake_loader.py` の実行コマンド自体は従来どおり
+- ただし接続先 Bronze は `.env` の `APP_ENV=dev / prod` で切り替わる
+
+フルパイプラインを再現する場合は、先に `.env` の `APP_ENV` を意図した環境へ設定してください。
+
 ### 3.1 Python 依存関係
 
 ```bash

@@ -17,9 +17,15 @@ class LoadSpec:
     select_list: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class LoadCommands:
+    put_command: str
+    copy_command: str
+
+
 class SnowflakeLoader:
-    def __init__(self):
-        self.env = os.getenv("SNOWFLAKE_ENV", "DEV").upper()
+    def __init__(self, conn=None, connect: bool = True):
+        self.env = self._resolve_app_env()
         self.account = self._require_env("SNOWFLAKE_ACCOUNT")
         self.user = os.getenv("SNOWFLAKE_LOADER_USER") or f"{self.env}_LOADER_USER"
         self.role = os.getenv("SNOWFLAKE_LOADER_ROLE") or f"{self.env}_LOADER_ROLE"
@@ -36,22 +42,28 @@ class SnowflakeLoader:
         self.file_format_name = (
             os.getenv("SNOWFLAKE_LOADER_FILE_FORMAT") or f"{self.env}_CSV_FORMAT"
         )
-        self.private_key = self._load_private_key()
-        self.conn = snowflake.connector.connect(
-            user=self.user,
-            account=self.account,
-            private_key=self.private_key,
-            warehouse=self.warehouse,
-            database=self.database,
-            schema=self.schema,
-            role=self.role,
-        )
+        self.private_key = None
+        self.conn = conn
+
+        if self.conn is None and connect:
+            self.conn = self._connect()
+
+    def _resolve_app_env(self) -> str:
+        app_env = (os.getenv("APP_ENV") or "dev").strip().lower() or "dev"
+        if app_env not in {"dev", "prod"}:
+            raise ValueError(
+                f"APP_ENV must be 'dev' or 'prod' (current: {app_env})"
+            )
+        return app_env.upper()
 
     def _require_env(self, key: str) -> str:
         value = os.getenv(key)
-        if not value:
+        if value is None:
             raise ValueError(f"Environment variable {key} is required")
-        return value
+        normalized_value = value.strip()
+        if not normalized_value:
+            raise ValueError(f"Environment variable {key} is required")
+        return normalized_value
 
     def _load_private_key(self) -> bytes:
         key_candidates = (
@@ -81,38 +93,65 @@ class SnowflakeLoader:
             encryption_algorithm=serialization.NoEncryption(),
         )
 
+    def _connect(self):
+        self.private_key = self._load_private_key()
+        return snowflake.connector.connect(
+            user=self.user,
+            account=self.account,
+            private_key=self.private_key,
+            warehouse=self.warehouse,
+            database=self.database,
+            schema=self.schema,
+            role=self.role,
+        )
+
     def _qualify(self, object_name: str) -> str:
         if "." in object_name:
             return object_name
         return f"{self.database}.{self.schema}.{object_name}"
 
-    def load_csv_to_table(self, spec: LoadSpec):
+    def build_load_commands(self, spec: LoadSpec) -> LoadCommands:
         file_path = spec.file_path.resolve()
         file_uri = file_path.as_posix()
         stage_fqn = self._qualify(self.stage_name)
         table_fqn = self._qualify(spec.table_name)
         file_format_fqn = self._qualify(self.file_format_name)
         staged_file_name = file_path.name
-        select_clause = ",\n                    ".join(spec.select_list)
+        select_clause = ",\n".join(
+            f"        {select_item}" for select_item in spec.select_list
+        )
+
+        put_command = (
+            f"PUT 'file://{file_uri}' @{stage_fqn} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
+        )
+        copy_command = "\n".join(
+            [
+                f"COPY INTO {table_fqn}",
+                "FROM (",
+                "    SELECT",
+                select_clause,
+                f"    FROM @{stage_fqn}/{staged_file_name}.gz",
+                ")",
+                f"FILE_FORMAT = (FORMAT_NAME = '{file_format_fqn}')",
+                "ON_ERROR = 'ABORT_STATEMENT'",
+                "PURGE = TRUE",
+            ]
+        )
+
+        return LoadCommands(put_command=put_command, copy_command=copy_command)
+
+    def load_csv_to_table(self, spec: LoadSpec):
+        if self.conn is None:
+            raise RuntimeError("Snowflake connection is not initialized")
+
+        file_path = spec.file_path.resolve()
+        table_fqn = self._qualify(spec.table_name)
+        commands = self.build_load_commands(spec)
 
         cursor = self.conn.cursor()
         try:
-            cursor.execute(
-                f"PUT 'file://{file_uri}' @{stage_fqn} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
-            )
-            cursor.execute(
-                f"""
-                COPY INTO {table_fqn}
-                FROM (
-                    SELECT
-                    {select_clause}
-                    FROM @{stage_fqn}/{staged_file_name}.gz
-                )
-                FILE_FORMAT = (FORMAT_NAME = '{file_format_fqn}')
-                ON_ERROR = 'ABORT_STATEMENT'
-                PURGE = TRUE
-                """
-            )
+            cursor.execute(commands.put_command)
+            cursor.execute(commands.copy_command)
             print(f"Loaded {file_path} into {table_fqn}")
         finally:
             cursor.close()
@@ -175,7 +214,8 @@ class SnowflakeLoader:
             self.load_csv_to_table(spec)
 
     def close(self):
-        self.conn.close()
+        if self.conn is not None:
+            self.conn.close()
 
 
 if __name__ == "__main__":

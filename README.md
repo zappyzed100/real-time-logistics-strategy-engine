@@ -77,9 +77,13 @@ HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-
 ### 4.1. データ生成とロード
 
 ```bash
+# .env の APP_ENV=dev / prod を切り替えてから実行
 docker compose run --rm streamlit python src/scripts/data_gen/generate_large_data.py -n 1000000
 docker compose run --rm streamlit python src/infrastructure/snowflake_loader.py
 ```
+
+`src/infrastructure/snowflake_loader.py` は `.env` の `APP_ENV` を参照して、
+DEV / PROD の Bronze 接続先を切り替えます。
 
 ### 4.2. dbt による特徴量エンジニアリング
 

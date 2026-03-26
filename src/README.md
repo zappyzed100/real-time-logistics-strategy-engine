@@ -29,13 +29,17 @@ uv run python src/scripts/data_gen/generate_large_data.py -n 10000
 ### 2.2 Bronze へロード
 
 ```bash
+# .env の APP_ENV=dev / prod を切り替えてから実行
 uv run python src/infrastructure/snowflake_loader.py
 ```
 
 必要な主な環境変数 (`.env`)。
 
+- `APP_ENV`
 - `SNOWFLAKE_ACCOUNT`
 - `SNOWFLAKE_LOADER_PRIVATE_KEY` または `DEV_LOADER_USER_RSA_PRIVATE_KEY`
+
+`src/infrastructure/snowflake_loader.py` は `APP_ENV` を参照して接続先を切り替えます。
 
 ### 2.3 dbt 実行
 
