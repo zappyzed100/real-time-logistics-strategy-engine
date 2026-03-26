@@ -7,13 +7,56 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+def _resolve_target(env: dict[str, str]) -> str:
+    return env.get("DBT_TARGET", "dev").strip().lower() or "dev"
+
+
+def _target_suffix(target: str) -> str:
+    return target.upper()
+
+
+def _set_target_specific_env(env: dict[str, str]) -> None:
+    target = _resolve_target(env)
+    suffix = _target_suffix(target)
+
+    # Keep compatibility with legacy generic env vars while preferring
+    # target-specific values when they are available.
+    for generic, scoped in (
+        ("SNOWFLAKE_DBT_USER", f"SNOWFLAKE_DBT_USER_{suffix}"),
+        ("SNOWFLAKE_DBT_ROLE", f"SNOWFLAKE_DBT_ROLE_{suffix}"),
+        ("SNOWFLAKE_DBT_WAREHOUSE", f"SNOWFLAKE_DBT_WAREHOUSE_{suffix}"),
+        ("SNOWFLAKE_DBT_PRIVATE_KEY", f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}"),
+        (
+            "SNOWFLAKE_DBT_PRIVATE_KEY_PATH",
+            f"SNOWFLAKE_DBT_PRIVATE_KEY_PATH_{suffix}",
+        ),
+        (
+            "SNOWFLAKE_SILVER_DATABASE",
+            f"SNOWFLAKE_SILVER_DATABASE_{suffix}",
+        ),
+        ("SNOWFLAKE_GOLD_DATABASE", f"SNOWFLAKE_GOLD_DATABASE_{suffix}"),
+        (
+            "SNOWFLAKE_BRONZE_DATABASE",
+            f"SNOWFLAKE_BRONZE_DATABASE_{suffix}",
+        ),
+    ):
+        scoped_value = env.get(scoped)
+        if scoped_value and not env.get(generic):
+            env[generic] = scoped_value
+
+
 def _write_private_key_file(env: dict[str, str]) -> str | None:
     existing_path = env.get("SNOWFLAKE_DBT_PRIVATE_KEY_PATH")
     if existing_path:
         return None
 
-    private_key = env.get("SNOWFLAKE_DBT_PRIVATE_KEY") or env.get(
-        "DEV_DBT_USER_RSA_PRIVATE_KEY"
+    target = _resolve_target(env)
+    suffix = _target_suffix(target)
+
+    private_key = (
+        env.get("SNOWFLAKE_DBT_PRIVATE_KEY")
+        or env.get(f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}")
+        or env.get(f"{suffix}_DBT_USER_RSA_PRIVATE_KEY")
     )
     if not private_key:
         return None
@@ -34,6 +77,7 @@ def main() -> int:
     load_dotenv(repo_root / ".env")
 
     env = os.environ.copy()
+    _set_target_specific_env(env)
     env.setdefault("DBT_PROFILES_DIR", str(project_dir))
     temp_key_path = _write_private_key_file(env)
 
