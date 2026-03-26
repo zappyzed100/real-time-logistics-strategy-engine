@@ -7,7 +7,14 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def _load_env_files() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    load_dotenv(repo_root / ".env.shared")
+    load_dotenv(repo_root / ".env", override=True)
+
+
+_load_env_files()
 
 
 @dataclass(frozen=True)
@@ -27,13 +34,13 @@ class SnowflakeLoader:
     def __init__(self, conn=None, connect: bool = True):
         self.env = self._resolve_app_env()
         self.account = self._require_env("SNOWFLAKE_ACCOUNT")
-        self.user = os.getenv("SNOWFLAKE_LOADER_USER") or f"{self.env}_LOADER_USER"
-        self.role = os.getenv("SNOWFLAKE_LOADER_ROLE") or f"{self.env}_LOADER_ROLE"
-        self.warehouse = os.getenv("SNOWFLAKE_LOADER_WAREHOUSE") or f"{self.env}_LOADER_WH"
-        self.database = os.getenv("SNOWFLAKE_LOADER_DATABASE") or f"{self.env}_BRONZE_DB"
-        self.schema = os.getenv("SNOWFLAKE_LOADER_SCHEMA") or "RAW_DATA"
-        self.stage_name = os.getenv("SNOWFLAKE_LOADER_STAGE") or f"{self.env}_BRONZE_RAW_STAGE"
-        self.file_format_name = os.getenv("SNOWFLAKE_LOADER_FILE_FORMAT") or f"{self.env}_CSV_FORMAT"
+        self.user = self._require_env(f"{self.env}_LOADER_USER")
+        self.role = self._require_env(f"{self.env}_LOADER_ROLE")
+        self.warehouse = self._require_env(f"{self.env}_LOADER_WH")
+        self.database = self._require_env(f"{self.env}_BRONZE_DB")
+        self.schema = self._require_env("SNOWFLAKE_BRONZE_SCHEMA")
+        self.stage_name = self._require_env("SNOWFLAKE_BRONZE_STAGE")
+        self.file_format_name = self._require_env(f"{self.env}_LOADER_FILE_FORMAT_NAME")
         self.private_key = None
         self.conn = conn
 

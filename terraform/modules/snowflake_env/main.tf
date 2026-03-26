@@ -1,11 +1,11 @@
 locals {
   env                = upper(var.env)
-  bronze_db_name     = "${upper(var.env)}_BRONZE_DB"
-  silver_db_name     = "${upper(var.env)}_SILVER_DB"
-  gold_db_name       = "${upper(var.env)}_GOLD_DB"
-  bronze_schema_name = "RAW_DATA"
-  silver_schema_name = "CLEANSED"
-  gold_schema_name   = "MARKETING_MART"
+  bronze_db_name     = var.bronze_db_name
+  silver_db_name     = var.silver_db_name
+  gold_db_name       = var.gold_db_name
+  bronze_schema_name = var.bronze_schema_name
+  silver_schema_name = var.silver_schema_name
+  gold_schema_name   = var.gold_schema_name
 }
 
 # ============================================================
@@ -14,7 +14,7 @@ locals {
 
 # --- Loader ---
 resource "snowflake_account_role" "loader_role" {
-  name = "${local.env}_LOADER_ROLE"
+  name = var.loader_role_name
 
   lifecycle {
     prevent_destroy = false
@@ -22,10 +22,10 @@ resource "snowflake_account_role" "loader_role" {
 }
 
 resource "snowflake_user" "loader_user" {
-  name         = "${local.env}_LOADER_USER"
-  login_name   = "${local.env}_LOADER_USER"
+  name           = var.loader_user_name
+  login_name     = var.loader_user_name
   rsa_public_key = var.loader_user_rsa_public_key
-  default_role = snowflake_account_role.loader_role.name
+  default_role   = snowflake_account_role.loader_role.name
 
   lifecycle {
     prevent_destroy = false
@@ -39,7 +39,7 @@ resource "snowflake_grant_account_role" "loader_role_grant" {
 
 # --- dbt ---
 resource "snowflake_account_role" "dbt_role" {
-  name = "${local.env}_DBT_ROLE"
+  name = var.dbt_role_name
 
   lifecycle {
     prevent_destroy = false
@@ -47,10 +47,10 @@ resource "snowflake_account_role" "dbt_role" {
 }
 
 resource "snowflake_user" "dbt_user" {
-  name         = "${local.env}_DBT_USER"
-  login_name   = "${local.env}_DBT_USER"
+  name           = var.dbt_user_name
+  login_name     = var.dbt_user_name
   rsa_public_key = var.dbt_user_rsa_public_key
-  default_role = snowflake_account_role.dbt_role.name
+  default_role   = snowflake_account_role.dbt_role.name
 
   lifecycle {
     prevent_destroy = false
@@ -65,7 +65,7 @@ resource "snowflake_grant_account_role" "dbt_role_grant" {
 # --- Streamlit Reader ---
 
 resource "snowflake_account_role" "streamlit_role" {
-  name = "${local.env}_STREAMLIT_READ_ROLE"
+  name = var.streamlit_role_name
 
   lifecycle {
     prevent_destroy = false
@@ -73,11 +73,11 @@ resource "snowflake_account_role" "streamlit_role" {
 }
 
 resource "snowflake_user" "streamlit_user" {
-  name            = "${local.env}_STREAMLIT_USER"
-  login_name      = "${local.env}_STREAMLIT_USER"
+  name       = var.streamlit_user_name
+  login_name = var.streamlit_user_name
   # 必要に応じてパスワード認証またはキーペア認証を選択
-  rsa_public_key  = var.streamlit_user_rsa_public_key 
-  default_role    = snowflake_account_role.streamlit_role.name
+  rsa_public_key = var.streamlit_user_rsa_public_key
+  default_role   = snowflake_account_role.streamlit_role.name
   lifecycle {
     prevent_destroy = false
   }
@@ -93,11 +93,11 @@ resource "snowflake_grant_account_role" "streamlit_role_grant" {
 # ============================================================
 
 resource "snowflake_warehouse" "loader_wh" {
-  name                = "${local.env}_LOADER_WH"
-  warehouse_size      = "X-SMALL"     # 最小サイズ（コスト最適化）
-  auto_suspend        = 60            # 60秒間クエリがないと自動停止
-  auto_resume         = true          # クエリが来たら自動で再起動
-  initially_suspended = true          # 作成直後は停止状態にする
+  name                = var.loader_warehouse_name
+  warehouse_size      = "X-SMALL" # 最小サイズ（コスト最適化）
+  auto_suspend        = 60        # 60秒間クエリがないと自動停止
+  auto_resume         = true      # クエリが来たら自動で再起動
+  initially_suspended = true      # 作成直後は停止状態にする
 
   lifecycle {
     prevent_destroy = false
@@ -105,7 +105,7 @@ resource "snowflake_warehouse" "loader_wh" {
 }
 
 resource "snowflake_warehouse" "dbt_wh" {
-  name                = "${local.env}_DBT_WH"
+  name                = var.dbt_warehouse_name
   warehouse_size      = "X-SMALL"
   auto_suspend        = 60
   auto_resume         = true
@@ -116,7 +116,7 @@ resource "snowflake_warehouse" "dbt_wh" {
 }
 
 resource "snowflake_warehouse" "streamlit_wh" {
-  name                = "${local.env}_STREAMLIT_WH"
+  name                = var.streamlit_warehouse_name
   warehouse_size      = "X-SMALL"
   auto_suspend        = 60
   auto_resume         = true
@@ -132,7 +132,7 @@ resource "snowflake_warehouse" "streamlit_wh" {
 
 # 内部ステージ（PUTコマンドの宛先）
 resource "snowflake_stage_internal" "bronze_raw_stage" {
-  name     = "${local.env}_BRONZE_RAW_STAGE"
+  name     = var.bronze_stage_name
   database = local.bronze_db_name
   schema   = local.bronze_schema_name
 }
@@ -316,7 +316,7 @@ resource "snowflake_table" "products" {
 # ============================================================
 
 resource "snowflake_file_format" "csv_format" {
-  name        = "${local.env}_CSV_FORMAT"
+  name        = var.loader_file_format_name
   database    = local.bronze_db_name
   schema      = local.bronze_schema_name
   format_type = "CSV"

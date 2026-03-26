@@ -30,13 +30,13 @@ class FakeConnection:
 def set_loader_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("SNOWFLAKE_ACCOUNT", "test-account")
-    monkeypatch.delenv("SNOWFLAKE_LOADER_USER", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_ROLE", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_WAREHOUSE", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_DATABASE", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_SCHEMA", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_STAGE", raising=False)
-    monkeypatch.delenv("SNOWFLAKE_LOADER_FILE_FORMAT", raising=False)
+    monkeypatch.setenv("SNOWFLAKE_BRONZE_SCHEMA", "RAW_DATA")
+    monkeypatch.setenv("SNOWFLAKE_BRONZE_STAGE", "RAW_STAGE")
+    monkeypatch.setenv("DEV_LOADER_USER", "DEV_LOADER_USER")
+    monkeypatch.setenv("DEV_LOADER_ROLE", "DEV_LOADER_ROLE")
+    monkeypatch.setenv("DEV_LOADER_WH", "DEV_LOADER_WH")
+    monkeypatch.setenv("DEV_BRONZE_DB", "DEV_BRONZE_DB")
+    monkeypatch.setenv("DEV_LOADER_FILE_FORMAT_NAME", "DEV_CSV_FORMAT")
 
 
 def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_path):
@@ -59,9 +59,7 @@ def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_p
     commands = loader.build_load_commands(spec)
 
     assert commands.put_command == (
-        f"PUT 'file://{csv_path.resolve().as_posix()}' "
-        "@DEV_BRONZE_DB.RAW_DATA.DEV_BRONZE_RAW_STAGE "
-        "AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
+        f"PUT 'file://{csv_path.resolve().as_posix()}' @DEV_BRONZE_DB.RAW_DATA.RAW_STAGE AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
     )
     assert (
         commands.copy_command
@@ -74,7 +72,7 @@ def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_p
                 $2::STRING,
                 METADATA$FILENAME::STRING,
                 CURRENT_TIMESTAMP()::TIMESTAMP_NTZ
-            FROM @DEV_BRONZE_DB.RAW_DATA.DEV_BRONZE_RAW_STAGE/{csv_path.name}.gz
+            FROM @DEV_BRONZE_DB.RAW_DATA.RAW_STAGE/{csv_path.name}.gz
         )
         FILE_FORMAT = (FORMAT_NAME = 'DEV_BRONZE_DB.RAW_DATA.DEV_CSV_FORMAT')
         ON_ERROR = 'ABORT_STATEMENT'

@@ -3,23 +3,23 @@ enterprise_data_pipeline:
     dev:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('DEV_DBT_USER') }}"
+      user: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_USER') }}"
       private_key_path: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') }}"
       private_key_passphrase: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE', '') }}"
-      role: "{{ env_var('DEV_DBT_ROLE') }}"
-      warehouse: "{{ env_var('DEV_DBT_WH') }}"
-      database: "{{ env_var('DEV_BRONZE_DB') }}"
-      schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA', 'RAW_DATA') }}"
+      role: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_ROLE') }}"
+      warehouse: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_WH') }}"
+      database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_BRONZE_DB') }}"
+      schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA') }}"
       threads: 1
     prod:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('PROD_DBT_USER') }}"
+      user: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_USER') }}"
       private_key_path: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') }}"
       private_key_passphrase: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE', '') }}"
-      role: "{{ env_var('PROD_DBT_ROLE') }}"
-      warehouse: "{{ env_var('PROD_DBT_WH') }}"
-      database: "{{ env_var('PROD_BRONZE_DB') }}"
-      schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA', 'RAW_DATA') }}"
+      role: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_ROLE') }}"
+      warehouse: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_WH') }}"
+      database: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_BRONZE_DB') }}"
+      schema: "{{ env_var('SNOWFLAKE_BRONZE_SCHEMA') }}"
       threads: 1
   target: "{{ env_var('APP_ENV', 'dev') }}"

@@ -17,8 +17,7 @@ locals {
   snowflake_private_key_effective = local.snowflake_private_key_raw != null ? replace(local.snowflake_private_key_raw, "\\n", "\n") : null
   snowflake_authenticator_raw     = var.SNOWFLAKE_AUTHENTICATOR != null ? var.SNOWFLAKE_AUTHENTICATOR : "SNOWFLAKE_JWT"
   snowflake_authenticator         = trimspace(replace(local.snowflake_authenticator_raw, "\r", ""))
-  # SNOWFLAKE_ROLE 未設定時は APP_ENV から自動選択（DEV_TF_ADMIN_ROLE / PROD_TF_ADMIN_ROLE）
-  snowflake_role = var.SNOWFLAKE_ROLE != null ? trimspace(replace(var.SNOWFLAKE_ROLE, "\r", "")) : "${upper(var.app_env)}_TF_ADMIN_ROLE"
+  snowflake_role                  = var.SNOWFLAKE_ROLE != null ? trimspace(replace(var.SNOWFLAKE_ROLE, "\r", "")) : trimspace(replace(local.tf_admin_role, "\r", ""))
 }
 
 provider "snowflake" {

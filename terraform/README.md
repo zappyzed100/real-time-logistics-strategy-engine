@@ -83,7 +83,7 @@ Workspace 内の `Settings > Variables` から登録してください。
 | streamlit_user_rsa_public_key    | (Public Key)                     | terraform | No        |
 | snowflake_organization_name      | (Account名の前半分)               | terraform | No        |
 | snowflake_account_name           | (Account名の後半分)               | terraform | No        |
-| SNOWFLAKE_USER                   | (User Name)                      | env       | No        |
+| SNOWFLAKE_USER                   | (TerraformのUser Name)           | env       | No        |
 | SNOWFLAKE_ROLE                   | <DEV/PROD>_TF_ADMIN_ROLE         | terraform | No        |
 | SNOWFLAKE_PRIVATE_KEY            | (Private Key)                    | terraform | Yes       |
 | SNOWFLAKE_AUTHENTICATOR          | SNOWFLAKE_JWT                    | env       | No        |
@@ -96,22 +96,24 @@ Note:
 - `SNOWFLAKE_PRIVATE_KEY` は改行コードを含むマルチライン形式のデータであるため、HCP Terraform 上では Category: terraform として登録を推奨します。
 - `SNOWFLAKE_PRIVATE_KEY` の改行コード（`\n`）は、コード側で自動復元されます。
 
-### 0.4. Workspace 構成と環境変数
+## 0.4. Workspace 構成と環境変数
 
-HCP Terraform のワークスペース名と Organization は `.env` で管理します。
+HCP Terraform のワークスペース名と Organization は `.env.shared` で管理し、秘密情報やローカル上書きは `.env` で管理します。
 
 ```bash
-# .env の例
-HCP_TF_ORGANIZATION=zappyzed100
+# .env.shared の例
 HCP_TF_WORKSPACE_DEV=dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
 HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
+
+DEV_TF_ADMIN_ROLE=DEV_TF_ADMIN_ROLE
+PROD_TF_ADMIN_ROLE=PROD_TF_ADMIN_ROLE
 ```
 
 - `HCP_TF_ORGANIZATION`: HCP Terraform の Organization 名
 - `HCP_TF_WORKSPACE_DEV`: DEV 環境のワークスペース名
 - `HCP_TF_WORKSPACE_PROD`: PROD 環境のワークスペース名
 
-実行時に `terraform/tf` ラッパースクリプトが自動的に読み込みます。
+実行時に `terraform/tf` ラッパースクリプトが `.env.shared` を先に読み込み、その後 `.env` で同名キーを上書きします。
 
 ### 0.5. 実行フロー
 
@@ -123,7 +125,7 @@ HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-
 
 - 実行環境切り替え: `/app/.env` の `APP_ENV`（`dev` / `prod`）を書き換えるだけで切り替える
 - 実行コマンド: 原則 `./terraform/tf` ラッパーを使用する
-- 変数管理: 実行変数は HCP Terraform の Workspace Variables で一元管理し、ローカルの `.tfvars` は使用しない
+- 変数管理: 共通の非機密設定は `.env.shared`、機密情報とローカル差分は `.env`、HCP 側の機密値は Workspace Variables で管理する
 
 ## 1. 実行手順
 
@@ -133,8 +135,8 @@ Docker コンテナ内で実行する場合も、初回は `terraform login` に
 
 `terraform/tf` ラッパーを使うと、以下を自動化できます。
 
-- `/app/.env` の自動読み込み
-- `TF_VAR_app_env` の自動設定（`APP_ENV` 未設定時は `dev`）
+- `/app/.env.shared` → `/app/.env` の順で自動読み込み
+- `TF_VAR_app_env` と Terraform 入力変数の自動設定
 - `init -reconfigure` の自動実行
 
 ```bash
