@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import pandas as pd
 import pydeck as pdk
@@ -14,7 +15,28 @@ from snowflake.snowpark import Session
 
 import streamlit as st
 
-load_dotenv()
+
+def _load_env_files() -> None:
+    project_root = Path(__file__).resolve().parents[2]
+    load_dotenv(project_root / ".env.shared", override=False)
+    load_dotenv(project_root / ".env", override=True)
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"環境変数 {name} が未設定です")
+    return value
+
+
+def _target_env_prefix() -> str:
+    app_env = _required_env("APP_ENV").strip().lower()
+    if app_env not in {"dev", "prod"}:
+        raise RuntimeError("環境変数 APP_ENV は dev または prod を指定してください")
+    return app_env.upper()
+
+
+_load_env_files()
 
 # ページ設定
 st.set_page_config(page_title="Logistics KPI Dashboard", layout="wide")
@@ -24,7 +46,8 @@ st.title("🚚 Logistics KPI Dashboard")
 # Snowpark Session
 @st.cache_resource
 def create_session():
-    pem = os.environ["DEV_STREAMLIT_USER_RSA_PRIVATE_KEY"].replace("\\n", "\n")
+    target_prefix = _target_env_prefix()
+    pem = _required_env(f"{target_prefix}_STREAMLIT_USER_RSA_PRIVATE_KEY").replace("\\n", "\n")
     private_key_der = load_pem_private_key(pem.encode(), password=None).private_bytes(
         encoding=Encoding.DER,
         format=PrivateFormat.PKCS8,
@@ -32,13 +55,13 @@ def create_session():
     )
     return Session.builder.configs(
         {
-            "account": "CWNOMGN-AF62260",
-            "user": "DEV_STREAMLIT_USER",
+            "account": _required_env("SNOWFLAKE_ACCOUNT"),
+            "user": _required_env(f"{target_prefix}_STREAMLIT_USER"),
             "private_key": private_key_der,
-            "role": "DEV_STREAMLIT_READ_ROLE",
-            "warehouse": "DEV_STREAMLIT_WH",
-            "database": "DEV_GOLD_DB",
-            "schema": "MARKETING_MART",
+            "role": _required_env(f"{target_prefix}_STREAMLIT_ROLE"),
+            "warehouse": _required_env(f"{target_prefix}_STREAMLIT_WH"),
+            "database": _required_env(f"{target_prefix}_GOLD_DB"),
+            "schema": _required_env("SNOWFLAKE_GOLD_SCHEMA"),
         }
     ).create()
 
@@ -48,7 +71,7 @@ session = create_session()
 
 @st.cache_data
 def get_analysis_data():
-    return session.table("FCT_DELIVERY_ANALYSIS").to_pandas()
+    return session.table(_required_env("STREAMLIT_ANALYSIS_TABLE")).to_pandas()
 
 
 df = get_analysis_data()
