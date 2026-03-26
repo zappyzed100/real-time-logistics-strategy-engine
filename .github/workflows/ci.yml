@@ -29,11 +29,11 @@ jobs:
       # uv sync で pyproject.toml / uv.lock から環境を完全再現
       run: uv sync --frozen --all-groups
 
-    - name: Lint with flake8
-      # uv run を通すことで、仮想環境内のライブラリを使用
+    - name: Run code quality checks
+      # flake8 とコミット済みテキストファイルの CR 混入をまとめて確認する。
+      # .env は Git 管理外のため、このチェック対象には含めない。
       run: |
-        uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+        uv run python src/scripts/quality/check_code_quality.py
 
     - name: Test with pytest
       # src/connection_test.py が pytest の収集対象になりエラーを吐くのを防ぐため、
