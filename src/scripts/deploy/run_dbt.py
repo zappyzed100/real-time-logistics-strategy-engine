@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 
 def _resolve_target(env: dict[str, str]) -> str:
-    return env.get("DBT_TARGET", "dev").strip().lower() or "dev"
+    return env.get("APP_ENV", "dev").strip().lower() or "dev"
 
 
 def _target_suffix(target: str) -> str:
@@ -77,6 +77,7 @@ def main() -> int:
     load_dotenv(repo_root / ".env")
 
     env = os.environ.copy()
+    env["APP_ENV"] = _resolve_target(env)
     _set_target_specific_env(env)
     env.setdefault("DBT_PROFILES_DIR", str(project_dir))
     temp_key_path = _write_private_key_file(env)

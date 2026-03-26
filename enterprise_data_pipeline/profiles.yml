@@ -26,4 +26,4 @@ enterprise_data_pipeline:
       database: "{{ env_var('SNOWFLAKE_SILVER_DATABASE_PROD', env_var('SNOWFLAKE_SILVER_DATABASE', 'PROD_SILVER_DB')) }}"
       schema: "{{ env_var('SNOWFLAKE_SILVER_SCHEMA', 'CLEANSED') }}"
       threads: 1
-  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  target: "{{ env_var('APP_ENV', 'dev') }}"

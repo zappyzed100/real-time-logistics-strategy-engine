@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dbt_target: [dev, prod]
+        app_env: [dev, prod]
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
@@ -65,15 +65,15 @@ jobs:
     - name: Install dependencies
       run: uv sync --frozen --all-groups
 
-    - name: Show dbt target
+    - name: Show app env
       env:
-        DBT_TARGET: ${{ matrix.dbt_target }}
+        APP_ENV: ${{ matrix.app_env }}
       run: |
-        echo "DBT_TARGET=${DBT_TARGET}"
+        echo "APP_ENV=${APP_ENV}"
 
     - name: Run dbt debug
       env:
-        DBT_TARGET: ${{ matrix.dbt_target }}
+        APP_ENV: ${{ matrix.app_env }}
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
         SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
         SNOWFLAKE_DBT_USER_PROD: ${{ secrets.PROD_DBT_USER }}
@@ -85,7 +85,7 @@ jobs:
         SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
       run: |
-        uv run dbt debug --project-dir enterprise_data_pipeline --profiles-dir enterprise_data_pipeline --target "${DBT_TARGET}"
+        uv run dbt debug --project-dir enterprise_data_pipeline --profiles-dir enterprise_data_pipeline
 
   dbt-rebuild-verify-dev:
     runs-on: ubuntu-latest
@@ -109,7 +109,7 @@ jobs:
 
     - name: Verify dbt rebuild on dev
       env:
-        DBT_TARGET: dev
+        APP_ENV: dev
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
         SNOWFLAKE_DBT_USER_DEV: ${{ secrets.DEV_DBT_USER }}
         SNOWFLAKE_DBT_ROLE_DEV: ${{ secrets.DEV_DBT_ROLE }}

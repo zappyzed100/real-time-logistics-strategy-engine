@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 
 def _target() -> str:
-    return (os.getenv("DBT_TARGET") or "dev").strip().lower() or "dev"
+    return (os.getenv("APP_ENV") or "dev").strip().lower() or "dev"
 
 
 def _suffix(target: str) -> str:
@@ -185,7 +185,7 @@ def main() -> int:
     load_dotenv(repo_root / ".env")
 
     target = _target()
-    print(f"[verify] DBT_TARGET={target}")
+    print(f"[verify] APP_ENV={target}")
 
     conn = _snowflake_connection(target)
     try:
