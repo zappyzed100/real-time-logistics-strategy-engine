@@ -24,10 +24,14 @@ def _sanitize_runtime_env(env: dict[str, str]) -> None:
         "DEV_DBT_ROLE",
         "DEV_DBT_WH",
         "DEV_BRONZE_DB",
+        "DEV_SILVER_DB",
+        "DEV_GOLD_DB",
         "PROD_DBT_USER",
         "PROD_DBT_ROLE",
         "PROD_DBT_WH",
         "PROD_BRONZE_DB",
+        "PROD_SILVER_DB",
+        "PROD_GOLD_DB",
     ):
         value = env.get(key)
         if value is not None:
