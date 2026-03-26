@@ -24,14 +24,18 @@ def _env_with_fallback(name: str, fallback: str = "") -> str:
     return value
 
 
+def _normalized_env(name: str, fallback: str = "") -> str:
+    return _env_with_fallback(name, fallback).strip()
+
+
 def _resolve(name: str, target: str, default: str = "") -> str:
-    scoped = _env_with_fallback(f"{name}_{_suffix(target)}")
+    scoped = _normalized_env(f"{name}_{_suffix(target)}")
     if scoped:
         return scoped
-    generic = _env_with_fallback(name)
+    generic = _normalized_env(name)
     if generic:
         return generic
-    return default
+    return default.strip() if default else default
 
 
 def _load_private_key_der(target: str) -> bytes:
@@ -68,7 +72,7 @@ def _load_private_key_der(target: str) -> bytes:
 def _snowflake_connection(target: str):
     suffix = _suffix(target)
 
-    account = _env_with_fallback("SNOWFLAKE_ACCOUNT")
+    account = _normalized_env("SNOWFLAKE_ACCOUNT")
     user = _resolve("SNOWFLAKE_DBT_USER", target, f"{suffix}_DBT_USER")
     role = _resolve("SNOWFLAKE_DBT_ROLE", target, f"{suffix}_DBT_ROLE")
     warehouse = _resolve("SNOWFLAKE_DBT_WAREHOUSE", target, f"{suffix}_DBT_WH")
