@@ -95,19 +95,7 @@ def _snowflake_connection(target: str):
     )
 
 
-def _activate_warehouse(conn, target: str) -> None:
-    suffix = _suffix(target)
-    warehouse = _resolve("SNOWFLAKE_DBT_WAREHOUSE", target, f"{suffix}_DBT_WH")
-    cur = conn.cursor()
-    try:
-        cur.execute(f"USE WAREHOUSE {warehouse}")
-    finally:
-        cur.close()
-
-
 def _drop_views(conn, target: str) -> None:
-    _activate_warehouse(conn, target)
-
     suffix = _suffix(target)
     silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
     silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
@@ -149,8 +137,6 @@ def _run_dbt(target: str, repo_root: Path) -> None:
 
 
 def _assert_views(conn, target: str) -> None:
-    _activate_warehouse(conn, target)
-
     suffix = _suffix(target)
     silver_db = _resolve("SNOWFLAKE_SILVER_DATABASE", target, f"{suffix}_SILVER_DB")
     silver_schema = _resolve("SNOWFLAKE_SILVER_SCHEMA", target, "CLEANSED")
@@ -167,36 +153,18 @@ def _assert_views(conn, target: str) -> None:
 
     cur = conn.cursor()
     try:
-        cur.execute(
-            f"""
-            SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-            FROM {silver_db}.INFORMATION_SCHEMA.VIEWS
-            WHERE TABLE_SCHEMA = %s
-              AND TABLE_NAME IN (%s, %s, %s, %s)
-            """,
-            (
-                silver_schema.upper(),
-                "STG_ORDERS",
-                "STG_PRODUCTS",
-                "STG_LOGISTICS_CENTERS",
-                "INT_DELIVERY_COST_CANDIDATES",
-            ),
-        )
-        silver_actual = {(r[0], r[1], r[2]) for r in cur.fetchall()}
+        cur.execute(f"SHOW VIEWS IN SCHEMA {silver_db}.{silver_schema}")
+        silver_actual = {
+            (str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper())
+            for r in cur.fetchall()
+        }
 
-        cur.execute(
-            f"""
-            SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-            FROM {gold_db}.INFORMATION_SCHEMA.VIEWS
-            WHERE TABLE_SCHEMA = %s
-              AND TABLE_NAME = %s
-            """,
-            (
-                gold_schema.upper(),
-                "FCT_DELIVERY_ANALYSIS",
-            ),
-        )
-        gold_actual = {(r[0], r[1], r[2]) for r in cur.fetchall()}
+        cur.execute(f"SHOW VIEWS IN SCHEMA {gold_db}.{gold_schema}")
+        gold_actual = {
+            (str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper())
+            for r in cur.fetchall()
+        }
+
         actual = silver_actual | gold_actual
     finally:
         cur.close()
