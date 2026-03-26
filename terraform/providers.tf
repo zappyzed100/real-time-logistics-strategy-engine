@@ -7,7 +7,7 @@ terraform {
     }
   }
 
-  # organization / workspaces は backend.hcl (gitignore対象) から注入する
+  # organization / workspace は terraform/tf ラッパーの init 時に注入する
   backend "remote" {}
 }
 

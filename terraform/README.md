@@ -96,7 +96,24 @@ Note:
 - `SNOWFLAKE_PRIVATE_KEY` は改行コードを含むマルチライン形式のデータであるため、HCP Terraform 上では Category: terraform として登録を推奨します。
 - `SNOWFLAKE_PRIVATE_KEY` の改行コード（`\n`）は、コード側で自動復元されます。
 
-### 0.4. 実行フロー
+### 0.4. Workspace 構成と環境変数
+
+HCP Terraform のワークスペース名と Organization は `.env` で管理します。
+
+```bash
+# .env の例
+HCP_TF_ORGANIZATION=zappyzed100
+HCP_TF_WORKSPACE_DEV=dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
+HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
+```
+
+- `HCP_TF_ORGANIZATION`: HCP Terraform の Organization 名
+- `HCP_TF_WORKSPACE_DEV`: DEV 環境のワークスペース名
+- `HCP_TF_WORKSPACE_PROD`: PROD 環境のワークスペース名
+
+実行時に `terraform/tf` ラッパースクリプトが自動的に読み込みます。
+
+### 0.5. 実行フロー
 
 1. HCP Terraform が秘密鍵を用いて認証トークン（JWT）を生成
 2. Snowflake が登録済みの `DEV_TFRUNNER_USER` の公開鍵で検証

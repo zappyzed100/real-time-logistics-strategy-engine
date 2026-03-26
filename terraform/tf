@@ -12,6 +12,31 @@ if [[ -z "${APP_ENV:-}" && -f "${PROJECT_ROOT}/.env" ]]; then
   fi
 fi
 
+# Load Terraform settings from .env
+load_terraform_config() {
+  local env_file="${PROJECT_ROOT}/.env"
+  if [[ ! -f "${env_file}" ]]; then
+    return
+  fi
+  
+  local hcp_org="$(sed 's/\r$//' "${env_file}" | grep -E '^[[:space:]]*HCP_TF_ORGANIZATION[[:space:]]*=' | tail -n 1 | sed -E 's/^[[:space:]]*HCP_TF_ORGANIZATION[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//' | tr -d '"' | tr -d "'" || true)"
+  if [[ -n "${hcp_org}" ]]; then
+    HCP_TF_ORGANIZATION="${hcp_org}"
+  fi
+  
+  local ws_dev="$(sed 's/\r$//' "${env_file}" | grep -E '^[[:space:]]*HCP_TF_WORKSPACE_DEV[[:space:]]*=' | tail -n 1 | sed -E 's/^[[:space:]]*HCP_TF_WORKSPACE_DEV[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//' | tr -d '"' | tr -d "'" || true)"
+  if [[ -n "${ws_dev}" ]]; then
+    HCP_TF_WORKSPACE_DEV="${ws_dev}"
+  fi
+  
+  local ws_prod="$(sed 's/\r$//' "${env_file}" | grep -E '^[[:space:]]*HCP_TF_WORKSPACE_PROD[[:space:]]*=' | tail -n 1 | sed -E 's/^[[:space:]]*HCP_TF_WORKSPACE_PROD[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//' | tr -d '"' | tr -d "'" || true)"
+  if [[ -n "${ws_prod}" ]]; then
+    HCP_TF_WORKSPACE_PROD="${ws_prod}"
+  fi
+}
+
+load_terraform_config
+
 APP_ENV_LOWER="${APP_ENV:-dev}"
 case "${APP_ENV_LOWER}" in
   dev|prod)
@@ -28,23 +53,34 @@ export TF_VAR_app_env="${APP_ENV_LOWER}"
 APP_ENV_AUTO_TFVARS="${SCRIPT_DIR}/99_app_env.auto.tfvars"
 printf 'app_env = "%s"\n' "${APP_ENV_LOWER}" > "${APP_ENV_AUTO_TFVARS}"
 
-COMMON_BACKEND_CONFIG="${SCRIPT_DIR}/backend.hcl"
-ENV_BACKEND_CONFIG="${SCRIPT_DIR}/backend.${APP_ENV_LOWER}.hcl"
+# Remote backend settings (load from .env).
+HCP_TF_ORGANIZATION="${HCP_TF_ORGANIZATION:-zappyzed100}"
+case "${APP_ENV_LOWER}" in
+  dev)
+    HCP_TF_WORKSPACE="${HCP_TF_WORKSPACE_DEV:-dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms}"
+    ;;
+  prod)
+    HCP_TF_WORKSPACE="${HCP_TF_WORKSPACE_PROD:-prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms}"
+    ;;
+esac
 
-if [[ ! -f "${COMMON_BACKEND_CONFIG}" ]]; then
-  echo "[tf] Missing backend config: ${COMMON_BACKEND_CONFIG}" >&2
-  exit 1
-fi
-if [[ ! -f "${ENV_BACKEND_CONFIG}" ]]; then
-  echo "[tf] Missing backend config: ${ENV_BACKEND_CONFIG}" >&2
-  exit 1
-fi
+BACKEND_TMP_CONFIG="$(mktemp "${SCRIPT_DIR}/.backend.auto.XXXXXX.hcl")"
+cleanup() {
+  rm -f "${BACKEND_TMP_CONFIG}"
+}
+trap cleanup EXIT
+
+cat > "${BACKEND_TMP_CONFIG}" <<EOF
+organization = "${HCP_TF_ORGANIZATION}"
+workspaces {
+  name = "${HCP_TF_WORKSPACE}"
+}
+EOF
 
 ensure_init() {
   terraform -chdir="${SCRIPT_DIR}" init \
     -reconfigure \
-    -backend-config="${COMMON_BACKEND_CONFIG}" \
-    -backend-config="${ENV_BACKEND_CONFIG}" >/dev/null
+    -backend-config="${BACKEND_TMP_CONFIG}" >/dev/null
 }
 
 cmd="${1:-}"
@@ -58,8 +94,7 @@ case "${cmd}" in
   init)
     terraform -chdir="${SCRIPT_DIR}" init \
       -reconfigure \
-      -backend-config="${COMMON_BACKEND_CONFIG}" \
-      -backend-config="${ENV_BACKEND_CONFIG}" "$@"
+      -backend-config="${BACKEND_TMP_CONFIG}" "$@"
     ;;
   *)
     ensure_init

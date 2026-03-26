@@ -25,9 +25,10 @@ creds.json
 # 変数定義ファイル（パスワードなどが含まれるため除外）
 *.tfvars
 *.tfvars.json
-*backend.hcl
-*backend.dev.hcl
-*backend.prod.hcl
+
+# Terraform の実行時生成ファイル
+terraform/99_app_env.auto.tfvars
+terraform/.backend.auto.*.hcl
 
 
 # ログファイル

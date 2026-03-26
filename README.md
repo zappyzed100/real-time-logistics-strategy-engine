@@ -54,6 +54,17 @@ Snowflake の基盤リソースは `terraform/` 内で定義されており、Do
 
 > **初回セットアップ（キーペア認証・Bootstrap SQL・Workspace 変数登録）は [`terraform/README.md`](terraform/README.md) のセクション 0 を参照してください。**
 
+環境構成（ワークスペース名など）は `.env` で管理します：
+
+```bash
+# .env での Terraform 設定
+HCP_TF_ORGANIZATION=zappyzed100
+HCP_TF_WORKSPACE_DEV=dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
+HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
+```
+
+実行方法：
+
 ```bash
 # .env の APP_ENV に応じて DEV / PROD を自動判定して適用
 ./terraform/tf apply
