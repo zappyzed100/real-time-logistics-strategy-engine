@@ -21,6 +21,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=1.19.1",
+    "pandas>=2.3.3",
+    "pandas-stubs>=3.0.0.260204",
+    "pydeck>=0.9.1",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
     "ruff>=0.13.0",

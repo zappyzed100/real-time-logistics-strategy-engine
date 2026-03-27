@@ -121,17 +121,7 @@ def _check_reference_integrity() -> int:
         print("[check] SKIP: pyright is not available")
 
     if _can_run(["uv", "run", "mypy", "--version"]):
-        mypy_exit = _run(
-            [
-                "uv",
-                "run",
-                "mypy",
-                "--explicit-package-bases",
-                "--ignore-missing-imports",
-                "src",
-                "tests",
-            ]
-        )
+        mypy_exit = _run(["uv", "run", "mypy", "--explicit-package-bases", "src", "tests"])
         if mypy_exit != 0:
             return mypy_exit
     else:
