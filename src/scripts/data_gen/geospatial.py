@@ -8,7 +8,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-BASE_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "02_intermediate"
+# geospatial.py は src/scripts/data_gen 配下にあるため、プロジェクトルートは parents[3]
+BASE_DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "02_intermediate"
 JITTER_METERS = 500.0
 
 DatasetMode = Literal["lite", "strict"]

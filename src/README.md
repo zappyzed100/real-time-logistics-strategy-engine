@@ -85,7 +85,7 @@ schema = "MARKETING_MART"
 3. `src/scripts/data_gen/generate_large_data.py`
 - 受注・在庫データを生成
 
-4. `src/utils/geospatial.py`
+4. `src/scripts/data_gen/geospatial.py`
 - データ生成で使う地理情報ヘルパー
 
 5. `src/streamlit/app.py`

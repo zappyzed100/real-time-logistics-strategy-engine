@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from src.utils.geospatial import build_generation_context, generate_random_locations
+from src.scripts.data_gen.geospatial import build_generation_context, generate_random_locations
 
 
 def parse_args() -> argparse.Namespace:
