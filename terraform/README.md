@@ -137,11 +137,139 @@ PROD_TF_ADMIN_ROLE=PROD_TF_ADMIN_ROLE
 - 環境保護: CI の Environment 保護（承認必須・main 限定）
 - 監査: prod 実行は CI ログで追跡可能にする
 
-## 1. 実行手順
+## 1. GitHub Environment 保護設定（本番環境アクセス制御）
+
+本番環境（prod）への Terraform apply は、GitHub Environment による approval gate で制御します。  
+多層防御戦略（コード側ガード + CI ジョブ制御 + GitHub Environment 承認）の最外層に位置します。
+
+### 1.1. GitHub Environment `prod` の作成
+
+Repository Settings で Environment を作成します。
+
+**実行手順:**
+
+1. GitHub Repository > Settings > Environments
+2. "New environment" > Environment name に `prod` を入力
+3. "Configure environment" をクリック
+
+**参考リンク:** [GitHub Docs - Using environments for deployment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
+
+### 1.2. Required reviewers の設定
+
+Environment `prod` の保護ルール（Deployment protection rules）を設定します。
+
+**設定項目:**
+
+- **Environment name:** `prod`
+- **Deployment branches:** `main` のみに制限
+  - "Restrict deployments to specific branches" にチェック
+  - Branch pattern: `main` を選択
+- **Required reviewers:** 本番承認者を指定（最小 1 名以上）
+  - "Require reviewers to approve deployments to this environment" にチェック
+  - Require approval from: 承認者のGitHub アカウント or チームを選択
+
+**参考リンク:** [GitHub Docs - Deployment protection rules](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#required-reviewers)
+
+### 1.3. CI/CD での enforcement
+
+GitHub Actions の `terraform-prod-apply` ジョブが Environment `prod` を参照することで、以下が自動化・施行されます。
+
+```yaml
+jobs:
+  terraform-prod-apply:
+    environment: prod  # ← ここで実装
+    runs-on: ubuntu-latest
+    # 以降は artifact 取得 → apply 実行
+```
+
+**効果:**
+
+- `main` ブランチへの commit 時、CI が Environment approval を要求
+- 承認者の許可がなければ apply ジョブは実行されない
+- 承認完了まで apply は「pending」状態で待機
+
+### 1.4. 運用プロセス
+
+本番環境への変更は以下の流れで進みます。
+
+1. **開発:** ローカルで feature ブランチ作成 → コード修正 → テスト
+2. **プレビュー:** PR 作成 → terraform-prod-plan ジョブが plan 結果を表示
+3. **レビュー:** エンジニア + オペレーターが plan 内容を検討
+4. **承認:** PR をマージ（`Create a merge commit` でマージコミット保持）
+5. **approval gate:** CI が terraform-prod-apply ジョブで Environment 承認を要求
+6. **実行:** Required reviewer が GitHub UI で承認 → apply 実行
+7. **監査:** CI ログと GitHub Actions タブで実行履歴を確認可能
+
+### 1.5. トラブルシューティング
+
+| 状況 | 原因 | 対応 |
+|------|------|------|
+| apply ジョブが pending のまま | 承認者の approval を待機中 | Environments タブで承認者の action を待つ |
+| Environment 設定がない | prod Environment が未作成 | セクション 1.1 を参照して作成 |
+| 承認者だが Approve ボタンが出ない | GitHub の permissions 不足 | Organization オーナーに確認を要求 |
+
+### 1.6. 設定の変更管理
+
+Environment `prod` の設定を変更した場合は、**Issue #136** に以下の内容をコメントしてください。
+
+**記録フォーマット:**
+
+```
+## Environment prod 設定変更履歴
+
+### 変更日時: YYYY-MM-DD HH:MM JST
+### 実施者: @username
+### 変更内容:
+- [ ] Deployment branch 制限: main のみ
+- [ ] Required reviewers: 承認者数 N 名
+- [ ] 承認者: @user1, @user2, ...
+
+### 検証結果:
+- [ ] terraform-prod-plan が PR で実行確認
+- [ ] main マージ後に apply ジョブが pending 確認
+- [ ] 承認者による approval で apply 実行確認
+```
+
+### 1.7. GitHub Secrets の設定と管理
+
+CI/CD ワークフローで使用する秘密情報は、GitHub Repository Secrets として登録されます。  
+以下の一覧に従って、すべて設定されていることを確認してください。
+
+**Repository Secrets 設定一覧:**
+
+| Secret Name | 用途 | 設定対象環境 | 設定方法 |
+|-------------|------|-------------|---------|
+| `HCP_TERRAFORM_TOKEN` | HCP Terraform 認可トークン | 全環境 | [HCP Terraform > Account Settings > API Tokens](https://app.terraform.io/app/settings/tokens) より発行 |
+| `HCP_TF_ORGANIZATION` | HCP Terraform の Organization 名 | 全環境 | terraform/README.md セクション 0.3 参照 |
+| `SNOWFLAKE_ACCOUNT` | Snowflake Account ID | 全環境 | Snowflake アカウント設定より確認 |
+| `DEV_DBT_USER_RSA_PRIVATE_KEY` | DEV dbt 実行ユーザーの秘密鍵 | dev ワークスペース | terraform/README.md セクション 0.2 より生成 |
+| `DEV_LOADER_USER_RSA_PRIVATE_KEY` | DEV Loader 実行ユーザーの秘密鍵 | dev ワークスペース | terraform/README.md セクション 0.2 より生成 |
+| `DEV_STREAMLIT_USER_RSA_PRIVATE_KEY` | DEV Streamlit 実行ユーザーの秘密鍵 | dev ワークスペース | terraform/README.md セクション 0.2 より生成 |
+| `PROD_DBT_USER_RSA_PRIVATE_KEY` | PROD dbt 実行ユーザーの秘密鍵 | prod ワークスペース | terraform/README.md セクション 0.2 より生成 |
+| `PROD_LOADER_USER_RSA_PRIVATE_KEY` | PROD Loader 実行ユーザーの秘密鍵 | prod ワークスペース | terraform/README.md セクション 0.2 より生成 |
+| `PROD_STREAMLIT_USER_RSA_PRIVATE_KEY` | PROD Streamlit 実行ユーザーの秘密鍵 | prod ワークスペース | terraform/README.md セクション 0.2 より生成 |
+
+**設定手順:**
+
+1. GitHub Repository > Settings > Secrets and variables > Actions
+2. "New repository secret" をクリック
+3. Name に上表の Secret 名を入力
+4. Value に対応する秘密情報を貼り付け
+5. "Add secret" で確定
+
+**秘密鍵形式について:**
+
+- 秘密鍵（`.p8` ファイル）の内容をそのまま Secrets に登録してください
+- 改行コード（`\n`）はそのまま含めてください。CI ワークフロー側で自動復元されます
+- PEM 形式の開始・終了行（`-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----`）も含める
+
+**参考リンク:** [GitHub Docs - Using secrets in GitHub Actions](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions)
+
+## 2. 実行手順
 
 Docker コンテナ内で実行する場合も、初回は `terraform login` による認可が必要です。
 
-### 1.1. DEV / PROD 共通手順
+### 2.1. DEV / PROD 共通手順
 
 `terraform/tf` ラッパーを使うと、以下を自動化できます。
 
@@ -168,9 +296,9 @@ Docker コンテナ内で実行する場合も、初回は `terraform login` に
 - CI では `APP_ENV=prod ./terraform/tf plan` / `apply` の形式を利用できます。
 - ラッパーを使わずに `terraform` コマンドを直接実行する運用は推奨しません。
 
-## 2. 設計判断（ADR）
+## 3. 設計判断（ADR）
 
-### 2.1. `lifecycle.prevent_destroy = false` の採用
+### 3.1. `lifecycle.prevent_destroy = false` の採用
 
 `modules/snowflake_env/main.tf` の主要リソースで、あえて削除保護を無効化しています。
 
@@ -182,7 +310,7 @@ Docker コンテナ内で実行する場合も、初回は `terraform login` に
 
 - 構築完了後、本番環境で保護を強める場合は、Database/Schema/Role 等の重要リソースから順次 `true` へ変更を推奨
 
-### 2.2. Network Policy の未適用理由
+### 3.2. Network Policy の未適用理由
 
 理由:
 
