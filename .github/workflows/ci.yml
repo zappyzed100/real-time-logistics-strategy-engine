@@ -5,6 +5,13 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_prod_plan:
+        description: "Run prod terraform plan"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   lint-and-test:
@@ -75,18 +82,6 @@ jobs:
       env:
         APP_ENV: ${{ matrix.app_env }}
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        DEV_BRONZE_DB: ${{ vars.DEV_BRONZE_DB || 'DEV_BRONZE_DB' }}
-        DEV_SILVER_DB: ${{ vars.DEV_SILVER_DB || 'DEV_SILVER_DB' }}
-        DEV_GOLD_DB: ${{ vars.DEV_GOLD_DB || 'DEV_GOLD_DB' }}
-        PROD_BRONZE_DB: ${{ vars.PROD_BRONZE_DB || 'PROD_BRONZE_DB' }}
-        PROD_SILVER_DB: ${{ vars.PROD_SILVER_DB || 'PROD_SILVER_DB' }}
-        PROD_GOLD_DB: ${{ vars.PROD_GOLD_DB || 'PROD_GOLD_DB' }}
-        DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
-        PROD_DBT_USER: ${{ secrets.PROD_DBT_USER }}
-        DEV_DBT_ROLE: ${{ secrets.DEV_DBT_ROLE }}
-        PROD_DBT_ROLE: ${{ secrets.PROD_DBT_ROLE }}
-        DEV_DBT_WH: ${{ secrets.DEV_DBT_WAREHOUSE }}
-        PROD_DBT_WH: ${{ secrets.PROD_DBT_WAREHOUSE }}
         DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
@@ -119,14 +114,53 @@ jobs:
       env:
         APP_ENV: dev
         SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        DEV_BRONZE_DB: ${{ vars.DEV_BRONZE_DB || 'DEV_BRONZE_DB' }}
-        DEV_SILVER_DB: ${{ vars.DEV_SILVER_DB || 'DEV_SILVER_DB' }}
-        DEV_GOLD_DB: ${{ vars.DEV_GOLD_DB || 'DEV_GOLD_DB' }}
-        DEV_DBT_USER: ${{ secrets.DEV_DBT_USER }}
-        DEV_DBT_ROLE: ${{ secrets.DEV_DBT_ROLE }}
-        DEV_DBT_WH: ${{ secrets.DEV_DBT_WAREHOUSE }}
         DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
         SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
       run: |
         uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
+
+  terraform-prod-plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_prod_plan)
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Prepare env for terraform wrapper
+      env:
+        HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
+      run: |
+        if [ -z "${HCP_TF_ORGANIZATION}" ]; then
+          echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
+          exit 1
+        fi
+        printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
+
+    - name: Run prod terraform plan via wrapper
+      env:
+        APP_ENV: prod
+        CI: true
+        GITHUB_ACTIONS: true
+        TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+      run: |
+        mkdir -p artifacts/terraform
+        ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
+
+    - name: Save terraform plan artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-prod-plan-${{ github.run_id }}
+        path: |
+          artifacts/terraform/prod-plan.log
+          terraform/98_runtime.auto.tfvars
+          terraform/99_app_env.auto.tfvars
+        if-no-files-found: warn
