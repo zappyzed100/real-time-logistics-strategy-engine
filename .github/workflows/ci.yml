@@ -5,6 +5,13 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_prod_plan:
+        description: "Run prod terraform plan"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   lint-and-test:
@@ -130,3 +137,50 @@ jobs:
         SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
       run: |
         uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
+
+  terraform-prod-plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_prod_plan)
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Prepare env for terraform wrapper
+      env:
+        HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
+      run: |
+        if [ -z "${HCP_TF_ORGANIZATION}" ]; then
+          echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
+          exit 1
+        fi
+        cat > .env <<EOF
+HCP_TF_ORGANIZATION=${HCP_TF_ORGANIZATION}
+EOF
+
+    - name: Run prod terraform plan via wrapper
+      env:
+        APP_ENV: prod
+        CI: true
+        GITHUB_ACTIONS: true
+        TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+      run: |
+        mkdir -p artifacts/terraform
+        ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
+
+    - name: Save terraform plan artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-prod-plan-${{ github.run_id }}
+        path: |
+          artifacts/terraform/prod-plan.log
+          terraform/98_runtime.auto.tfvars
+          terraform/99_app_env.auto.tfvars
+        if-no-files-found: warn
