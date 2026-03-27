@@ -25,6 +25,17 @@ def _run(command: list[str]) -> int:
     return completed.returncode
 
 
+def _can_run(command: list[str]) -> bool:
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return completed.returncode == 0
+
+
 def _is_github_actions() -> bool:
     return os.getenv("GITHUB_ACTIONS", "").lower() == "true"
 
@@ -63,8 +74,8 @@ def _check_cr_in_files(paths: list[Path], label: str) -> int:
         return 0
 
     print(f"[check] ERROR: CR (\\r) found in {label}:", file=sys.stderr)
-    for path in offenders:
-        print(path, file=sys.stderr)
+    for offender in offenders:
+        print(offender, file=sys.stderr)
     return 1
 
 
@@ -95,6 +106,40 @@ def _check_default_dotenv_files() -> int:
     return _check_cr_in_files(existing_paths, "default dotenv files")
 
 
+def _check_reference_integrity() -> int:
+    # モジュール解決の実行時エラーは Ruff 単体では検知できないため、
+    # pytest --collect-only や pyright/mypy で補完する。
+    pytest_exit = _run(["uv", "run", "pytest", "tests/", "--collect-only", "-q"])
+    if pytest_exit != 0:
+        return pytest_exit
+
+    if _can_run(["uv", "run", "pyright", "--version"]):
+        pyright_exit = _run(["uv", "run", "pyright"])
+        if pyright_exit != 0:
+            return pyright_exit
+    else:
+        print("[check] SKIP: pyright is not available")
+
+    if _can_run(["uv", "run", "mypy", "--version"]):
+        mypy_exit = _run(
+            [
+                "uv",
+                "run",
+                "mypy",
+                "--explicit-package-bases",
+                "--ignore-missing-imports",
+                "src",
+                "tests",
+            ]
+        )
+        if mypy_exit != 0:
+            return mypy_exit
+    else:
+        print("[check] SKIP: mypy is not available")
+
+    return 0
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run lint and CRLF checks for tracked files, plus optional dotenv validation.",
@@ -107,6 +152,11 @@ def _parse_args() -> argparse.Namespace:
         "--fix",
         action="store_true",
         help="Apply Ruff auto-fixes locally (not intended for CI)",
+    )
+    parser.add_argument(
+        "--skip-reference-check",
+        action="store_true",
+        help="Skip pytest collection check for import/reference integrity.",
     )
     return parser.parse_args()
 
@@ -143,7 +193,14 @@ def main() -> int:
         return default_dotenv_exit
 
     if args.dotenv:
-        return _check_dotenv(args.dotenv)
+        dotenv_exit = _check_dotenv(args.dotenv)
+        if dotenv_exit != 0:
+            return dotenv_exit
+
+    if not args.skip_reference_check:
+        reference_exit = _check_reference_integrity()
+        if reference_exit != 0:
+            return reference_exit
 
     return 0
 

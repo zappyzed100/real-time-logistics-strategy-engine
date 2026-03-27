@@ -1,6 +1,8 @@
 import json
 import os
+from datetime import date
 from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 import pydeck as pdk
@@ -45,7 +47,7 @@ st.title("🚚 Logistics KPI Dashboard")
 
 # Snowpark Session
 @st.cache_resource
-def create_session():
+def create_session() -> Session:
     target_prefix = _target_env_prefix()
     pem = _required_env(f"{target_prefix}_STREAMLIT_USER_RSA_PRIVATE_KEY").replace("\\n", "\n")
     private_key_der = load_pem_private_key(pem.encode(), password=None).private_bytes(
@@ -53,24 +55,24 @@ def create_session():
         format=PrivateFormat.PKCS8,
         encryption_algorithm=NoEncryption(),
     )
-    return Session.builder.configs(
-        {
-            "account": _required_env("SNOWFLAKE_ACCOUNT"),
-            "user": _required_env(f"{target_prefix}_STREAMLIT_USER"),
-            "private_key": private_key_der,
-            "role": _required_env(f"{target_prefix}_STREAMLIT_ROLE"),
-            "warehouse": _required_env(f"{target_prefix}_STREAMLIT_WH"),
-            "database": _required_env(f"{target_prefix}_GOLD_DB"),
-            "schema": _required_env("SNOWFLAKE_GOLD_SCHEMA"),
-        }
-    ).create()
+    connection_options: dict[str, Any] = {
+        "account": _required_env("SNOWFLAKE_ACCOUNT"),
+        "user": _required_env(f"{target_prefix}_STREAMLIT_USER"),
+        "role": _required_env(f"{target_prefix}_STREAMLIT_ROLE"),
+        "warehouse": _required_env(f"{target_prefix}_STREAMLIT_WH"),
+        "database": _required_env(f"{target_prefix}_GOLD_DB"),
+        "schema": _required_env("SNOWFLAKE_GOLD_SCHEMA"),
+        "private_key": private_key_der,
+    }
+    builder = cast(Any, Session.builder)
+    return builder.configs(connection_options).create()
 
 
 session = create_session()
 
 
 @st.cache_data
-def get_analysis_data():
+def get_analysis_data() -> pd.DataFrame:
     return session.table(_required_env("STREAMLIT_ANALYSIS_TABLE")).to_pandas()
 
 
@@ -87,8 +89,9 @@ df["ORDER_DATE"] = df["ORDERED_AT"].dt.date
 st.sidebar.header("🔍 フィルタリングと設定")
 
 # フィルタ項目
-min_date, max_date = df["ORDER_DATE"].min(), df["ORDER_DATE"].max()
-selected_dates = st.sidebar.date_input("分析期間", value=[min_date, max_date], min_value=min_date, max_value=max_date)
+min_date = cast(date, df["ORDER_DATE"].min())
+max_date = cast(date, df["ORDER_DATE"].max())
+selected_dates = st.sidebar.date_input("分析期間", value=(min_date, max_date), min_value=min_date, max_value=max_date)
 all_centers = sorted(df["CENTER_NAME"].unique())
 selected_centers = st.sidebar.multiselect("配送拠点", options=all_centers, default=all_centers)
 
@@ -99,7 +102,7 @@ target_center = st.sidebar.selectbox("調整対象拠点", ["なし"] + all_cent
 base_adjustment = st.sidebar.number_input("拠点別コスト増減額 (円)", value=0)
 
 # --- データフィルタリング & シミュレーション計算 ---
-if len(selected_dates) == 2:
+if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     start_date, end_date = selected_dates
     mask = (df["ORDER_DATE"] >= start_date) & (df["ORDER_DATE"] <= end_date)
     filtered_df = df.loc[mask].copy()
@@ -136,11 +139,8 @@ with col3:
 st.subheader("分析詳細")
 tab1, tab2 = st.tabs(["拠点別コスト集計", "拠点別データ一覧"])
 
-warehouse_summary = (
-    filtered_df.groupby("CENTER_NAME")
-    .agg({"SIMULATED_COST": "sum", "ORDER_ID": "count"})
-    .rename(columns={"ORDER_ID": "注文数"})
-)
+warehouse_summary = filtered_df.groupby("CENTER_NAME").agg({"SIMULATED_COST": "sum", "ORDER_ID": "count"})
+warehouse_summary = cast(Any, warehouse_summary).rename(columns={"ORDER_ID": "注文数"})
 
 with tab1:
     st.bar_chart(warehouse_summary["SIMULATED_COST"], width="stretch")
@@ -163,7 +163,7 @@ map_cols = [
 ]
 
 if all(col in filtered_df.columns for col in map_cols):
-    plot_df = filtered_df.dropna(subset=map_cols).copy()
+    plot_df = cast(Any, filtered_df).dropna(subset=map_cols).copy()
     center_df = plot_df[["CENTER_NAME", "CENTER_LAT", "CENTER_LON"]].drop_duplicates().copy()
 
     def calculate_colors(df_input):
@@ -202,19 +202,21 @@ if all(col in filtered_df.columns for col in map_cols):
 
     view_state = pdk.ViewState(latitude=36.0, longitude=138.0, zoom=5, pitch=45)
 
+    tooltip: Any = {
+        "html": (
+            "<b>注文ID:</b> {ORDER_ID}<br>"
+            "<b>配送拠点:</b> {CENTER_NAME}<br>"
+            "<hr>"
+            "<b>重量:</b> {WEIGHT_KG} kg<br>"
+            "<b>配送コスト:</b> ¥{SIMULATED_COST}"
+        ),
+        "style": {"color": "white", "backgroundColor": "steelblue"},
+    }
+
     r = pdk.Deck(
         layers=[customer_layer, center_layer],
         initial_view_state=view_state,
-        tooltip={
-            "html": (
-                "<b>注文ID:</b> {ORDER_ID}<br>"
-                "<b>配送拠点:</b> {CENTER_NAME}<br>"
-                "<hr>"
-                "<b>重量:</b> {WEIGHT_KG} kg<br>"
-                "<b>配送コスト:</b> ¥{SIMULATED_COST}"
-            ),
-            "style": {"color": "white", "backgroundColor": "steelblue"},
-        },
+        tooltip=tooltip,
     )
     st.pydeck_chart(r)
 else:
