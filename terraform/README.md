@@ -353,7 +353,9 @@ CI/CD ワークフローで使用する秘密情報は、GitHub Repository Secre
 
 ## 2. 実行手順
 
-Docker コンテナ内で実行する場合も、初回は `terraform login` による認可が必要です。
+`terraform/tf` は `.env.shared` / `.env` または CI Secrets から
+`TF_TOKEN_app_terraform_io`（互換: `HCP_TERRAFORM_TOKEN`, `HCP_TF_TEAM_API_TOKEN`）を読み込みます。
+`terraform login` は不要です。
 
 ### 2.1. DEV / PROD 共通手順
 
@@ -381,6 +383,33 @@ Docker コンテナ内で実行する場合も、初回は `terraform login` に
 
 - CI では `APP_ENV=prod ./terraform/tf plan` / `apply` の形式を利用できます。
 - ラッパーを使わずに `terraform` コマンドを直接実行する運用は推奨しません。
+
+## 2.2. 復旧手順（運用者向け Runbook）
+
+prod apply が失敗した場合、次の順で切り分けて復旧してください。
+
+1. **Actions 実行履歴の確認**
+    - 対象 run: `CI Pipeline` の `terraform-prod-apply`
+    - `prod-apply.log` artifact をダウンロードしてエラー行を特定
+2. **Environment 保護の確認**
+    - `Settings > Environments > prod`
+    - Deployment branches が `main` 限定か確認
+    - Required reviewers が有効か確認
+3. **Secrets の有効性確認**
+    - `HCP_TERRAFORM_TOKEN` が CI 用 Team API Token であること
+    - `HCP_TF_ORGANIZATION` が正しいこと
+    - トークン失効時は再発行して Secrets を更新
+4. **HCP Terraform 権限確認**
+    - CI 用 Team が prod workspace で apply 可能であること
+    - 開発者ロールに prod apply 権限が付与されていないこと
+5. **再実行**
+    - 必要に応じて main へ修正コミットをマージし、再度 approval 後に apply
+
+**緊急時（break-glass）ポリシー:**
+
+- 原則としてローカルから prod 変更は行わない
+- 例外対応は Issue を起票し、実施者・理由・実行コマンド・結果を記録する
+- 事後に CI 経路へ設定を戻し、Secrets と権限の棚卸しを実施する
 
 ## 3. 設計判断（ADR）
 
