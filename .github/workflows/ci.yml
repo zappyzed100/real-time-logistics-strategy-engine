@@ -160,9 +160,7 @@ jobs:
           echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
           exit 1
         fi
-        cat > .env <<EOF
-HCP_TF_ORGANIZATION=${HCP_TF_ORGANIZATION}
-EOF
+          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
 
     - name: Run prod terraform plan via wrapper
       env:
