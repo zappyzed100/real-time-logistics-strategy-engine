@@ -73,32 +73,41 @@ uv run streamlit run src/streamlit/app.py
 ### 維持対象 (現役)
 
 1. `src/scripts/deploy/run_dbt.py`
+
 - dbt 実行の標準入口
 
-2. `src/infrastructure/snowflake_loader.py`
+1. `src/infrastructure/snowflake_loader.py`
+
 - CSV を Bronze テーブルへロード
 
-3. `src/scripts/data_gen/generate_large_data.py`
+1. `src/scripts/data_gen/generate_large_data.py`
+
 - 受注・在庫データを生成
 
-4. `src/scripts/data_gen/geospatial.py`
+1. `src/scripts/data_gen/geospatial.py`
+
 - データ生成で使う地理情報ヘルパー
 
-5. `src/streamlit/app.py`
+1. `src/streamlit/app.py`
+
 - Gold 層結果の可視化
 
 ### 見直し候補 (レガシー寄り)
 
 1. `src/scripts/deploy/deploy_udf.py`
+
 - 旧 Python UDF 登録用途
 
-2. `src/scripts/benchmark/measure_performance.py`
+1. `src/scripts/benchmark/measure_performance.py`
+
 - 旧 UDF 前提の計測用途
 
-3. `src/connection_test.py`
+1. `src/connection_test.py`
+
 - 単発の接続確認用途
 
-4. `src/udf/delivery_cost_calculator.py`
+1. `src/udf/delivery_cost_calculator.py`
+
 - `tests/test_udf.py` が参照するため削除は要注意
 
 ## 5. 整理の進め方
@@ -106,4 +115,3 @@ uv run streamlit run src/streamlit/app.py
 1. 先に README から導線を外す
 2. `src/legacy` へ移動して一定期間様子を見る
 3. 問題なければ削除とテスト更新を同時に行う
-

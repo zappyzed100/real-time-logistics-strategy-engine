@@ -37,17 +37,22 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM base AS development
 
-# Development toolchain: gh, git, terraform, tflint.
+# Development toolchain: gh, git, terraform, tflint, hadolint, shellcheck, taplo, yamllint, markdownlint-cli2.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     git \
     curl \
     unzip \
+    nodejs \
+    npm \
+    shellcheck \
+    yamllint \
     && wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor > /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && chmod 644 /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends terraform gh \
+    && npm install -g markdownlint-cli2 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN TFLINT_VERSION=v0.54.0 \
@@ -55,6 +60,15 @@ RUN TFLINT_VERSION=v0.54.0 \
     && unzip -q /tmp/tflint.zip -d /usr/local/bin \
     && chmod +x /usr/local/bin/tflint \
     && rm -f /tmp/tflint.zip
+
+RUN HADOLINT_VERSION=v2.12.0 \
+    && curl -sSL -o /usr/local/bin/hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
+    && chmod +x /usr/local/bin/hadolint
+
+RUN TAPLO_VERSION=0.9.3 \
+    && curl -sSL "https://github.com/tamasfe/taplo/releases/download/${TAPLO_VERSION}/taplo-linux-x86_64.gz" \
+    | gzip -d > /usr/local/bin/taplo \
+    && chmod +x /usr/local/bin/taplo
 
 COPY --from=deps-dev /app/.venv /app/.venv
 COPY . .

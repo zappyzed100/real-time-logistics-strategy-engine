@@ -49,9 +49,13 @@ export_tf_var_from_env() {
 }
 
 configure_snowflake_provider_vars() {
-  local organization_name="$(read_env_value "SNOWFLAKE_ORGANIZATION_NAME")"
-  local account_name="$(read_env_value "SNOWFLAKE_ACCOUNT_NAME")"
-  local account_identifier="$(read_env_value "SNOWFLAKE_ACCOUNT")"
+  local organization_name
+  local account_name
+  local account_identifier
+
+  organization_name="$(read_env_value "SNOWFLAKE_ORGANIZATION_NAME")"
+  account_name="$(read_env_value "SNOWFLAKE_ACCOUNT_NAME")"
+  account_identifier="$(read_env_value "SNOWFLAKE_ACCOUNT")"
 
   if [[ -z "${organization_name}" || -z "${account_name}" ]]; then
     if [[ -n "${account_identifier}" && "${account_identifier}" == *-* ]]; then
@@ -146,23 +150,27 @@ fi
 
 # Load Terraform settings from .env.shared -> .env
 load_terraform_config() {
-  local hcp_org="$(read_env_value "HCP_TF_ORGANIZATION")"
+  local hcp_org
+  hcp_org="$(read_env_value "HCP_TF_ORGANIZATION")"
   if [[ -n "${hcp_org}" ]]; then
     HCP_TF_ORGANIZATION="${hcp_org}"
   fi
 
-  local ws_dev="$(read_env_value "HCP_TF_WORKSPACE_DEV")"
+  local ws_dev
+  ws_dev="$(read_env_value "HCP_TF_WORKSPACE_DEV")"
   if [[ -n "${ws_dev}" ]]; then
     HCP_TF_WORKSPACE_DEV="${ws_dev}"
   fi
 
-  local ws_prod="$(read_env_value "HCP_TF_WORKSPACE_PROD")"
+  local ws_prod
+  ws_prod="$(read_env_value "HCP_TF_WORKSPACE_PROD")"
   if [[ -n "${ws_prod}" ]]; then
     HCP_TF_WORKSPACE_PROD="${ws_prod}"
   fi
 
   # Prefer explicit Terraform CLI token key, then compatibility aliases.
-  local tf_token="$(read_env_value "TF_TOKEN_app_terraform_io")"
+  local tf_token
+  tf_token="$(read_env_value "TF_TOKEN_app_terraform_io")"
   if [[ -z "${tf_token}" ]]; then
     tf_token="$(read_env_value "HCP_TERRAFORM_TOKEN")"
   fi

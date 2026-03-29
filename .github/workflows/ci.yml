@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
       run_prod_plan:
@@ -14,39 +14,146 @@ on:
         default: true
 
 jobs:
-  lint-and-test:
+  lint:
+    name: lint-${{ matrix.check }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: python
+            install_uv: true
+            setup_python: true
+            install_dependencies: true
+          - check: yaml
+            install_uv: true
+            setup_python: false
+            install_dependencies: false
+          - check: shell
+            install_uv: false
+            setup_python: false
+            install_dependencies: false
+          - check: markdown
+            install_uv: false
+            setup_python: false
+            install_dependencies: false
+          - check: docker
+            install_uv: false
+            setup_python: false
+            install_dependencies: false
+          - check: toml
+            install_uv: false
+            setup_python: false
+            install_dependencies: false
+          - check: terraform
+            install_uv: false
+            setup_python: false
+            install_dependencies: false
+    steps:
+      - &checkout_step
+        name: Checkout code
+        uses: actions/checkout@v6
+
+      - &install_uv_step
+        name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # キャッシュを有効にして実行速度を向上
+          enable-cache: true
+          version: "latest"
+
+      - &setup_python_step
+        name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - &install_dependencies_step
+        name: Install dependencies
+        # uv sync で pyproject.toml / uv.lock から環境を完全再現
+        run: uv sync --frozen --all-groups
+
+      - name: Install uv
+        if: matrix.install_uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python 3.11
+        if: matrix.setup_python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        if: matrix.install_dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Setup Terraform
+        if: matrix.check == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install shellcheck
+        if: matrix.check == 'shell'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+
+      - name: Install markdownlint-cli2
+        if: matrix.check == 'markdown'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nodejs npm
+          npm install -g markdownlint-cli2
+
+      - name: Install hadolint
+        if: matrix.check == 'docker'
+        run: |
+          HADOLINT_VERSION=v2.12.0
+          curl -sSL -o hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          chmod +x hadolint
+          sudo mv hadolint /usr/local/bin/hadolint
+
+      - name: Install taplo
+        if: matrix.check == 'toml'
+        run: |
+          TAPLO_VERSION=0.9.3
+          curl -sSL "https://github.com/tamasfe/taplo/releases/download/${TAPLO_VERSION}/taplo-linux-x86_64.gz" \
+            | gzip -d > taplo
+          chmod +x taplo
+          sudo mv taplo /usr/local/bin/taplo
+
+      - name: Install tflint
+        if: matrix.check == 'terraform'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unzip
+          TFLINT_VERSION=v0.54.0
+          curl -sSL -o tflint.zip "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip"
+          unzip -q tflint.zip
+          chmod +x tflint
+          sudo mv tflint /usr/local/bin/tflint
+          rm -f tflint.zip
+
+      - name: Run lint check
+        # check_code_quality.py はローカルでは直列実行、CIでは matrix で並列実行する。
+        run: |
+          python3 src/scripts/quality/check_code_quality.py --only ${{ matrix.check }}
+
+  test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        # キャッシュを有効にして実行速度を向上
-        enable-cache: true
-        version: "latest"
-
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      # uv sync で pyproject.toml / uv.lock から環境を完全再現
-      run: uv sync --frozen --all-groups
-
-    - name: Run code quality checks
-      # Ruff と CR 混入チェックをまとめて実行する。
-      # .env は Git 管理外だが、ローカルに存在する場合はスクリプト側で確認する。
-      run: |
-        uv run python src/scripts/quality/check_code_quality.py
-
-    - name: Test with pytest
-      # src/connection_test.py が pytest の収集対象になりエラーを吐くのを防ぐため、
-      # 明示的に tests/ ディレクトリを指定するか、収集対象から除外します。
-      run: |
-        uv run pytest tests/
+      - name: Test with pytest
+        # src/connection_test.py が pytest の収集対象になりエラーを吐くのを防ぐため、
+        # 明示的に tests/ ディレクトリを指定するか、収集対象から除外します。
+        run: |
+          uv run pytest tests/
 
   dbt-debug:
     runs-on: ubuntu-latest
@@ -57,68 +164,48 @@ jobs:
       matrix:
         app_env: [dev, prod]
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        version: "latest"
+      - name: Show app env
+        env:
+          APP_ENV: ${{ matrix.app_env }}
+        run: |
+          echo "APP_ENV=${APP_ENV}"
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      run: uv sync --frozen --all-groups
-
-    - name: Show app env
-      env:
-        APP_ENV: ${{ matrix.app_env }}
-      run: |
-        echo "APP_ENV=${APP_ENV}"
-
-    - name: Run dbt debug
-      env:
-        APP_ENV: ${{ matrix.app_env }}
-        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-        PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-      run: |
-        uv run python src/scripts/deploy/run_dbt.py debug
+      - name: Run dbt debug
+        env:
+          APP_ENV: ${{ matrix.app_env }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          uv run python src/scripts/deploy/run_dbt.py debug
 
   dbt-rebuild-verify-dev:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        version: "latest"
-
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      run: uv sync --frozen --all-groups
-
-    - name: Verify dbt rebuild on dev
-      env:
-        APP_ENV: dev
-        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-      run: |
-        uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
+      - name: Verify dbt rebuild on dev
+        env:
+          APP_ENV: dev
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
 
   terraform-prod-plan:
     runs-on: ubuntu-latest
@@ -128,102 +215,98 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_prod_plan)
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Prepare env for terraform wrapper
+        env:
+          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
+        run: |
+          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
+            echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
+            exit 1
+          fi
+          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
 
-    - name: Prepare env for terraform wrapper
-      env:
-        HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-      run: |
-        if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-          echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
-          exit 1
-        fi
-        printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
+      - name: Run prod terraform plan via wrapper
+        env:
+          APP_ENV: prod
+          CI: true
+          GITHUB_ACTIONS: true
+          TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+        run: |
+          mkdir -p artifacts/terraform
+          ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
 
-    - name: Run prod terraform plan via wrapper
-      env:
-        APP_ENV: prod
-        CI: true
-        GITHUB_ACTIONS: true
-        TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-      run: |
-        mkdir -p artifacts/terraform
-        ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
-
-    - name: Save terraform plan artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-prod-plan-${{ github.run_id }}
-        path: |
-          artifacts/terraform/prod-plan.log
-          terraform/98_runtime.auto.tfvars
-          terraform/99_app_env.auto.tfvars
-        if-no-files-found: warn
+      - name: Save terraform plan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-prod-plan-${{ github.run_id }}
+          path: |
+            artifacts/terraform/prod-plan.log
+            terraform/98_runtime.auto.tfvars
+            terraform/99_app_env.auto.tfvars
+          if-no-files-found: warn
 
   terraform-prod-apply:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     environment: prod
-    needs: [lint-and-test]
+    needs: [lint, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Prepare env for terraform wrapper
+        env:
+          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
+        run: |
+          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
+            echo "[terraform-prod-apply] HCP_TF_ORGANIZATION secret is required" >&2
+            exit 1
+          fi
+          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
 
-    - name: Prepare env for terraform wrapper
-      env:
-        HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-      run: |
-        if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-          echo "[terraform-prod-apply] HCP_TF_ORGANIZATION secret is required" >&2
-          exit 1
-        fi
-        printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
+      - name: Run prod terraform apply via wrapper
+        env:
+          APP_ENV: prod
+          CI: true
+          GITHUB_ACTIONS: true
+          TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+        run: |
+          mkdir -p artifacts/terraform
+          ./terraform/tf apply -auto-approve | tee artifacts/terraform/prod-apply.log
 
-    - name: Run prod terraform apply via wrapper
-      env:
-        APP_ENV: prod
-        CI: true
-        GITHUB_ACTIONS: true
-        TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-      run: |
-        mkdir -p artifacts/terraform
-        ./terraform/tf apply -auto-approve | tee artifacts/terraform/prod-apply.log
+      - name: Save terraform apply artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-prod-apply-${{ github.run_id }}
+          path: |
+            artifacts/terraform/prod-apply.log
+            terraform/98_runtime.auto.tfvars
+            terraform/99_app_env.auto.tfvars
+          if-no-files-found: warn
 
-    - name: Save terraform apply artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-prod-apply-${{ github.run_id }}
-        path: |
-          artifacts/terraform/prod-apply.log
-          terraform/98_runtime.auto.tfvars
-          terraform/99_app_env.auto.tfvars
-        if-no-files-found: warn
-
-    - name: Comment on commit with apply result
-      if: always()
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const applyLog = fs.readFileSync('artifacts/terraform/prod-apply.log', 'utf8');
-          const summary = applyLog.includes('Apply complete!') ? '✅ Apply completed successfully' : '⚠️ Apply encountered warnings or errors';
-          github.rest.repos.createCommitComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            commit_sha: context.sha,
-            body: `${summary}\n\n[View artifacts](${context.payload.pull_request?.html_url || context.ref})`
-          });
+      - name: Comment on commit with apply result
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const applyLog = fs.readFileSync('artifacts/terraform/prod-apply.log', 'utf8');
+            const summary = applyLog.includes('Apply complete!') ? '✅ Apply completed successfully' : '⚠️ Apply encountered warnings or errors';
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `${summary}\n\n[View artifacts](${context.payload.pull_request?.html_url || context.ref})`
+            });
 
   prod-loader-run:
     runs-on: ubuntu-latest
@@ -233,37 +316,27 @@ jobs:
     needs: [terraform-prod-apply]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        version: "latest"
+      - name: Run prod snowflake loader
+        env:
+          APP_ENV: prod
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
+        run: |
+          mkdir -p artifacts/data-pipeline
+          uv run python src/infrastructure/snowflake_loader.py | tee artifacts/data-pipeline/prod-loader.log
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      run: uv sync --frozen --all-groups
-
-    - name: Run prod snowflake loader
-      env:
-        APP_ENV: prod
-        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
-      run: |
-        mkdir -p artifacts/data-pipeline
-        uv run python src/infrastructure/snowflake_loader.py | tee artifacts/data-pipeline/prod-loader.log
-
-    - name: Save loader artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: prod-loader-${{ github.run_id }}
-        path: artifacts/data-pipeline/prod-loader.log
-        if-no-files-found: warn
+      - name: Save loader artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-loader-${{ github.run_id }}
+          path: artifacts/data-pipeline/prod-loader.log
+          if-no-files-found: warn
 
   prod-dbt-run:
     runs-on: ubuntu-latest
@@ -273,41 +346,31 @@ jobs:
     needs: [prod-loader-run]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        version: "latest"
+      - name: Run prod dbt run
+        env:
+          APP_ENV: prod
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          mkdir -p artifacts/data-pipeline
+          uv run python src/scripts/deploy/run_dbt.py run | tee artifacts/data-pipeline/prod-dbt-run.log
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      run: uv sync --frozen --all-groups
-
-    - name: Run prod dbt run
-      env:
-        APP_ENV: prod
-        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-      run: |
-        mkdir -p artifacts/data-pipeline
-        uv run python src/scripts/deploy/run_dbt.py run | tee artifacts/data-pipeline/prod-dbt-run.log
-
-    - name: Save dbt run artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: prod-dbt-run-${{ github.run_id }}
-        path: |
-          artifacts/data-pipeline/prod-dbt-run.log
-          enterprise_data_pipeline/target/run_results.json
-        if-no-files-found: warn
+      - name: Save dbt run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-dbt-run-${{ github.run_id }}
+          path: |
+            artifacts/data-pipeline/prod-dbt-run.log
+            enterprise_data_pipeline/target/run_results.json
+          if-no-files-found: warn
 
   prod-dbt-test:
     runs-on: ubuntu-latest
@@ -317,38 +380,28 @@ jobs:
     needs: [prod-dbt-run]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        version: "latest"
+      - name: Run prod dbt test
+        env:
+          APP_ENV: prod
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          mkdir -p artifacts/data-pipeline
+          uv run python src/scripts/deploy/run_dbt.py test | tee artifacts/data-pipeline/prod-dbt-test.log
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-
-    - name: Install dependencies
-      run: uv sync --frozen --all-groups
-
-    - name: Run prod dbt test
-      env:
-        APP_ENV: prod
-        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-        PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
-        SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-      run: |
-        mkdir -p artifacts/data-pipeline
-        uv run python src/scripts/deploy/run_dbt.py test | tee artifacts/data-pipeline/prod-dbt-test.log
-
-    - name: Save dbt test artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: prod-dbt-test-${{ github.run_id }}
-        path: |
-          artifacts/data-pipeline/prod-dbt-test.log
-          enterprise_data_pipeline/target/run_results.json
-        if-no-files-found: warn
+      - name: Save dbt test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-dbt-test-${{ github.run_id }}
+          path: |
+            artifacts/data-pipeline/prod-dbt-test.log
+            enterprise_data_pipeline/target/run_results.json
+          if-no-files-found: warn

@@ -21,7 +21,7 @@ services:
 
   # FastAPI: ロジック/APIレイヤー
   api:
-    profiles: [ "api" ]
+    profiles: ["api"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -41,7 +41,7 @@ services:
 
   # Dagster: オーケストレーション
   dagster:
-    profiles: [ "orchestration" ]
+    profiles: ["orchestration"]
     build:
       context: .
       dockerfile: Dockerfile

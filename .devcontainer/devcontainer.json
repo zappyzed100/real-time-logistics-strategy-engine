@@ -22,11 +22,20 @@
                 // uv が作成する仮想環境の Python を使用
                 "python.defaultInterpreterPath": "/app/.venv/bin/python",
                 "python.terminal.activateEnvironment": true,
-                "python.testing.pytestEnabled": true
+                "python.testing.pytestEnabled": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll.ruff": "explicit",
+                        "source.organizeImports.ruff": "explicit"
+                    }
+                }
             },
             "extensions": [
                 "ms-python.python",
                 "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
                 "tamasfe.even-better-toml",
                 "ms-azuretools.vscode-docker"
             ]
