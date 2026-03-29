@@ -44,3 +44,34 @@ In CI, explicitly choose build target by job purpose:
 
 - lint/test jobs that need tooling: `--target development`
 - deployment image build/push: `--target production`
+
+## Production Approval Flow (Issue #161)
+
+The production deployment flow now requires only one manual approval.
+
+### Trigger scope
+
+- `terraform-prod-plan`
+  - runs on `pull_request`, `push(main)`, and `workflow_dispatch` (when `run_prod_plan=true`)
+
+### Approval gate
+
+- `prod-approval-gate`
+  - runs only on `push` to `main`
+  - uses `environment: prod` (single approval point)
+  - depends on `lint`, `test`, and `terraform-prod-plan`
+
+### Auto-continue after approval
+
+Once `prod-approval-gate` is approved, jobs continue automatically in this order:
+
+1. `terraform-prod-apply`
+2. `prod-loader-run`
+3. `prod-dbt-run`
+4. `prod-dbt-test`
+
+### Operational effect
+
+- Approval count for production deploy is reduced to one.
+- Plan review remains possible before approval.
+- Infrastructure apply and data pipeline execution are treated as one release unit.

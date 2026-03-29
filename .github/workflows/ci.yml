@@ -213,6 +213,7 @@ jobs:
       contents: read
     if: |
       github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_prod_plan)
     steps:
       - *checkout_step
@@ -250,12 +251,23 @@ jobs:
             terraform/99_app_env.auto.tfvars
           if-no-files-found: warn
 
+  prod-approval-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: prod
+    needs: [lint, test, terraform-prod-plan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for production approval
+        run: |
+          echo "Production approval received. Continue apply -> loader -> dbt run -> dbt test."
+
   terraform-prod-apply:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    environment: prod
-    needs: [lint, test]
+    needs: [prod-approval-gate]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - *checkout_step
@@ -312,7 +324,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    environment: prod
     needs: [terraform-prod-apply]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
@@ -342,7 +353,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    environment: prod
     needs: [prod-loader-run]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
@@ -376,7 +386,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    environment: prod
     needs: [prod-dbt-run]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
