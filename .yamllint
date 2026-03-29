@@ -2,7 +2,7 @@ extends: default
 
 ignore: |
   .venv/
-  enterprise_data_pipeline/target/
+  src/transform/target/
 
 rules:
   document-start: disable

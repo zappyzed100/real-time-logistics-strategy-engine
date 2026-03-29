@@ -379,7 +379,7 @@ jobs:
           name: prod-dbt-run-${{ github.run_id }}
           path: |
             artifacts/data-pipeline/prod-dbt-run.log
-            enterprise_data_pipeline/target/run_results.json
+            src/transform/target/run_results.json
           if-no-files-found: warn
 
   prod-dbt-test:
@@ -412,5 +412,5 @@ jobs:
           name: prod-dbt-test-${{ github.run_id }}
           path: |
             artifacts/data-pipeline/prod-dbt-test.log
-            enterprise_data_pipeline/target/run_results.json
+            src/transform/target/run_results.json
           if-no-files-found: warn

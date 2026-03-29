@@ -1,4 +1,4 @@
-enterprise_data_pipeline:
+transform:
   outputs:
     dev:
       type: snowflake

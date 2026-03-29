@@ -17,6 +17,11 @@ creds.json
 # Streamlit
 .streamlit/*
 
+# dbt (src/transform)
+src/transform/target/
+src/transform/dbt_packages/
+src/transform/logs/
+
 # Terraform の一時ディレクトリとプラグイン
 **/.terraform/
 
