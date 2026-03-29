@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     image: real-time-logistics-strategy-engine:latest
     container_name: real-time-logistics-strategy-engine-streamlit
     ports:
@@ -24,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     image: real-time-logistics-strategy-engine:latest
     container_name: real-time-logistics-strategy-engine-api
     ports:
@@ -43,6 +45,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: development
     image: real-time-logistics-strategy-engine:latest
     container_name: real-time-logistics-strategy-engine-dagster
     ports:
