@@ -1,0 +1,8 @@
+{
+    // Keep markdown lint useful for structure; only relax line length for Japanese docs.
+    "config": {
+        "default": true,
+        "MD013": false,
+        "MD060": false
+    }
+}

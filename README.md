@@ -11,12 +11,14 @@
 本プロジェクトでは、変更の追跡可能性と運用の透明性を重視し、時期に応じてマージ戦略を明示的に使い分けています。
 
 ### マージ戦略の変遷
+
 - **2026/03/26 以前:**
   開発速度とメインブランチの可読性を優先し、Atomic PR（関心事の分離）を前提とした `Squash and merge` を採用。過去の履歴には集約されたコミットが含まれます。
 - **2026/03/27 以降:**
   稼働実績の客観的可視化および試行錯誤プロセスの完全な保持を目的として、`Squash and merge` を廃止。個別コミットのタイムスタンプと実装の変遷をすべて保持する `Create a merge commit` を原則運用とします。
 
 ### 運用の意図
+
 この運用変更は、データエンジニアリングにおける「欠損を許さない品質管理」の考え方を、自身の開発活動ログ（メタデータ）にも適用するという方針に基づいています。採用担当者の方は、`git log` を通じて日々の作業密度や技術的判断の推移をシステム的に検証することが可能です。
 
 ## 2. クイックスタート（Docker 実行）
@@ -40,7 +42,7 @@ cp .env.example .env
 - 本番環境（prod）への実行は CI からのみ許可されます
 - 環境切り替えの内部実装は運用者向けドキュメントで管理します
 
-- Streamlit Secrets（`.streamlit/secrets.toml`）: 
+- Streamlit Secrets（`.streamlit/secrets.toml`）:
 
 ```toml
 [connections.snowpark]
@@ -64,6 +66,7 @@ docker compose up --build
 # フルスタック (API / Dagster を含む場合)
 docker compose --profile api --profile orchestration up --build
 ```
+
 ## 3. インフラ管理（HCP Terraform）
 
 Snowflake の基盤リソースは `terraform/` 内で定義されており、Docker コンテナから HCP Terraform 経由で適用します。
@@ -114,8 +117,7 @@ docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 
 ### 4.3. モデル参照（Streamlit）
 
-`http://localhost:8501` 
-
+`http://localhost:8501`
 
 ## 5. 設計判断とディレクトリ要点
 
@@ -142,4 +144,3 @@ docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 - dbt モデルの詳細: `enterprise_data_pipeline/README.md`
 - Terraform 運用ガイド: `terraform/README.md`
 - Python モジュール詳細: `src/README.md`
-

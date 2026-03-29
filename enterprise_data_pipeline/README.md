@@ -7,20 +7,24 @@
 本プロジェクトの dbt は、以下を前提に動きます。
 
 1. Snowflake の Medallion 構成
+
 - Bronze: `DEV_BRONZE_DB.RAW_DATA` (生データ)
 - Silver: `DEV_SILVER_DB.CLEANSED` (型変換・クレンジング)
 - Gold: `DEV_GOLD_DB.MARKETING_MART` (分析用公開層)
 
-2. 接続方式
+1. 接続方式
+
 - dbt の接続はパスワードではなく RSA 鍵認証を使用
 - `.env` を直接 dbt が読むのではなく、`src/scripts/deploy/run_dbt.py` が `.env` を読んで dbt を起動
 
-3. 配送コスト計算
+1. 配送コスト計算
+
 - 以前の Python UDF 依存をやめ、Pure SQL に移行
 - `models/intermediate/int_delivery_cost_candidates.sql` で Haversine 計算を実施
 - `models/marts/fct_delivery_analysis.sql` で注文ごとに最安配送候補を選定
 
-4. スキーマ名の安定化
+1. スキーマ名の安定化
+
 - `macros/generate_schema_name.sql` で schema 名の連結挙動を固定
 - `CLEANSED_CLEANSED` のような意図しないスキーマ生成を防止
 
@@ -136,14 +140,17 @@ uv run python src/scripts/deploy/run_dbt.py test
 ## 6. よくあるエラーと対処
 
 1. `Insufficient privileges to operate on database ...`
+
 - 原因: Snowflake 権限未反映
 - 対処: `terraform apply` を実行し、DB 権限 (`USAGE`, `CREATE SCHEMA`) を反映
 
-2. `InvalidByte(0, 92)` など秘密鍵関連エラー
+1. `InvalidByte(0, 92)` など秘密鍵関連エラー
+
 - 原因: `.env` の鍵改行が正規化されていない
 - 対処: `run_dbt.py` 経由で実行する (手動で `dbt` を直実行しない)
 
-3. `Object ... does not exist or not authorized`
+1. `Object ... does not exist or not authorized`
+
 - 原因: 上流モデル未作成で下流モデルだけ実行
 - 対処: `--select +モデル名` で依存モデルも同時実行
 
