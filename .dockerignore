@@ -35,8 +35,8 @@ target/
 dbt_packages/
 dbt_modules/
 logs/
-enterprise_data_pipeline/target/
-enterprise_data_pipeline/logs/
+src/transform/target/
+src/transform/logs/
 
 # --- Large Local Data ---
 

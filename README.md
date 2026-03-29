@@ -120,7 +120,7 @@ docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 ```text
 .
 ├── terraform/                # Snowflake 基盤管理 (HCP Terraform)
-├── enterprise_data_pipeline/ # dbt プロジェクト (変換ロジック)
+├── src/transform/            # dbt プロジェクト (変換ロジック)
 ├── src/
 │   ├── infrastructure/       # Snowflake へのデータロード
 │   ├── scripts/              # 1M+ ログ生成、dbt ラッパー
@@ -130,6 +130,6 @@ docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 
 ## 6. 詳細ドキュメント
 
-- dbt モデルの詳細: `enterprise_data_pipeline/README.md`
+- dbt モデルの詳細: `src/transform/README.md`
 - Terraform 運用ガイド: `terraform/README.md`
 - Python モジュール詳細: `src/README.md`

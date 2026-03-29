@@ -86,7 +86,7 @@ def _resolve_dbt_command(args: list[str]) -> list[str]:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[3]
-    project_dir = repo_root / "enterprise_data_pipeline"
+    project_dir = repo_root / "src" / "transform"
     cli_target = os.environ.get("APP_ENV", "")
 
     load_dotenv(repo_root / ".env.shared")

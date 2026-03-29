@@ -1,4 +1,4 @@
-# enterprise_data_pipeline (dbt運用ガイド)
+# transform (dbt運用ガイド)
 
 この README は、初めてこのリポジトリを見る人が「何を実装したのか」を理解し、ローカルから再現実行できるようにするための dbt 専用ガイドです。
 

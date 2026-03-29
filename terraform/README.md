@@ -446,7 +446,7 @@ APP_ENV=prod dbt run
 **出力:**
 
 - `artifacts/data-pipeline/prod-dbt-run.log` — dbt run ログ
-- `enterprise_data_pipeline/target/run_results.json` — 実行結果メタデータ
+- `src/transform/target/run_results.json` — 実行結果メタデータ
 
 **依存関係:** `needs: [prod-loader-run]`
 
@@ -463,7 +463,7 @@ APP_ENV=prod dbt test
 **出力:**
 
 - `artifacts/data-pipeline/prod-dbt-test.log` — dbt test ログ
-- `enterprise_data_pipeline/target/run_results.json` — テスト結果メタデータ
+- `src/transform/target/run_results.json` — テスト結果メタデータ
 
 **依存関係:** `needs: [prod-dbt-run]`
 
@@ -524,9 +524,9 @@ Loader / dbt ジョブが失敗した場合の切り分け手順です。
 **確認項目:**
 
 1. Actions ログで「Run prod dbt run」ステップを確認
-   - コンパイルエラー → dbt yamlの構文を確認（`enterprise_data_pipeline/`）
-   - Snowflake 権限エラー → `PROD_DBT_ROLE` の Schema/Table 権限を確認
-   - 依存関係エラー → dbt DAG で参照モデルが存在するか確認
+    - コンパイルエラー → dbt yamlの構文を確認（`src/transform/`）
+    - Snowflake 権限エラー → `PROD_DBT_ROLE` の Schema/Table 権限を確認
+    - 依存関係エラー → dbt DAG で参照モデルが存在するか確認
 
 2. `prod-dbt-run.log` と `run_results.json` を確認
 
@@ -540,8 +540,8 @@ Loader / dbt ジョブが失敗した場合の切り分け手順です。
 **確認項目:**
 
 1. Actions ログで「Run prod dbt test」ステップを確認
-   - テスト失敗 → `enterprise_data_pipeline/tests/` の要件を確認
-   - depending_on テスト失敗 → upstream モデルのデータ品質を見直す
+    - テスト失敗 → `src/transform/tests/` の要件を確認
+    - depending_on テスト失敗 → upstream モデルのデータ品質を見直す
 
 2. `prod-dbt-test.log` で fail した spec を確認
 
