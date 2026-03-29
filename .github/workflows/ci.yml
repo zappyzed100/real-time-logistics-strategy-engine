@@ -65,7 +65,7 @@ jobs:
 
     - name: Run YAML lint
       run: |
-        uv run --with yamllint yamllint .
+        git ls-files '*.yml' '*.yaml' | xargs -r uv run --with yamllint yamllint -c .yamllint
 
     - name: Run shell lint
       run: |
