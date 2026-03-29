@@ -43,6 +43,7 @@ RUN apt-get update \
     git \
     curl \
     unzip \
+    ripgrep \
     nodejs \
     npm \
     shellcheck \
