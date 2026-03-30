@@ -168,6 +168,24 @@ tflint --chdir=terraform
 - 観測結果（検知・復旧・影響範囲）
 - フォローアップ（恒久対策の要否）
 
+## 5.4 設計判断 (ADR) の更新ルール
+
+重要設計の変更を伴う場合、同一 PR で ADR を追加または更新してください。
+
+ADR 対象の例:
+
+- Terraform / Snowflake の権限モデル変更
+- 本番実行経路・承認フロー変更
+- 破壊的変更ポリシー（`prevent_destroy` など）の変更
+- 環境切替や命名規則など、長期運用へ影響する規約変更
+
+運用手順:
+
+1. `docs/DECISIONS.md` の ADR 一覧を更新する
+2. `docs/adr/ADR-XXXX-*.md` を追加または更新する
+3. 既存判断を変更する場合は新規 ADR を作成し、旧 ADR を `Superseded` とする
+4. PR 本文の影響範囲に、対象 ADR を明記する
+
 ## 6. CI/CD との整合
 
 - CI は lint と test を並列実行します。
