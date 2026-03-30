@@ -90,7 +90,7 @@ jobs:
 
       - name: Setup Terraform
         if: matrix.check == 'terraform'
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Install shellcheck
         if: matrix.check == 'shell'
@@ -218,7 +218,7 @@ jobs:
     steps:
       - *checkout_step
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Prepare env for terraform wrapper
         env:
@@ -242,7 +242,7 @@ jobs:
 
       - name: Save terraform plan artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
@@ -272,7 +272,7 @@ jobs:
     steps:
       - *checkout_step
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Prepare env for terraform wrapper
         env:
@@ -296,7 +296,7 @@ jobs:
 
       - name: Save terraform apply artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terraform-prod-apply-${{ github.run_id }}
           path: |
@@ -343,7 +343,7 @@ jobs:
 
       - name: Save loader artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prod-loader-${{ github.run_id }}
           path: artifacts/data-pipeline/prod-loader.log
@@ -374,7 +374,7 @@ jobs:
 
       - name: Save dbt run artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prod-dbt-run-${{ github.run_id }}
           path: |
@@ -407,7 +407,7 @@ jobs:
 
       - name: Save dbt test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prod-dbt-test-${{ github.run_id }}
           path: |
