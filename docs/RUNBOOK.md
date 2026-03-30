@@ -89,22 +89,22 @@ gh run rerun <RUN_ID>
 
 復旧手順:
 
-1. 失敗ログを取得
+- 失敗ログを取得
 
 ```bash
 gh run view <RUN_ID> --job terraform-prod-apply --log
 ```
 
-2. dev で同等操作を再現
+- dev で同等操作を再現
 
 ```bash
 APP_ENV=dev ./terraform/tf plan -no-color
 APP_ENV=dev ./terraform/tf apply -auto-approve
 ```
 
-3. HCP Terraform のワークスペース状態を確認し、必要ならロック解除を実施
-4. 修正を PR に反映し、`terraform-prod-plan` が成功することを確認
-5. `main` へマージし、承認後に `terraform-prod-apply` を再実行
+- HCP Terraform のワークスペース状態を確認し、必要ならロック解除を実施
+- 修正を PR に反映し、`terraform-prod-plan` が成功することを確認
+- `main` へマージし、承認後に `terraform-prod-apply` を再実行
 
 ## 4.2 シナリオB: prod-loader-run 失敗
 
@@ -115,26 +115,26 @@ APP_ENV=dev ./terraform/tf apply -auto-approve
 
 復旧手順:
 
-1. 失敗ログを確認
+- 失敗ログを確認
 
 ```bash
 gh run view <RUN_ID> --job prod-loader-run --log
 ```
 
-2. dev でローダー単体再現
+- dev でローダー単体再現
 
 ```bash
 APP_ENV=dev uv run python src/infrastructure/snowflake_loader.py
 ```
 
-3. 必要なら入力再生成
+- 必要なら入力再生成
 
 ```bash
 uv run python src/scripts/data_gen/generate_large_data.py --number 100000 --geo-mode lite
 APP_ENV=dev uv run python src/infrastructure/snowflake_loader.py
 ```
 
-4. 修正 PR を通し、`main` マージ後にランを再開 (`gh run rerun`)
+- 修正 PR を通し、`main` マージ後にランを再開 (`gh run rerun`)
 
 ## 4.3 シナリオC: prod-dbt-run / prod-dbt-test 失敗
 
@@ -145,7 +145,7 @@ APP_ENV=dev uv run python src/infrastructure/snowflake_loader.py
 
 復旧手順:
 
-1. 失敗ログと `run_results.json` を確認
+- 失敗ログと `run_results.json` を確認
 
 ```bash
 gh run view <RUN_ID> --job prod-dbt-run --log
@@ -153,7 +153,7 @@ gh run view <RUN_ID> --job prod-dbt-test --log
 gh run download <RUN_ID> -D artifacts_run_<RUN_ID>
 ```
 
-2. dev で対象モデルを限定して再現
+- dev で対象モデルを限定して再現
 
 ```bash
 APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py debug
@@ -161,13 +161,13 @@ APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py run --select +fct_delive
 APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py test --select +fct_delivery_analysis
 ```
 
-3. 必要なら view 再構築検証を実行
+- 必要なら view 再構築検証を実行
 
 ```bash
 APP_ENV=dev uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
 ```
 
-4. 修正 PR を通し、`main` で `prod-dbt-run` -> `prod-dbt-test` の通過を確認
+- 修正 PR を通し、`main` で `prod-dbt-run` -> `prod-dbt-test` の通過を確認
 
 ## 4.4 シナリオD: Chaos 想定の破壊 (View 消失 / 参照不能)
 
@@ -177,19 +177,19 @@ APP_ENV=dev uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
 
 復旧手順:
 
-1. dev で rebuild 検証を実行
+- dev で rebuild 検証を実行
 
 ```bash
 APP_ENV=dev uv run python src/scripts/deploy/verify_dbt_view_rebuild.py
 ```
 
-2. 必要なら対象モデルを再実行
+- 必要なら対象モデルを再実行
 
 ```bash
 APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py run --select +fct_delivery_analysis
 ```
 
-3. 手順を PR/Issue に記録し、`CONTRIBUTING.md` 5.3 の観測結果として残す
+- 手順を PR/Issue に記録し、`CONTRIBUTING.md` 5.3 の観測結果として残す
 
 ## 5. Backfill 戦略
 
