@@ -37,7 +37,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM base AS development
 
-# Development toolchain: gh, git, terraform, tflint, hadolint, shellcheck, taplo, yamllint, markdownlint-cli2.
+# Development toolchain: gh, git, terraform, tflint, hadolint, shellcheck, taplo, yamllint, markdownlint-cli2, mermaid-cli.
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     git \
@@ -46,6 +49,8 @@ RUN apt-get update \
     ripgrep \
     nodejs \
     npm \
+    chromium \
+    fonts-noto-cjk \
     shellcheck \
     yamllint \
     && wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor > /usr/share/keyrings/hashicorp-archive-keyring.gpg \
@@ -53,7 +58,7 @@ RUN apt-get update \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends terraform gh \
-    && npm install -g markdownlint-cli2 \
+    && npm install -g markdownlint-cli2 @mermaid-js/mermaid-cli \
     && rm -rf /var/lib/apt/lists/*
 
 RUN TFLINT_VERSION=v0.54.0 \
