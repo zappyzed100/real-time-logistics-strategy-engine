@@ -162,4 +162,5 @@
 
 - Mermaid のソースは `docs/diagrams/*.mmd` に分離して管理する
 - `ARCHITECTURE.md` では生成済みの SVG を参照する
+- GitHub ダークモードでの視認性を保つため、SVG は白背景で生成する
 - 図を更新した場合は対応する SVG も再生成する
