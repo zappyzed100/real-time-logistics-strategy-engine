@@ -227,7 +227,7 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -no-color -out=../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -236,6 +236,7 @@ jobs:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-plan.log
+            artifacts/terraform/prod.tfplan
           if-no-files-found: warn
 
   prod-approval-gate:
@@ -261,6 +262,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
+      - name: Download prod terraform plan artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: terraform-prod-plan-${{ github.run_id }}
+          path: artifacts/terraform
+
       - name: Run prod terraform apply
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
@@ -268,7 +275,7 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform apply -auto-approve ../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
