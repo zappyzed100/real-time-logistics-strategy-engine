@@ -191,7 +191,7 @@ ADR 対象の例:
 - CI は lint と test を並列実行します。
 - Terraform 本番系は `main` push でのみ実行されます。
 - `prod` への適用は承認ゲート通過後に継続されます。
-- 実運用フローの詳細は `DEPLOYMENT.md` と `terraform/README.md` を参照してください。
+- 実運用フローの詳細は `docs/DEPLOYMENT.md` と `terraform/README.md` を参照してください。
 
 ## 7. 相談とエスカレーション
 

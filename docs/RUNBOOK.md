@@ -260,4 +260,4 @@ APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py test
 - `docs/TESTING.md`
 - `docs/ARCHITECTURE.md`
 - `CONTRIBUTING.md`
-- `DEPLOYMENT.md`
+- `docs/DEPLOYMENT.md`
