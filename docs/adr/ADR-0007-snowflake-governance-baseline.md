@@ -18,11 +18,11 @@
 - Bronze / Silver / Gold schema は bootstrap SQL で managed access を有効化する
 - Terraform では `READ_ONLY_ROLE` / `READ_WRITE_ROLE` の中間ロールと data-layer access role を組み合わせた RBAC 階層を採用する
 - schema object grant はサブモジュール化し、`permission_level` (`SELECT` / `ALL`) の変数で制御する
-- Role / User / Warehouse / Stage / Bronze tables / File format に `prevent_destroy = true` を適用する
+- `prevent_destroy = true` は Bronze raw tables に限定して適用する
 
 ## Consequences
 
-- critical resource の誤削除耐性が向上する
+- Bronze raw tables の誤削除耐性が向上する
 - 権限付与の責務が access role に集約され、レビューしやすくなる
 - managed access の導入により、schema owner を中心に grant を統制できる
 - 既存環境へ適用する際は bootstrap SQL の再実行または差分適用が必要になる
