@@ -343,14 +343,14 @@ variable "snowflake_account_name" {
   }
 }
 
-variable "snowflake_user" {
+variable "SNOWFLAKE_USER" {
   type        = string
   default     = null
   nullable    = true
   description = "Terraform実行に使用するSnowflakeユーザー名"
 }
 
-variable "snowflake_private_key" {
+variable "SNOWFLAKE_PRIVATE_KEY" {
   type        = string
   default     = null
   nullable    = true
