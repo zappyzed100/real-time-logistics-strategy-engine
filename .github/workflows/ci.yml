@@ -164,33 +164,41 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # prod は terraform-prod-apply 完了後にのみ接続確認する。
-    # PR ブランチ上では PROD Snowflake がまだ最新 apply 済みでないため、
-    # prod matrix は main ブランチ push 時にのみ実行する。
-    if: matrix.app_env == 'dev' || github.ref == 'refs/heads/main'
-    strategy:
-      fail-fast: false
-      matrix:
-        app_env: [dev, prod]
     steps:
       - *checkout_step
       - *install_uv_step
       - *setup_python_step
       - *install_dependencies_step
 
-      - name: Show app env
+      - name: Run dbt debug (dev)
         env:
-          APP_ENV: ${{ matrix.app_env }}
-        run: |
-          echo "APP_ENV=${APP_ENV}"
-
-      - name: Run dbt debug
-        env:
-          APP_ENV: ${{ matrix.app_env }}
+          APP_ENV: dev
           TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          uv run python src/scripts/deploy/run_dbt.py debug
+
+  # prod dbt-debug は terraform-prod-apply 完了後（main マージ後）にのみ実行。
+  # PR 段階では PROD Snowflake の rsa_public_key が最新 apply 前のため意図的に除外。
+  dbt-debug-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [terraform-prod-apply]
+    steps:
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
+
+      - name: Run dbt debug (prod)
+        env:
+          APP_ENV: prod
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
