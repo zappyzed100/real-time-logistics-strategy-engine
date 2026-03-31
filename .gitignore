@@ -32,10 +32,7 @@ src/transform/logs/
 # 変数定義ファイル（パスワードなどが含まれるため除外）
 *.tfvars
 *.tfvars.json
-
-# Terraform の実行時生成ファイル
-terraform/98_runtime.auto.tfvars
-terraform/99_app_env.auto.tfvars
+!terraform/common.auto.tfvars
 
 # ログファイル
 crash.log

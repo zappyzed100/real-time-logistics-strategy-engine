@@ -24,6 +24,6 @@
 ## Implementation References
 
 - `.github/workflows/ci.yml`
-- `terraform/tf`
+- `terraform/backend.prod.hcl`
 - `DEPLOYMENT.md`
 - `terraform/README.md`

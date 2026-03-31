@@ -35,7 +35,7 @@ uv run python src/infrastructure/snowflake_loader.py
 
 必要な主な環境変数 (`.env`)。
 
-- `SNOWFLAKE_ACCOUNT`
+- `TF_VAR_SNOWFLAKE_ACCOUNT`
 - `SNOWFLAKE_LOADER_PRIVATE_KEY` または `DEV_LOADER_USER_RSA_PRIVATE_KEY`
 
 `src/infrastructure/snowflake_loader.py` はローカルでは開発環境（dev）を利用します。
@@ -61,7 +61,7 @@ uv run streamlit run src/streamlit/app.py
 
 主な環境変数。
 
-- `SNOWFLAKE_ACCOUNT`
+- `TF_VAR_SNOWFLAKE_ACCOUNT`
 - `DEV_STREAMLIT_USER` / `PROD_STREAMLIT_USER`
 - `DEV_STREAMLIT_ROLE` / `PROD_STREAMLIT_ROLE`
 - `DEV_STREAMLIT_WH` / `PROD_STREAMLIT_WH`

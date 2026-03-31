@@ -156,7 +156,7 @@
 - 用語と運用ルールは CONTRIBUTING と一致させる
 - Terraform 運用の詳細は terraform/README を正本とする
 - デプロイ実行順序の詳細は DEPLOYMENT を正本とする
-- 将来、GOVERNANCE が追加された場合は用語定義と保護方針を同期する
+- 権限モデルと保護方針は GOVERNANCE を正本として同期する
 
 ## 9. 図の管理方針
 

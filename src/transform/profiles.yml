@@ -2,7 +2,7 @@ transform:
   outputs:
     dev:
       type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      account: "{{ env_var('TF_VAR_SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_USER') }}"
       private_key_path: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') }}"
       private_key_passphrase: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE', '') }}"
@@ -13,7 +13,7 @@ transform:
       threads: 1
     prod:
       type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      account: "{{ env_var('TF_VAR_SNOWFLAKE_ACCOUNT') }}"
       user: "{{ env_var(env_var('APP_ENV', 'dev') | upper ~ '_DBT_USER') }}"
       private_key_path: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PATH', '') }}"
       private_key_passphrase: "{{ env_var('SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE', '') }}"

@@ -33,7 +33,7 @@
 
 ```bash
 cp .env.example .env
-# SNOWFLAKE_ACCOUNT や各種 Private Key を設定
+# TF_VAR_SNOWFLAKE_ACCOUNT や各種 Private Key を設定
 ```
 
 補足:
@@ -62,20 +62,13 @@ Snowflake の基盤リソースは `terraform/` 内で定義されており、Do
 
 > **初回セットアップ（キーペア認証・Bootstrap SQL・Workspace 変数登録）は [`terraform/README.md`](terraform/README.md) のセクション 0 を参照してください。**
 
-環境構成（ワークスペース名など）は `.env` で管理します：
+Terraform の非機密設定は `terraform/common.auto.tfvars`、HCP Terraform の接続先は `terraform/backend.dev.hcl` / `terraform/backend.prod.hcl` で管理します。
 
 ```bash
-# .env での Terraform 設定
-HCP_TF_ORGANIZATION=zappyzed100
-HCP_TF_WORKSPACE_DEV=dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
-HCP_TF_WORKSPACE_PROD=prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms
-```
-
-実行方法：
-
-```bash
-# ローカル実行は常に dev として適用
-./terraform/tf apply
+# ローカル実行例
+export TF_TOKEN_app_terraform_io=YOUR_TERRAFORM_TEAM_TOKEN
+TF_VAR_app_env=dev terraform -chdir=terraform init -reconfigure -backend-config=backend.dev.hcl
+TF_VAR_app_env=dev terraform -chdir=terraform apply
 ```
 
 運用制約:

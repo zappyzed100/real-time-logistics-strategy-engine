@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: true
+      run_provider_upgrade_check:
+        description: "Run provider upgrade rehearsal check"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   lint:
@@ -159,29 +164,41 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        app_env: [dev, prod]
     steps:
       - *checkout_step
       - *install_uv_step
       - *setup_python_step
       - *install_dependencies_step
 
-      - name: Show app env
+      - name: Run dbt debug (dev)
         env:
-          APP_ENV: ${{ matrix.app_env }}
-        run: |
-          echo "APP_ENV=${APP_ENV}"
-
-      - name: Run dbt debug
-        env:
-          APP_ENV: ${{ matrix.app_env }}
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          APP_ENV: dev
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
-          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          uv run python src/scripts/deploy/run_dbt.py debug
+
+  # prod dbt-debug は terraform-prod-apply 完了後（main マージ後）にのみ実行。
+  # PR 段階では PROD Snowflake の rsa_public_key が最新 apply 前のため意図的に除外。
+  dbt-debug-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [terraform-prod-apply]
+    steps:
+      - *checkout_step
+      - *install_uv_step
+      - *setup_python_step
+      - *install_dependencies_step
+
+      - name: Run dbt debug (prod)
+        env:
+          APP_ENV: prod
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
@@ -200,7 +217,7 @@ jobs:
       - name: Verify dbt rebuild on dev
         env:
           APP_ENV: dev
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           DEV_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_DEV: ${{ secrets.DEV_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
@@ -220,25 +237,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Prepare env for terraform wrapper
+      - name: Run prod terraform plan
         env:
-          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-        run: |
-          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-            echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
-            exit 1
-          fi
-          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
-
-      - name: Run prod terraform plan via wrapper
-        env:
-          APP_ENV: prod
-          CI: true
-          GITHUB_ACTIONS: true
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          TF_VAR_app_env: prod
         run: |
           mkdir -p artifacts/terraform
-          ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+          terraform -chdir=terraform plan -no-color -out=../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -247,8 +253,33 @@ jobs:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-plan.log
-            terraform/98_runtime.auto.tfvars
-            terraform/99_app_env.auto.tfvars
+            artifacts/terraform/prod.tfplan
+          if-no-files-found: warn
+
+  terraform-provider-upgrade-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' && inputs.run_provider_upgrade_check
+    steps:
+      - *checkout_step
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Run provider upgrade rehearsal
+        run: |
+          mkdir -p artifacts/terraform
+          terraform -chdir=terraform init -backend=false -upgrade -no-color | tee artifacts/terraform/provider-upgrade-init.log
+          terraform -chdir=terraform validate -no-color | tee artifacts/terraform/provider-upgrade-validate.log
+
+      - name: Save provider upgrade artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: terraform-provider-upgrade-${{ github.run_id }}
+          path: |
+            artifacts/terraform/provider-upgrade-init.log
+            artifacts/terraform/provider-upgrade-validate.log
           if-no-files-found: warn
 
   prod-approval-gate:
@@ -274,25 +305,20 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Prepare env for terraform wrapper
-        env:
-          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-        run: |
-          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-            echo "[terraform-prod-apply] HCP_TF_ORGANIZATION secret is required" >&2
-            exit 1
-          fi
-          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
+      - name: Download prod terraform plan artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: terraform-prod-plan-${{ github.run_id }}
+          path: artifacts/terraform
 
-      - name: Run prod terraform apply via wrapper
+      - name: Run prod terraform apply
         env:
-          APP_ENV: prod
-          CI: true
-          GITHUB_ACTIONS: true
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          TF_VAR_app_env: prod
         run: |
           mkdir -p artifacts/terraform
-          ./terraform/tf apply -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+          terraform -chdir=terraform apply -auto-approve ../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
@@ -301,8 +327,6 @@ jobs:
           name: terraform-prod-apply-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-apply.log
-            terraform/98_runtime.auto.tfvars
-            terraform/99_app_env.auto.tfvars
           if-no-files-found: warn
 
       - name: Comment on commit with apply result
@@ -335,7 +359,7 @@ jobs:
       - name: Run prod snowflake loader
         env:
           APP_ENV: prod
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
         run: |
           mkdir -p artifacts/data-pipeline
@@ -364,7 +388,7 @@ jobs:
       - name: Run prod dbt run
         env:
           APP_ENV: prod
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
@@ -397,7 +421,7 @@ jobs:
       - name: Run prod dbt test
         env:
           APP_ENV: prod
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}

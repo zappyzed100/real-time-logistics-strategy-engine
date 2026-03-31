@@ -182,5 +182,5 @@
 
 ## 9. ガバナンス整合方針
 
-- 現時点では `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/DECISIONS.md`, `docs/DATA_CONTRACT.md` と整合させる
-- 将来 `GOVERNANCE.md` が追加された場合は、本ドキュメントの品質ゲート/障害注入ルールを同期する
+- 現時点では `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/DECISIONS.md`, `docs/DATA_CONTRACT.md`, `docs/GOVERNANCE.md` と整合させる
+- 権限モデルや managed access を変更した場合は、本ドキュメントの品質ゲート/障害注入ルールも必要に応じて更新する

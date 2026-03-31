@@ -58,7 +58,7 @@ def create_session() -> Session:
         encryption_algorithm=NoEncryption(),
     )
     connection_options: dict[str, Any] = {
-        "account": _required_env("SNOWFLAKE_ACCOUNT"),
+        "account": _required_env("TF_VAR_SNOWFLAKE_ACCOUNT"),
         "user": _required_env(f"{target_prefix}_STREAMLIT_USER"),
         "role": _required_env(f"{target_prefix}_STREAMLIT_ROLE"),
         "warehouse": _required_env(f"{target_prefix}_STREAMLIT_WH"),

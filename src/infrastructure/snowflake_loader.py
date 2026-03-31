@@ -35,7 +35,7 @@ class LoadCommands:
 class SnowflakeLoader:
     def __init__(self, conn=None, connect: bool = True):
         self.env = self._resolve_app_env()
-        self.account = self._require_env("SNOWFLAKE_ACCOUNT")
+        self.account = self._require_env("TF_VAR_SNOWFLAKE_ACCOUNT")
         self.user = self._require_env(f"{self.env}_LOADER_USER")
         self.role = self._require_env(f"{self.env}_LOADER_ROLE")
         self.warehouse = self._require_env(f"{self.env}_LOADER_WH")

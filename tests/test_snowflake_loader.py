@@ -29,7 +29,7 @@ class FakeConnection:
 
 def set_loader_env(monkeypatch):
     monkeypatch.setenv("APP_ENV", "dev")
-    monkeypatch.setenv("SNOWFLAKE_ACCOUNT", "test-account")
+    monkeypatch.setenv("TF_VAR_SNOWFLAKE_ACCOUNT", "test-account")
     monkeypatch.setenv("SNOWFLAKE_BRONZE_SCHEMA", "RAW_DATA")
     monkeypatch.setenv("SNOWFLAKE_BRONZE_STAGE", "RAW_STAGE")
     monkeypatch.setenv("DEV_LOADER_USER", "DEV_LOADER_USER")
@@ -111,7 +111,7 @@ def test_load_csv_to_table_executes_generated_commands_in_order(monkeypatch, tmp
 
 def test_loader_trims_whitespace_from_required_account_env(monkeypatch):
     set_loader_env(monkeypatch)
-    monkeypatch.setenv("SNOWFLAKE_ACCOUNT", "test-account\r\n")
+    monkeypatch.setenv("TF_VAR_SNOWFLAKE_ACCOUNT", "test-account\r\n")
 
     loader = SnowflakeLoader(connect=False)
 

@@ -3,7 +3,7 @@
 
 provider "registry.terraform.io/snowflakedb/snowflake" {
   version     = "2.13.0"
-  constraints = "~> 2.13.0"
+  constraints = "2.13.0"
   hashes = [
     "h1:7JHRewv3lmVfHEZywfTdZ01ZUUVbQxRFNxmD1rmHDqI=",
     "h1:wP0AS3g4qf5gjBclCPsSR7cOTrV51L+QHQAzbzGSUH0=",

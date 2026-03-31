@@ -21,7 +21,7 @@ def _target_suffix(target: str) -> str:
 def _sanitize_runtime_env(env: dict[str, str]) -> None:
     # Guard against CRLF-contaminated values (e.g. account ends with '\r').
     for key in (
-        "SNOWFLAKE_ACCOUNT",
+        "TF_VAR_SNOWFLAKE_ACCOUNT",
         "SNOWFLAKE_BRONZE_SCHEMA",
         "SNOWFLAKE_SILVER_SCHEMA",
         "SNOWFLAKE_GOLD_SCHEMA",

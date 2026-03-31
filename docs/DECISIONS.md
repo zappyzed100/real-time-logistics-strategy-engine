@@ -40,7 +40,9 @@
 | --- | --- | --- | --- | --- |
 | ADR-0001 | HCP Terraform Remote Backend を標準化する | Accepted | 2026-03-30 | `docs/adr/ADR-0001-hcp-terraform-remote-backend.md` |
 | ADR-0002 | 本番 Terraform apply は CI 承認ゲート経由に限定する | Accepted | 2026-03-30 | `docs/adr/ADR-0002-prod-apply-via-ci-approval-gate.md` |
-| ADR-0003 | Snowflake リソースの prevent_destroy を現段階で false とする | Accepted | 2026-03-30 | `docs/adr/ADR-0003-prevent-destroy-false-bootstrap-phase.md` |
+| ADR-0003 | Snowflake リソースの prevent_destroy を現段階で false とする | Superseded | 2026-03-30 | `docs/adr/ADR-0003-prevent-destroy-false-bootstrap-phase.md` |
 | ADR-0004 | 環境差分は app_env と入力変数で吸収し命名を統制する | Accepted | 2026-03-30 | `docs/adr/ADR-0004-env-switch-and-naming-governance.md` |
 | ADR-0005 | Snowflake を Data Platform として採用する | Accepted | 2026-03-30 | `docs/adr/ADR-0005-snowflake-data-platform-adoption.md` |
 | ADR-0006 | Bronze/Silver/Gold レイヤ分割でデータ品質段階を管理する | Accepted | 2026-03-30 | `docs/adr/ADR-0006-bronze-silver-gold-layering.md` |
+| ADR-0007 | Snowflake の権限モデルを managed access と prod 保護へ移行する | Accepted | 2026-03-31 | `docs/adr/ADR-0007-snowflake-governance-baseline.md` |
+| ADR-0008 | Snowflake の network policy と data retention を環境別に標準化する | Accepted | 2026-03-31 | `docs/adr/ADR-0008-network-policy-and-retention-baseline.md` |

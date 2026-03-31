@@ -1,8 +1,10 @@
 # ADR-0003: Snowflake リソースの prevent_destroy を現段階で false とする
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-03-30
 - Deciders: data-platform team
+
+Superseded by: ADR-0007
 
 ## Context
 

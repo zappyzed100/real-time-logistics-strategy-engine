@@ -78,7 +78,7 @@ def _load_private_key_der(target: str) -> bytes:
 
 
 def _snowflake_connection(target: str):
-    account = _required("SNOWFLAKE_ACCOUNT")
+    account = _required("TF_VAR_SNOWFLAKE_ACCOUNT")
     user = _target_value(target, "DBT_USER")
     role = _target_value(target, "DBT_ROLE")
     warehouse = _target_value(target, "DBT_WH")
