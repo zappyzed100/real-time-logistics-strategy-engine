@@ -240,12 +240,14 @@ jobs:
       - name: Run prod terraform plan
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-          TF_VAR_app_env: prod
         run: |
           set -o pipefail
           mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -var="app_env=prod" -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -316,12 +318,14 @@ jobs:
       - name: Run prod terraform apply
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-          TF_VAR_app_env: prod
         run: |
           set -o pipefail
           mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -var="app_env=prod" -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
