@@ -78,6 +78,7 @@ jobs:
       contents: read
     environment: prod
     if: |
+      github.event_name == 'pull_request' ||
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.run_prod_apply)
     steps:
@@ -91,6 +92,7 @@ jobs:
       contents: write
     needs: [prod-approval-gate]
     if: |
+      github.event_name == 'pull_request' ||
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       (github.event_name == 'workflow_dispatch' && inputs.run_prod_apply)
     steps:
