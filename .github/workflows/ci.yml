@@ -247,7 +247,7 @@ jobs:
           app_env = "prod"
           EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -lock-timeout=5m -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -324,8 +324,26 @@ jobs:
           cat > terraform/ci.auto.tfvars <<'EOF'
           app_env = "prod"
           EOF
+
+          TF_ORGANIZATION="$(sed -n 's/^organization = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
+          TF_WORKSPACE="$(sed -n 's/^  name = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
+          RUN_URL="https://app.terraform.io/app/${TF_ORGANIZATION}/${TF_WORKSPACE}/runs"
+
+          WORKSPACE_RESPONSE="$(curl -fsSL \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "https://app.terraform.io/api/v2/organizations/${TF_ORGANIZATION}/workspaces/${TF_WORKSPACE}")"
+
+          LOCKED_STATUS="$(python3 -c 'import json,sys; print("true" if json.load(sys.stdin)["data"]["attributes"].get("locked") else "false")' <<<"${WORKSPACE_RESPONSE}")"
+
+          if [ "${LOCKED_STATUS}" = "true" ]; then
+            echo "::error::HCP Terraform workspace is manually locked. Unlock it in HCP Terraform and rerun apply."
+            echo "Workspace runs: ${RUN_URL}"
+            exit 1
+          fi
+
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform apply -lock-timeout=5m -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
