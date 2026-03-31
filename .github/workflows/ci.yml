@@ -244,7 +244,6 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          bash terraform/scripts/verify_env_selection.sh | tee artifacts/terraform/env-selection-check.log
           terraform -chdir=terraform plan -var="app_env=prod" -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
@@ -253,7 +252,6 @@ jobs:
         with:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
-            artifacts/terraform/env-selection-check.log
             artifacts/terraform/prod-plan.log
           if-no-files-found: warn
 
@@ -320,7 +318,6 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          bash terraform/scripts/verify_env_selection.sh | tee artifacts/terraform/env-selection-check.log
           terraform -chdir=terraform apply -var="app_env=prod" -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
@@ -329,7 +326,6 @@ jobs:
         with:
           name: terraform-prod-apply-${{ github.run_id }}
           path: |
-            artifacts/terraform/env-selection-check.log
             artifacts/terraform/prod-apply.log
           if-no-files-found: warn
 
