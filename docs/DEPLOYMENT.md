@@ -192,6 +192,7 @@ APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py test
 ## 9. 関連ドキュメント
 
 - `CONTRIBUTING.md`（開発規約・PR 作法）
+- `docs/DATA_CONTRACT.md`（公開テーブル契約と変更管理）
 - `docs/RUNBOOK.md`（障害対応と復旧手順）
 - `docs/TESTING.md`（品質保証と Chaos 方針）
 - `docs/ARCHITECTURE.md`（構成とデータフロー）
