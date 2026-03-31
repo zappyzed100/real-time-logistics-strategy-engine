@@ -75,6 +75,8 @@ TF_VAR_app_env=dev terraform -chdir=terraform apply
 
 - ローカル実行は常に開発環境（dev）
 - 本番環境（prod）への実行は CI のみ許可
+- PR では prod への apply は実行しません
+- prod apply は main への push もしくは Actions の `workflow_dispatch(run_prod_apply=true)` で実行します
 
 ## 4. データパイプラインと蒸留プロセス
 
