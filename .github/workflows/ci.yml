@@ -220,16 +220,6 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Prepare env for terraform wrapper
-        env:
-          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-        run: |
-          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-            echo "[terraform-prod-plan] HCP_TF_ORGANIZATION secret is required" >&2
-            exit 1
-          fi
-          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
-
       - name: Run prod terraform plan via wrapper
         env:
           APP_ENV: prod
@@ -247,8 +237,6 @@ jobs:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-plan.log
-            terraform/98_runtime.auto.tfvars
-            terraform/99_app_env.auto.tfvars
           if-no-files-found: warn
 
   prod-approval-gate:
@@ -274,16 +262,6 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Prepare env for terraform wrapper
-        env:
-          HCP_TF_ORGANIZATION: ${{ secrets.HCP_TF_ORGANIZATION }}
-        run: |
-          if [ -z "${HCP_TF_ORGANIZATION}" ]; then
-            echo "[terraform-prod-apply] HCP_TF_ORGANIZATION secret is required" >&2
-            exit 1
-          fi
-          printf 'HCP_TF_ORGANIZATION=%s\n' "${HCP_TF_ORGANIZATION}" > .env
-
       - name: Run prod terraform apply via wrapper
         env:
           APP_ENV: prod
@@ -301,8 +279,6 @@ jobs:
           name: terraform-prod-apply-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-apply.log
-            terraform/98_runtime.auto.tfvars
-            terraform/99_app_env.auto.tfvars
           if-no-files-found: warn
 
       - name: Comment on commit with apply result
