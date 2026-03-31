@@ -164,6 +164,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # prod は terraform-prod-apply 完了後にのみ接続確認する。
+    # PR ブランチ上では PROD Snowflake がまだ最新 apply 済みでないため、
+    # prod matrix は main ブランチ push 時にのみ実行する。
+    if: matrix.app_env == 'dev' || github.ref == 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
