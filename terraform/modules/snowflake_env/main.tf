@@ -515,15 +515,6 @@ resource "snowflake_grant_privileges_to_account_role" "loader_bronze_db_usage" {
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "loader_bronze_usage" {
-  account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["USAGE"]
-
-  on_schema {
-    all_schemas_in_database = local.bronze_db_name
-  }
-}
-
 resource "snowflake_grant_privileges_to_account_role" "loader_raw_schema_usage" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
   privileges        = ["USAGE"]
@@ -618,15 +609,6 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_db_usage" {
   on_account_object {
     object_type = "DATABASE"
     object_name = local.bronze_db_name
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_usage" {
-  account_role_name = snowflake_account_role.bronze_transform_ro_role.name
-  privileges        = ["USAGE"]
-
-  on_schema {
-    all_schemas_in_database = local.bronze_db_name
   }
 }
 
