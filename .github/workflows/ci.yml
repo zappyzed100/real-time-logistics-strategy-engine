@@ -220,15 +220,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Run prod terraform plan via wrapper
+      - name: Run prod terraform plan
         env:
-          APP_ENV: prod
-          CI: true
-          GITHUB_ACTIONS: true
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          TF_VAR_app_env: prod
         run: |
           mkdir -p artifacts/terraform
-          ./terraform/tf plan -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -262,15 +261,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
 
-      - name: Run prod terraform apply via wrapper
+      - name: Run prod terraform apply
         env:
-          APP_ENV: prod
-          CI: true
-          GITHUB_ACTIONS: true
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          TF_VAR_app_env: prod
         run: |
           mkdir -p artifacts/terraform
-          ./terraform/tf apply -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()

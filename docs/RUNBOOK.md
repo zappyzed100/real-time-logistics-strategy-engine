@@ -10,13 +10,13 @@
   - Chaos Test で想定した破壊シナリオから再現可能に復帰する
 - 適用範囲:
   - CI/CD: `.github/workflows/ci.yml`
-  - Terraform: `terraform/tf`
+   - Terraform: `terraform/`
   - Loader: `src/infrastructure/snowflake_loader.py`
   - dbt: `src/scripts/deploy/run_dbt.py`, `src/scripts/deploy/verify_dbt_view_rebuild.py`
 
 運用原則:
 
-- `APP_ENV=prod` は CI 実行のみ許可 (ローカルでの prod 実行は禁止)
+- Terraform の prod 適用は CI 承認フローのみ許可 (ローカルでの prod 実行は禁止)
 - 本番復旧は「原因切り分け -> dev で再現/検証 -> prod 再開」の順で実施
 - 記録は PR または Issue に残し、`CONTRIBUTING.md` 5.3 の Chaos 報告要件を満たす
 
@@ -98,8 +98,9 @@ gh run view <RUN_ID> --job terraform-prod-apply --log
 - dev で同等操作を再現
 
 ```bash
-APP_ENV=dev ./terraform/tf plan -no-color
-APP_ENV=dev ./terraform/tf apply -auto-approve
+TF_VAR_app_env=dev terraform -chdir=terraform init -reconfigure -backend-config=backend.dev.hcl
+TF_VAR_app_env=dev terraform -chdir=terraform plan -no-color
+TF_VAR_app_env=dev terraform -chdir=terraform apply -auto-approve
 ```
 
 - HCP Terraform のワークスペース状態を確認し、必要ならロック解除を実施

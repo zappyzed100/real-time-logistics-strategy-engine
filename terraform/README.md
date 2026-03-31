@@ -71,14 +71,14 @@ import ID 形式:
 実行例（DEV）:
 
 ```bash
-cd terraform
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_database.bronze_db' DEV_BRONZE_DB
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_database.silver_db' DEV_SILVER_DB
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_database.gold_db' DEV_GOLD_DB
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_schema.bronze_schema' DEV_BRONZE_DB.RAW_DATA
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_schema.silver_schema' DEV_SILVER_DB.CLEANSED
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_schema.gold_schema' DEV_GOLD_DB.MARKETING_MART
-APP_ENV=dev terraform import 'module.snowflake_env.snowflake_network_policy.terraform_access_policy' DEV_TERRAFORM_NETWORK_POLICY
+TF_VAR_app_env=dev terraform -chdir=terraform init -reconfigure -backend-config=backend.dev.hcl
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_database.bronze_db' DEV_BRONZE_DB
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_database.silver_db' DEV_SILVER_DB
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_database.gold_db' DEV_GOLD_DB
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.bronze_schema' DEV_BRONZE_DB.RAW_DATA
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.silver_schema' DEV_SILVER_DB.CLEANSED
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.gold_schema' DEV_GOLD_DB.MARKETING_MART
+TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_network_policy.terraform_access_policy' DEV_TERRAFORM_NETWORK_POLICY
 ```
 
 注意:
@@ -115,7 +115,7 @@ APP_ENV=dev terraform import 'module.snowflake_env.snowflake_network_policy.terr
 - 推奨: `TF_TOKEN_app_terraform_io`
 - 互換キー: `HCP_TERRAFORM_TOKEN`
 
-`terraform/tf` ラッパーは上記キーを読み込み、実行時に `TF_TOKEN_app_terraform_io` へ正規化して Terraform CLI に渡します。
+Terraform CLI は `TF_TOKEN_app_terraform_io` を参照します。`HCP_TERRAFORM_TOKEN` を使う場合は、実行前に `TF_TOKEN_app_terraform_io` へエクスポートしてください。
 
 #### ステップ 3: 変数の登録
 
@@ -167,9 +167,8 @@ workspaces {
 ## 基本方針
 
 - `APP_ENV` は権限ではなく行き先スイッチとして扱う
-- ローカル実行は `APP_ENV` 未指定時に `dev` として実行
-- `APP_ENV=prod` は CI 実行（`CI=true` または `GITHUB_ACTIONS=true`）でのみ許可
-- 実行コマンド: 原則 `./terraform/tf` ラッパーを使用する
+- Terraform 実行時は `TF_VAR_app_env` と `backend.*.hcl` を明示する
+- prod apply は CI 実行（`environment: prod` 承認）経由に限定する
 - 変数管理: 非機密の Terraform 設定は `terraform/common.auto.tfvars`、機密情報とローカル差分は `.env`、HCP 側の機密値は Workspace Variables で管理する
 
 多層防御（必須）:
@@ -257,7 +256,8 @@ jobs:
 **処理内容:**
 
 ```bash
-./terraform/tf plan -no-color
+terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+terraform -chdir=terraform plan -no-color
 ```
 
 **出力:**
@@ -266,8 +266,7 @@ jobs:
 
 **実行環境:**
 
-- `APP_ENV=prod`（prod ワークスペース自動選択）
-- `CI=true` / `GITHUB_ACTIONS=true`（環境ガード bypass）
+- `TF_VAR_app_env=prod`
 - Secrets: `HCP_TERRAFORM_TOKEN` 注入
 
 #### terraform-prod-apply ジョブ
@@ -281,7 +280,8 @@ jobs:
 **処理内容:**
 
 ```bash
-./terraform/tf apply -auto-approve
+terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+terraform -chdir=terraform apply -auto-approve
 ```
 
 **処理フロー:**
@@ -300,8 +300,7 @@ jobs:
 
 **実行環境:**
 
-- `APP_ENV=prod`
-- `CI=true` / `GITHUB_ACTIONS=true`
+- `TF_VAR_app_env=prod`
 - Secrets: `HCP_TERRAFORM_TOKEN` 注入
 
 **approval gate フロー図:**
@@ -319,7 +318,7 @@ jobs:
     ↓
 [terraform-prod-apply: RUNNING]
     ↓
-[./terraform/tf apply -auto-approve]
+[terraform -chdir=terraform apply -auto-approve]
     ↓
 [Artifact save / Commit comment]
     ↓
@@ -392,36 +391,36 @@ CI/CD ワークフローで使用する秘密情報は、GitHub Repository Secre
 
 ## 2. 実行手順
 
-`terraform/tf` は `.env` または CI Secrets から
+Terraform CLI は `.env` または CI Secrets から
 `TF_TOKEN_app_terraform_io`（互換: `HCP_TERRAFORM_TOKEN`）を読み込みます。
 `terraform login` は不要です。
 
 ### 2.1. DEV / PROD 共通手順
 
-`terraform/tf` ラッパーを使うと、以下を自動化できます。
+- 実行前に `TF_VAR_app_env` と backend ファイルを明示します。
 
-- `/app/.env` の自動読み込み
-- `TF_VAR_app_env` と Terraform 入力変数の自動設定
-- `init -reconfigure` の自動実行
+- `TF_VAR_app_env=dev|prod`
+- `terraform init -reconfigure -backend-config=backend.<env>.hcl`
 
 ```bash
-# ローカルは APP_ENV 未指定でも dev として実行
-./terraform/tf plan
+# DEV 例
+TF_VAR_app_env=dev terraform -chdir=terraform init -reconfigure -backend-config=backend.dev.hcl
+TF_VAR_app_env=dev terraform -chdir=terraform plan
 
 # apply も同様
-./terraform/tf apply
+TF_VAR_app_env=dev terraform -chdir=terraform apply
 ```
 
 明示的に `init` だけ実行したい場合:
 
 ```bash
-./terraform/tf init
+terraform -chdir=terraform init -reconfigure -backend-config=backend.dev.hcl
 ```
 
 補足:
 
-- CI では `APP_ENV=prod ./terraform/tf plan` / `apply` の形式を利用できます。
-- ラッパーを使わずに `terraform` コマンドを直接実行する運用は推奨しません。
+- CI では `TF_VAR_app_env=prod` と `backend.prod.hcl` を利用します。
+- prod apply は CI 承認フロー経由のみ許可します。
 
 ## 2.2. データパイプライン CD オーケストレーション（Loader + dbt）
 
