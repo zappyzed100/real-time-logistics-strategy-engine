@@ -41,18 +41,9 @@ locals {
   network_policy_blocked_ips               = local.app_env_upper == "PROD" ? var.PROD_NETWORK_POLICY_BLOCKED_IPS : var.DEV_NETWORK_POLICY_BLOCKED_IPS
 
   # HCP Workspace Variables から受け取る値（各ワークスペースで設定）
-  selected_loader_user_rsa_public_key = coalesce(
-    var.loader_user_rsa_public_key,
-    local.app_env_upper == "PROD" ? var.prod_loader_user_rsa_public_key : var.dev_loader_user_rsa_public_key,
-  )
-  selected_dbt_user_rsa_public_key = coalesce(
-    var.dbt_user_rsa_public_key,
-    local.app_env_upper == "PROD" ? var.prod_dbt_user_rsa_public_key : var.dev_dbt_user_rsa_public_key,
-  )
-  selected_streamlit_user_rsa_public_key = coalesce(
-    var.streamlit_user_rsa_public_key,
-    local.app_env_upper == "PROD" ? var.prod_streamlit_user_rsa_public_key : var.dev_streamlit_user_rsa_public_key,
-  )
+  selected_loader_user_rsa_public_key    = var.loader_user_rsa_public_key
+  selected_dbt_user_rsa_public_key       = var.dbt_user_rsa_public_key
+  selected_streamlit_user_rsa_public_key = var.streamlit_user_rsa_public_key
 }
 
 # module 名を dev -> snowflake_env へ変更した際の state 移行

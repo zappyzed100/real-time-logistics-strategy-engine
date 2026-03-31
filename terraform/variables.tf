@@ -307,47 +307,7 @@ variable "streamlit_user_rsa_public_key" {
   description = "環境共通の Streamlit ユーザー公開鍵（推奨）"
 }
 
-variable "dev_loader_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
 
-variable "dev_dbt_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
-
-variable "dev_streamlit_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
-
-variable "prod_loader_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
-
-variable "prod_dbt_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
-
-variable "prod_streamlit_user_rsa_public_key" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}
 
 # SNOWFLAKE_ACCOUNT=ORG-ACCOUNT 形式の複合変数。.env / HCP 環境変数から TF_VAR_SNOWFLAKE_ACCOUNT で注入する。
 # snowflake_organization_name / snowflake_account_name を個別に設定した場合はそちらが優先される。
