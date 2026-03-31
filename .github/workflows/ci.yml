@@ -240,11 +240,14 @@ jobs:
       - name: Run prod terraform plan
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-          TF_VAR_app_env: prod
         run: |
+          set -o pipefail
           mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -var="app_env=prod" -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -267,6 +270,7 @@ jobs:
 
       - name: Run provider upgrade rehearsal
         run: |
+          set -o pipefail
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -backend=false -upgrade -no-color | tee artifacts/terraform/provider-upgrade-init.log
           terraform -chdir=terraform validate -no-color | tee artifacts/terraform/provider-upgrade-validate.log
@@ -314,11 +318,14 @@ jobs:
       - name: Run prod terraform apply
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-          TF_VAR_app_env: prod
         run: |
+          set -o pipefail
           mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -var="app_env=prod" -auto-approve | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
@@ -362,6 +369,7 @@ jobs:
           TF_VAR_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
         run: |
+          set -o pipefail
           mkdir -p artifacts/data-pipeline
           uv run python src/infrastructure/snowflake_loader.py | tee artifacts/data-pipeline/prod-loader.log
 
@@ -393,6 +401,7 @@ jobs:
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
+          set -o pipefail
           mkdir -p artifacts/data-pipeline
           uv run python src/scripts/deploy/run_dbt.py run | tee artifacts/data-pipeline/prod-dbt-run.log
 
@@ -426,6 +435,7 @@ jobs:
           SNOWFLAKE_DBT_PRIVATE_KEY_PROD: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
           SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
+          set -o pipefail
           mkdir -p artifacts/data-pipeline
           uv run python src/scripts/deploy/run_dbt.py test | tee artifacts/data-pipeline/prod-dbt-test.log
 
