@@ -326,8 +326,7 @@ variable "snowflake_private_key" {
 
 variable "SNOWFLAKE_AUTHENTICATOR" {
   type        = string
-  default     = null
-  nullable    = true
+  nullable    = false
   description = "snowflakeへの認証方法設定"
 }
 

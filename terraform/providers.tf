@@ -17,8 +17,7 @@ locals {
   snowflake_user_effective        = var.snowflake_user != null ? var.snowflake_user : var.SNOWFLAKE_USER
   snowflake_private_key_raw       = var.snowflake_private_key != null ? var.snowflake_private_key : var.SNOWFLAKE_PRIVATE_KEY
   snowflake_private_key_effective = local.snowflake_private_key_raw != null ? replace(local.snowflake_private_key_raw, "\\n", "\n") : null
-  snowflake_authenticator_raw     = var.SNOWFLAKE_AUTHENTICATOR != null ? var.SNOWFLAKE_AUTHENTICATOR : "SNOWFLAKE_JWT"
-  snowflake_authenticator         = trimspace(replace(local.snowflake_authenticator_raw, "\r", ""))
+  snowflake_authenticator         = trimspace(replace(var.SNOWFLAKE_AUTHENTICATOR, "\r", ""))
   snowflake_role                  = var.SNOWFLAKE_ROLE != null ? trimspace(replace(var.SNOWFLAKE_ROLE, "\r", "")) : trimspace(replace(local.tf_admin_role, "\r", ""))
 }
 

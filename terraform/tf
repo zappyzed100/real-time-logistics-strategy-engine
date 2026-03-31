@@ -52,6 +52,7 @@ configure_snowflake_provider_vars() {
   local organization_name
   local account_name
   local account_identifier
+  local snowflake_authenticator
 
   organization_name="$(read_env_value "SNOWFLAKE_ORGANIZATION_NAME")"
   account_name="$(read_env_value "SNOWFLAKE_ACCOUNT_NAME")"
@@ -75,9 +76,12 @@ configure_snowflake_provider_vars() {
     export TF_VAR_snowflake_account_name="${account_name}"
   fi
 
+  snowflake_authenticator="$(read_env_value "SNOWFLAKE_AUTHENTICATOR")"
+  require_env_value "SNOWFLAKE_AUTHENTICATOR" "${snowflake_authenticator}"
+  export TF_VAR_SNOWFLAKE_AUTHENTICATOR="${snowflake_authenticator}"
+
   export_tf_var_from_env "snowflake_user" "SNOWFLAKE_USER"
   export_tf_var_from_env "snowflake_private_key" "SNOWFLAKE_PRIVATE_KEY"
-  export_tf_var_from_env "SNOWFLAKE_AUTHENTICATOR"
   export_tf_var_from_env "SNOWFLAKE_ROLE"
 }
 
