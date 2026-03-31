@@ -18,10 +18,19 @@ def _target_suffix(target: str) -> str:
     return target.upper()
 
 
+def _normalized_env_value(env: dict[str, str], name: str) -> str:
+    value = env.get(name)
+    if value is None:
+        return ""
+    return value.strip()
+
+
 def _sanitize_runtime_env(env: dict[str, str]) -> None:
     # Guard against CRLF-contaminated values (e.g. account ends with '\r').
     for key in (
         "TF_VAR_SNOWFLAKE_ACCOUNT",
+        "SNOWFLAKE_DBT_PRIVATE_KEY",
+        "SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE",
         "SNOWFLAKE_BRONZE_SCHEMA",
         "SNOWFLAKE_SILVER_SCHEMA",
         "SNOWFLAKE_GOLD_SCHEMA",
@@ -43,19 +52,35 @@ def _sanitize_runtime_env(env: dict[str, str]) -> None:
             env[key] = value.strip()
 
 
+def _select_private_key(env: dict[str, str]) -> str | None:
+    suffix = _target_suffix(_resolve_target(env))
+    candidates = (
+        "SNOWFLAKE_DBT_PRIVATE_KEY",
+        f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}",
+        f"{suffix}_DBT_USER_RSA_PRIVATE_KEY",
+    )
+
+    values_by_name = {name: _normalized_env_value(env, name) for name in candidates if _normalized_env_value(env, name)}
+    if not values_by_name:
+        return None
+
+    distinct_values = {value for value in values_by_name.values() if value}
+    if len(distinct_values) > 1:
+        conflicting_names = ", ".join(values_by_name.keys())
+        raise RuntimeError(
+            "Conflicting DBT private key environment variables are set: "
+            f"{conflicting_names}. Use only SNOWFLAKE_DBT_PRIVATE_KEY or ensure all values match."
+        )
+
+    return next(iter(distinct_values))
+
+
 def _write_private_key_file(env: dict[str, str]) -> str | None:
     existing_path = env.get("SNOWFLAKE_DBT_PRIVATE_KEY_PATH")
     if existing_path:
         return None
 
-    target = _resolve_target(env)
-    suffix = _target_suffix(target)
-
-    private_key = (
-        env.get("SNOWFLAKE_DBT_PRIVATE_KEY")
-        or env.get(f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}")
-        or env.get(f"{suffix}_DBT_USER_RSA_PRIVATE_KEY")
-    )
+    private_key = _select_private_key(env)
     if not private_key:
         return None
 

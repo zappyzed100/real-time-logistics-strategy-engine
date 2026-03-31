@@ -73,7 +73,7 @@ cd ..
 `.env` には最低限以下を設定します。
 
 - `TF_VAR_SNOWFLAKE_ACCOUNT`
-- `DEV_DBT_USER_RSA_PRIVATE_KEY` (PEM 本文、`\n` エスケープ可)
+- `SNOWFLAKE_DBT_PRIVATE_KEY` (PEM 本文、`\n` エスケープ可)
 
 必要に応じて上書きできる変数。
 

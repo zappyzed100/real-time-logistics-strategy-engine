@@ -46,20 +46,33 @@ def _target_value(target: str, suffix_name: str) -> str:
     return value
 
 
-def _load_private_key_der(target: str) -> bytes:
+def _select_private_key_text(target: str) -> str:
     suffix = _suffix(target)
-
-    private_key_text = (
-        _env_with_fallback(f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}")
-        or _env_with_fallback("SNOWFLAKE_DBT_PRIVATE_KEY")
-        or _env_with_fallback(f"{suffix}_DBT_USER_RSA_PRIVATE_KEY")
+    candidates = (
+        "SNOWFLAKE_DBT_PRIVATE_KEY",
+        f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}",
+        f"{suffix}_DBT_USER_RSA_PRIVATE_KEY",
     )
 
-    if not private_key_text:
+    values_by_name = {name: _normalized_env(name) for name in candidates if _normalized_env(name)}
+    if not values_by_name:
         raise ValueError(
-            "DBT private key is required. Set one of: "
-            f"SNOWFLAKE_DBT_PRIVATE_KEY_{suffix}, SNOWFLAKE_DBT_PRIVATE_KEY, {suffix}_DBT_USER_RSA_PRIVATE_KEY"
+            "DBT private key is required. Set SNOWFLAKE_DBT_PRIVATE_KEY or one of the legacy target-specific variables."
         )
+
+    distinct_values = {value for value in values_by_name.values() if value}
+    if len(distinct_values) > 1:
+        conflicting_names = ", ".join(values_by_name.keys())
+        raise ValueError(
+            "Conflicting DBT private key environment variables are set: "
+            f"{conflicting_names}. Use only SNOWFLAKE_DBT_PRIVATE_KEY or ensure all values match."
+        )
+
+    return next(iter(distinct_values))
+
+
+def _load_private_key_der(target: str) -> bytes:
+    private_key_text = _select_private_key_text(target)
 
     private_key_text = private_key_text.replace("\\n", "\n")
     passphrase = _env_with_fallback("SNOWFLAKE_DBT_PRIVATE_KEY_PASSPHRASE")

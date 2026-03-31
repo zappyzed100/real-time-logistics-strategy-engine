@@ -43,6 +43,11 @@ uv run python src/infrastructure/snowflake_loader.py
 
 ### 2.3 dbt 実行
 
+必要な主な環境変数 (`.env`)。
+
+- `TF_VAR_SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_DBT_PRIVATE_KEY`
+
 ```bash
 uv run python src/scripts/deploy/run_dbt.py debug
 uv run python src/scripts/deploy/run_dbt.py run --select +int_delivery_cost_candidates +fct_delivery_analysis
