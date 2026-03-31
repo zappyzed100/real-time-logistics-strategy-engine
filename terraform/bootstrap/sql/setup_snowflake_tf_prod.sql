@@ -4,12 +4,62 @@
 -- Author: Project Admin
 -- =====================================================
 
+USE ROLE ACCOUNTADMIN;
+
+-- =====================================================
+-- Required runtime inputs (replace placeholders before execution)
+-- =====================================================
+SET EXPECTED_ACCOUNT            = '<PROD_ACCOUNT_IDENTIFIER>'; -- ex: ORG-PROD_ACCOUNT
+SET RUNNER_RSA_PUBLIC_KEY       = '<YOUR_PROD_RSA_PUBLIC_KEY_HERE>';
+SET RUNNER_RSA_PUBLIC_KEY_2     = '<YOUR_PROD_RSA_PUBLIC_KEY2_HERE>';
+SET HCP_TERRAFORM_CIDR_1        = '<HCP_TERRAFORM_CIDR_1>';
+SET CORPORATE_CIDR_1            = '<CORPORATE_CIDR_1>';
+
+-- =====================================================
+-- Preflight checks
+-- =====================================================
+EXECUTE IMMEDIATE $$
+DECLARE
+  expected_account STRING := $EXPECTED_ACCOUNT;
+  pubkey_1 STRING := $RUNNER_RSA_PUBLIC_KEY;
+  pubkey_2 STRING := $RUNNER_RSA_PUBLIC_KEY_2;
+  hcp_cidr_1 STRING := $HCP_TERRAFORM_CIDR_1;
+  corp_cidr_1 STRING := $CORPORATE_CIDR_1;
+BEGIN
+  IF UPPER(CURRENT_ROLE()) <> 'ACCOUNTADMIN' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Bootstrap must be executed as ACCOUNTADMIN.';
+  END IF;
+
+  IF expected_account LIKE '<%>' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace EXPECTED_ACCOUNT placeholder before execution.';
+  END IF;
+
+  IF UPPER(CURRENT_ACCOUNT()) <> UPPER(expected_account) THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Account mismatch. Stop to avoid cross-environment execution.';
+  END IF;
+
+  IF pubkey_1 LIKE '<%>' OR pubkey_2 LIKE '<%>' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace RUNNER_RSA_PUBLIC_KEY and RUNNER_RSA_PUBLIC_KEY_2 before execution.';
+  END IF;
+
+  IF hcp_cidr_1 LIKE '<%>' OR corp_cidr_1 LIKE '<%>' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace network policy CIDR placeholders before execution.';
+  END IF;
+END;
+$$;
+
 -- 1. Terraform execution role/user
 -- -----------------------------------------------------
 CREATE ROLE IF NOT EXISTS PROD_TF_ADMIN_ROLE;
 
 CREATE USER IF NOT EXISTS PROD_TFRUNNER_USER
-  RSA_PUBLIC_KEY='<YOUR_PROD_RSA_PUBLIC_KEY_HERE>'
+  RSA_PUBLIC_KEY=$RUNNER_RSA_PUBLIC_KEY
+  RSA_PUBLIC_KEY_2=$RUNNER_RSA_PUBLIC_KEY_2
+  DEFAULT_ROLE=PROD_TF_ADMIN_ROLE;
+
+ALTER USER PROD_TFRUNNER_USER SET
+  RSA_PUBLIC_KEY=$RUNNER_RSA_PUBLIC_KEY,
+  RSA_PUBLIC_KEY_2=$RUNNER_RSA_PUBLIC_KEY_2,
   DEFAULT_ROLE=PROD_TF_ADMIN_ROLE;
 
 GRANT ROLE PROD_TF_ADMIN_ROLE TO USER PROD_TFRUNNER_USER;
@@ -18,8 +68,9 @@ GRANT ROLE PROD_TF_ADMIN_ROLE TO USER PROD_TFRUNNER_USER;
 GRANT CREATE DATABASE, CREATE WAREHOUSE, CREATE ROLE, CREATE USER, MANAGE GRANTS
   ON ACCOUNT TO ROLE PROD_TF_ADMIN_ROLE;
 
--- Grant to SYSADMIN for governance/visibility
-GRANT ROLE PROD_TF_ADMIN_ROLE TO ROLE SYSADMIN;
+-- Optional: do not grant PROD_TF_ADMIN_ROLE to SYSADMIN by default.
+-- If temporary troubleshooting is required, grant with explicit ticket/expiry process.
+-- GRANT ROLE PROD_TF_ADMIN_ROLE TO ROLE SYSADMIN;
 
 -- 2. Data layer databases/schemas
 -- -----------------------------------------------------
@@ -41,7 +92,10 @@ ALTER SCHEMA PROD_GOLD_DB.MARKETING_MART ENABLE MANAGED ACCESS;
 -- 2.1 Network policy for Terraform execution
 -- -----------------------------------------------------
 CREATE NETWORK POLICY IF NOT EXISTS PROD_TERRAFORM_NETWORK_POLICY
-  ALLOWED_IP_LIST = ('<HCP_TERRAFORM_CIDR_1>', '<CORPORATE_CIDR_1>');
+  ALLOWED_IP_LIST = ($HCP_TERRAFORM_CIDR_1, $CORPORATE_CIDR_1);
+
+ALTER NETWORK POLICY PROD_TERRAFORM_NETWORK_POLICY
+  SET ALLOWED_IP_LIST = ($HCP_TERRAFORM_CIDR_1, $CORPORATE_CIDR_1);
 
 ALTER USER PROD_TFRUNNER_USER SET NETWORK_POLICY = PROD_TERRAFORM_NETWORK_POLICY;
 
@@ -56,3 +110,7 @@ GRANT OWNERSHIP ON DATABASE PROD_GOLD_DB TO ROLE PROD_TF_ADMIN_ROLE COPY CURRENT
 GRANT OWNERSHIP ON SCHEMA PROD_BRONZE_DB.RAW_DATA TO ROLE PROD_TF_ADMIN_ROLE COPY CURRENT GRANTS;
 GRANT OWNERSHIP ON SCHEMA PROD_SILVER_DB.CLEANSED TO ROLE PROD_TF_ADMIN_ROLE COPY CURRENT GRANTS;
 GRANT OWNERSHIP ON SCHEMA PROD_GOLD_DB.MARKETING_MART TO ROLE PROD_TF_ADMIN_ROLE COPY CURRENT GRANTS;
+
+-- 3.2 Transfer network policy ownership to PROD_TF_ADMIN_ROLE
+-- -----------------------------------------------------
+GRANT OWNERSHIP ON NETWORK POLICY PROD_TERRAFORM_NETWORK_POLICY TO ROLE PROD_TF_ADMIN_ROLE COPY CURRENT GRANTS;
