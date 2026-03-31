@@ -17,7 +17,7 @@ USE ROLE ACCOUNTADMIN;
 SET ENV_PREFIX                   = '<DEV_OR_PROD>'; -- DEV or PROD
 SET EXPECTED_ACCOUNT             = '<ACCOUNT_IDENTIFIER>'; -- ex: ORG-PROD_ACCOUNT
 SET RUNNER_RSA_PUBLIC_KEY        = '<RUNNER_RSA_PUBLIC_KEY_HERE>';
-SET RUNNER_RSA_PUBLIC_KEY_2      = '<RUNNER_RSA_PUBLIC_KEY2_HERE>';
+SET RUNNER_RSA_PUBLIC_KEY_2      = ''; -- optional: set only during key rotation
 SET HCP_TERRAFORM_CIDR_1         = '<HCP_TERRAFORM_CIDR_1>';
 SET CORPORATE_CIDR_1             = '<CORPORATE_CIDR_1>';
 SET DATA_RETENTION_DAYS          = <RETENTION_DAYS>; -- DEV=7 / PROD=90
@@ -50,8 +50,12 @@ BEGIN
     RAISE STATEMENT_ERROR WITH MESSAGE => 'Account mismatch. Stop to avoid cross-environment execution.';
   END IF;
 
-  IF pubkey_1 LIKE '<%>' OR pubkey_2 LIKE '<%>' THEN
-    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace RUNNER_RSA_PUBLIC_KEY and RUNNER_RSA_PUBLIC_KEY_2 before execution.';
+  IF TRIM(pubkey_1) = '' OR pubkey_1 LIKE '<%>' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace RUNNER_RSA_PUBLIC_KEY before execution.';
+  END IF;
+
+  IF TRIM(pubkey_2) != '' AND pubkey_2 LIKE '<%>' THEN
+    RAISE STATEMENT_ERROR WITH MESSAGE => 'Replace RUNNER_RSA_PUBLIC_KEY_2 before execution or leave it empty.';
   END IF;
 
   IF hcp_cidr_1 LIKE '<%>' OR corp_cidr_1 LIKE '<%>' THEN
@@ -61,5 +65,7 @@ END;
 $$;
 
 -- NOTE:
+-- Initial bootstrap needs only RUNNER_RSA_PUBLIC_KEY.
+-- RUNNER_RSA_PUBLIC_KEY_2 is reserved for future key rotation.
 -- For production, avoid broad role inheritance by default.
 -- Apply temporary grants only under explicit approval and expiry.
