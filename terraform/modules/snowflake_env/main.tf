@@ -672,7 +672,10 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_silver_usage" {
 
 resource "snowflake_grant_privileges_to_account_role" "dbt_cleansed_all" {
   account_role_name = snowflake_account_role.silver_transform_rw_role.name
-  all_privileges    = true
+  # dbt が Silver スキーマで必要な権限を明示指定。all_privileges は将来の権限追加時に自動付与されるため不使用
+  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE",
+                       "CREATE SEQUENCE", "CREATE FUNCTION", "CREATE PROCEDURE",
+                       "MODIFY", "MONITOR"]
 
   on_schema {
     schema_name = "${local.silver_db_name}.${local.silver_schema_name}"
@@ -701,7 +704,10 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_gold_usage" {
 
 resource "snowflake_grant_privileges_to_account_role" "dbt_mart_all" {
   account_role_name = snowflake_account_role.gold_publish_rw_role.name
-  all_privileges    = true
+  # dbt が Gold スキーマで必要な権限を明示指定。all_privileges は将来の権限追加時に自動付与されるため不使用
+  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE",
+                       "CREATE SEQUENCE", "CREATE FUNCTION", "CREATE PROCEDURE",
+                       "MODIFY", "MONITOR"]
 
   on_schema {
     schema_name = "${local.gold_db_name}.${local.gold_schema_name}"

@@ -116,6 +116,11 @@ variable "streamlit_warehouse_name" {
 variable "warehouse_size" {
   type        = string
   description = "Warehouse サイズ"
+
+  validation {
+    condition     = contains(["X-SMALL", "SMALL", "MEDIUM", "LARGE", "X-LARGE", "2X-LARGE", "3X-LARGE", "4X-LARGE"], upper(var.warehouse_size))
+    error_message = "warehouse_size は X-SMALL / SMALL / MEDIUM / LARGE / X-LARGE / 2X-LARGE / 3X-LARGE / 4X-LARGE のいずれかです。"
+  }
 }
 
 variable "warehouse_auto_suspend" {
@@ -191,7 +196,7 @@ variable "streamlit_user_rsa_public_key" {
   type        = string
   nullable    = false
   sensitive   = true
-  description = "dbtユーザーのRSA公開鍵"
+  description = "StreamlitユーザーのRSA公開鍵"
 }
 
 variable "network_policy_allowed_ip_list" {
