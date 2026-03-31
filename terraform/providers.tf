@@ -26,6 +26,20 @@ locals {
   snowflake_private_key_effective = local.snowflake_private_key_raw != null ? replace(local.snowflake_private_key_raw, "\\n", "\n") : null
   snowflake_authenticator         = trimspace(replace(var.SNOWFLAKE_AUTHENTICATOR, "\r", ""))
   snowflake_role                  = var.SNOWFLAKE_ROLE != null ? trimspace(replace(var.SNOWFLAKE_ROLE, "\r", "")) : trimspace(replace(local.tf_admin_role, "\r", ""))
+
+  # 誤環境実行防止： app_env と snowflake_role のプレフィックスが一致することを検証
+  # 同一SnowflakeアカウントでDEV/PRODを共用する構成であるため、ロールプレフィックスで誤環境実行を検出する
+  role_env_prefix_valid = (
+    local.snowflake_role == null ||
+    startswith(upper(local.snowflake_role), upper(local.app_env_upper))
+  )
+}
+
+check "env_role_mismatch" {
+  assert {
+    condition     = local.role_env_prefix_valid
+    error_message = "SNOWFLAKE_ROLE (${local.snowflake_role}) のプレフィックスが app_env (${local.app_env_upper}) と一致しません。誤環境実行の可能性があります。"
+  }
 }
 
 provider "snowflake" {

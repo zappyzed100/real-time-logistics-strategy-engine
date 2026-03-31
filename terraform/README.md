@@ -155,6 +155,7 @@ Workspace 内の `Settings > Variables` から登録してください。
 
 | Key                              | Value                            | Category  | Sensitive |
 |----------------------------------|----------------------------------|-----------|-----------|
+| app_env                          | dev（または prod）               | terraform | No        |
 | loader_user_rsa_public_key       | (Public Key)                     | terraform | No        |
 | dbt_user_rsa_public_key          | (Public Key)                     | terraform | No        |
 | streamlit_user_rsa_public_key    | (Public Key)                     | terraform | No        |
