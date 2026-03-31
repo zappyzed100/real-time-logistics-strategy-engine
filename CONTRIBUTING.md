@@ -143,8 +143,8 @@ tflint --chdir=terraform
 
 ## 5.1 スキーマ変更時の更新フロー
 
-スキーマやテーブル契約を変更した場合は、同一 PR で `DATA_CONTRACT.md` を更新します。
-`DATA_CONTRACT.md` が未作成の場合は新規作成してください。
+スキーマやテーブル契約を変更した場合は、同一 PR で `docs/DATA_CONTRACT.md` を更新します。
+`docs/DATA_CONTRACT.md` が未作成の場合は新規作成してください。
 
 最低限記載する内容:
 
