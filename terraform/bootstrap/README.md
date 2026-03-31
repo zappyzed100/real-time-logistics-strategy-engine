@@ -24,7 +24,9 @@ Snowflake 初期セットアップ用 SQL を配置しています。
 
 ## 運用ポリシー
 
-- Network policy は bootstrap 段階で Terraform 実行ユーザーへ適用し、所有権を `*_TF_ADMIN_ROLE` へ移譲します。
+- ネットワークポリシーは bootstrap では作成せず、Terraform が直接作成・管理します（`DEV_TF_ADMIN_ROLE` に `CREATE NETWORK POLICY` が付与されているため）。
+- `*_TFRUNNER_USER` にはネットワークポリシーを適用しません。JWT/RSA鍵ペア認証で保護しており、HCP Terraform ランナーは動的IPを使用するためIPによる制限は機能しません。
+- ネットワークポリシーはサービスユーザー（loader / dbt / streamlit）に対して Terraform 管理下で適用されます。
 - PROD では `PROD_TF_ADMIN_ROLE` の `SYSADMIN` への継承はデフォルトで無効化し、必要時のみ期限付きで運用してください。
 - Terraform 実行ユーザーは 2 スロット鍵運用に対応できますが、初回 bootstrap では `RSA_PUBLIC_KEY` のみ必須です。`RSA_PUBLIC_KEY_2` は将来の鍵ローテーション時に利用します。
 
@@ -34,10 +36,8 @@ Bootstrap SQL 実行後は、以下のオブジェクトを Terraform state へ 
 
 - Databases: Bronze / Silver / Gold
 - Schemas: RAW_DATA / CLEANSED / MARKETING_MART
-- Network policy: `<ENV>_TERRAFORM_NETWORK_POLICY`
 
 import ID 形式:
 
 - `snowflake_database`: `<DATABASE_NAME>`
 - `snowflake_schema`: `<DATABASE_NAME>.<SCHEMA_NAME>`
-- `snowflake_network_policy`: `<NETWORK_POLICY_NAME>`
