@@ -9,8 +9,14 @@ terraform {
     }
   }
 
-  # organization / workspace は backend.dev.hcl / backend.prod.hcl で管理する
-  backend "remote" {}
+  # デフォルトは安全側の dev workspace に固定し、prod は明示的な backend-config 指定時のみ利用する。
+  backend "remote" {
+    organization = "zappyzed100"
+
+    workspaces {
+      name = "dev-real-time-logistics-strategy-engine-distilled-mip-1m-01ms"
+    }
+  }
 }
 
 locals {
