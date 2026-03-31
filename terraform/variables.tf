@@ -351,12 +351,32 @@ variable "prod_streamlit_user_rsa_public_key" {
 
 variable "snowflake_organization_name" {
   type        = string
-  description = "Snowflakeの組織名"
+  description = "Snowflakeの組織名（Terraform 正本）"
+
+  validation {
+    condition     = length(trimspace(var.snowflake_organization_name)) > 0
+    error_message = "snowflake_organization_name は必須です。"
+  }
+
+  validation {
+    condition     = trimspace(var.snowflake_organization_name) == var.snowflake_organization_name
+    error_message = "snowflake_organization_name の先頭/末尾に空白を含めないでください。"
+  }
 }
 
 variable "snowflake_account_name" {
   type        = string
-  description = "Snowflakeのアカウント名"
+  description = "Snowflakeのアカウント名（Terraform 正本）"
+
+  validation {
+    condition     = length(trimspace(var.snowflake_account_name)) > 0
+    error_message = "snowflake_account_name は必須です。"
+  }
+
+  validation {
+    condition     = trimspace(var.snowflake_account_name) == var.snowflake_account_name
+    error_message = "snowflake_account_name の先頭/末尾に空白を含めないでください。"
+  }
 }
 
 variable "snowflake_user" {

@@ -139,6 +139,8 @@ Note:
 - Sensitive 設定した値は後から参照できません。元データは鍵管理システム等で安全に保管してください。
 - `SNOWFLAKE_PRIVATE_KEY` は改行コードを含むマルチライン形式のデータであるため、HCP Terraform 上では Category: terraform として登録を推奨します。
 - `SNOWFLAKE_PRIVATE_KEY` の改行コード（`\n`）は、コード側で自動復元されます。
+- Terraform Provider の接続先は `snowflake_organization_name` / `snowflake_account_name` を正本として使用します。
+- `SNOWFLAKE_ACCOUNT`（ORG-ACCOUNT 形式を含む）は Terraform Provider の接続解決には使用しません（Loader/dbt/Streamlit 用の環境変数です）。
 
 ## 0.4. Workspace 構成と環境変数
 
