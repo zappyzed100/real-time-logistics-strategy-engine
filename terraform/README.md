@@ -586,12 +586,16 @@ Loader / dbt ジョブが失敗した場合の切り分け手順です。
 - destroy を伴う変更は、保護解除を含む別 PR か、明示的な運用手順を前提に実施する
 - 今後 schema 自体を Terraform 管理へ移す場合も、この managed access 方針を維持する
 
-### 3.2. Network Policy の未適用理由
+### 3.2. Network Policy 適用方針
 
-理由:
+方針:
 
-- HCP Terraform の実行元 IP アドレスが固定ではないため、安易な制限は接続断やロックアウトを招くリスクがある
+- `modules/snowflake_env/main.tf` で `<ENV>_TERRAFORM_NETWORK_POLICY` を作成する
+- 許可 CIDR は `DEV_NETWORK_POLICY_ALLOWED_IPS` / `PROD_NETWORK_POLICY_ALLOWED_IPS` で環境別に管理する
+- Service users（loader/dbt/streamlit）には Terraform で network policy を適用する
+- Terraform 実行ユーザー（`<ENV>_TFRUNNER_USER`）への適用は bootstrap SQL で管理する
 
-運用方針:
+運用上の注意:
 
-- 接続元（実行環境）の構成が確定した段階で、別途 Network Policy の導入を検討する
+- 許可 CIDR を設定しない場合、Terraform 側の network policy リソースは作成されない
+- HCP Terraform 公開レンジ更新時は Variables と bootstrap SQL の双方を同時更新する
