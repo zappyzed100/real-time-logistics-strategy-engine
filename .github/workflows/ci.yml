@@ -244,7 +244,7 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -no-color -out=../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -253,7 +253,6 @@ jobs:
           name: terraform-prod-plan-${{ github.run_id }}
           path: |
             artifacts/terraform/prod-plan.log
-            artifacts/terraform/prod.tfplan
           if-no-files-found: warn
 
   terraform-provider-upgrade-check:
@@ -307,6 +306,7 @@ jobs:
 
       - name: Download prod terraform plan artifact
         uses: actions/download-artifact@v5
+        if: false  # remote backend では plan ファイルの受け渡しは不要
         with:
           name: terraform-prod-plan-${{ github.run_id }}
           path: artifacts/terraform
@@ -318,7 +318,7 @@ jobs:
         run: |
           mkdir -p artifacts/terraform
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -auto-approve ../artifacts/terraform/prod.tfplan | tee artifacts/terraform/prod-apply.log
+          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
