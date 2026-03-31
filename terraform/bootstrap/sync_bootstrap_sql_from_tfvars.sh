@@ -26,6 +26,24 @@ extract_scalar() {
   ' "${TFVARS_FILE}"
 }
 
+require_non_empty() {
+  local key="$1"
+  local value="$2"
+  if [[ -z "${value}" ]]; then
+    echo "[sync] required value is empty: ${key}" >&2
+    exit 1
+  fi
+}
+
+require_positive_integer() {
+  local key="$1"
+  local value="$2"
+  if [[ ! "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
+    echo "[sync] ${key} must be a positive integer (current: ${value})" >&2
+    exit 1
+  fi
+}
+
 extract_list() {
   local key="$1"
   awk -v key="${key}" '
@@ -72,6 +90,11 @@ sync_env_sql() {
   account="$(extract_scalar "snowflake_account_name")"
   expected_account="${org}-${account}"
   retention_days="$(extract_scalar "${retention_key}")"
+
+  require_non_empty "snowflake_organization_name" "${org}"
+  require_non_empty "snowflake_account_name" "${account}"
+  require_non_empty "${retention_key}" "${retention_days}"
+  require_positive_integer "${retention_key}" "${retention_days}"
 
   local allowed_ips_sql
   allowed_ips_sql="$(build_sql_ip_list "${allowed_ips_key}")"
