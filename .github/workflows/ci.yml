@@ -247,7 +247,7 @@ jobs:
           app_env = "prod"
           EOF
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform plan -no-color | tee artifacts/terraform/prod-plan.log
+          terraform -chdir=terraform plan -lock-timeout=5m -no-color | tee artifacts/terraform/prod-plan.log
 
       - name: Save terraform plan artifacts
         if: always()
@@ -324,8 +324,51 @@ jobs:
           cat > terraform/ci.auto.tfvars <<'EOF'
           app_env = "prod"
           EOF
+
+          TF_ORGANIZATION="$(sed -n 's/^organization = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
+          TF_WORKSPACE="$(sed -n 's/^  name = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
+          RUN_URL="https://app.terraform.io/app/${TF_ORGANIZATION}/${TF_WORKSPACE}/runs"
+
+          WORKSPACE_RESPONSE="$(curl -fsSL \
+            -H "Authorization: Bearer ${TF_TOKEN_app_terraform_io}" \
+            -H "Content-Type: application/vnd.api+json" \
+            "https://app.terraform.io/api/v2/organizations/${TF_ORGANIZATION}/workspaces/${TF_WORKSPACE}")"
+
+          LOCKED_STATUS="$(python3 -c 'import json,sys; print("true" if json.load(sys.stdin)["data"]["attributes"].get("locked") else "false")' <<<"${WORKSPACE_RESPONSE}")"
+
+          if [ "${LOCKED_STATUS}" = "true" ]; then
+            echo "::error::HCP Terraform workspace is manually locked. Unlock it in HCP Terraform and rerun apply."
+            echo "Workspace runs: ${RUN_URL}"
+            exit 1
+          fi
+
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
-          terraform -chdir=terraform apply -auto-approve | tee artifacts/terraform/prod-apply.log
+
+          # 旧ロール名(PROD_DBT_ROLE/PROD_LOADER_ROLE/PROD_STREAMLIT_ROLE)を参照する
+          # stale grant state が残っていると revoke に失敗するため、事前に state から除去する。
+          STALE_GRANT_ADDRESSES="$(terraform -chdir=terraform state list | grep 'module\.snowflake_env\.' || true)"
+          if [ -n "${STALE_GRANT_ADDRESSES}" ]; then
+            while IFS= read -r addr; do
+              [ -z "${addr}" ] && continue
+              if [[ "${addr}" == *"snowflake_grant_privileges_to_account_role"* ]]; then
+                state_body="$(terraform -chdir=terraform state show -no-color "${addr}" 2>/dev/null || true)"
+                if echo "${state_body}" | grep -Eq 'account_role_name\s*=\s*"PROD_(DBT|LOADER|STREAMLIT)_ROLE"'; then
+                  echo "Removing stale grant state: ${addr}"
+                  terraform -chdir=terraform state rm "${addr}" >/dev/null
+                  continue
+                fi
+
+                if [[ "${addr}" == *"module.dbt_bronze_table_grants.snowflake_grant_privileges_to_account_role.on_all[0]"* ]] || \
+                   [[ "${addr}" == *"module.streamlit_gold_table_grants.snowflake_grant_privileges_to_account_role.on_all[0]"* ]] || \
+                   [[ "${addr}" == *"module.streamlit_gold_view_grants.snowflake_grant_privileges_to_account_role.on_all[0]"* ]]; then
+                  echo "Removing stale on_all grant state: ${addr}"
+                  terraform -chdir=terraform state rm "${addr}" >/dev/null
+                fi
+              fi
+            done <<< "${STALE_GRANT_ADDRESSES}"
+          fi
+
+          terraform -chdir=terraform apply -lock-timeout=5m -auto-approve | tee artifacts/terraform/prod-apply.log
 
       - name: Save terraform apply artifacts
         if: always()
