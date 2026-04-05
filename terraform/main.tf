@@ -142,21 +142,6 @@ import {
   id = "\"${local.gold_db_name}\".\"${local.gold_schema_name}\""
 }
 
-import {
-  to = module.snowflake_env.snowflake_user.loader_user
-  id = local.loader_user_name
-}
-
-import {
-  to = module.snowflake_env.snowflake_user.dbt_user
-  id = local.dbt_user_name
-}
-
-import {
-  to = module.snowflake_env.snowflake_user.streamlit_user
-  id = local.streamlit_user_name
-}
-
 # APP_ENV に応じて DEV / PROD の Snowflake リソースを作成
 module "snowflake_env" {
   source = "./modules/snowflake_env"
