@@ -20,13 +20,12 @@ Snowflake 初期セットアップ用 SQL を配置しています。
 
 補足:
 
-- `DATA_RETENTION_TIME_IN_DAYS` / `ALLOWED_IP_LIST` は `terraform/common.auto.tfvars` を正本として同期されます。
+- `DATA_RETENTION_TIME_IN_DAYS` は `terraform/common.auto.tfvars` を正本として同期されます。
 
 ## 運用ポリシー
 
-- ネットワークポリシーは bootstrap では作成せず、Terraform が直接作成・管理します（`DEV_TF_ADMIN_ROLE` に `CREATE NETWORK POLICY` が付与されているため）。
-- `*_TFRUNNER_USER` にはネットワークポリシーを適用しません。JWT/RSA鍵ペア認証で保護しており、HCP Terraform ランナーは動的IPを使用するためIPによる制限は機能しません。
-- ネットワークポリシーはサービスユーザー（loader / dbt / streamlit）に対して Terraform 管理下で適用されます。
+- ネットワークポリシーは bootstrap/Terraform の標準管理対象にしません。
+- `*_TFRUNNER_USER` にはネットワークポリシーを適用しません。JWT/RSA鍵ペア認証で保護し、実行元IPの固定 allowlist は前提にしません。
 - PROD では `PROD_TF_ADMIN_ROLE` の `SYSADMIN` への継承はデフォルトで無効化し、必要時のみ期限付きで運用してください。
 - Terraform 実行ユーザーは 2 スロット鍵運用に対応できますが、初回 bootstrap では `RSA_PUBLIC_KEY` のみ必須です。`RSA_PUBLIC_KEY_2` は将来の鍵ローテーション時に利用します。
 

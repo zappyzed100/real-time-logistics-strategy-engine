@@ -66,7 +66,7 @@ GRANT ROLE PROD_TF_ADMIN_ROLE TO USER PROD_TFRUNNER_USER;
 -- Terraform 実行に必要な権限を付与
 -- 注意: MANAGE GRANTS はアカウント全体に対する権限であり、DEV/PRODが共用アカウントの場合はPRODロールがDEVオブジェクトにもGrant操作できる。
 -- Terraformの GRANT ROLE TO ROLE (ロール階層) に必要なため付与するが、誤環境実行は必ず providers.tf の check ブロックで検出される。
-GRANT CREATE DATABASE, CREATE WAREHOUSE, CREATE ROLE, CREATE USER, MANAGE GRANTS, CREATE NETWORK POLICY
+GRANT CREATE DATABASE, CREATE WAREHOUSE, CREATE ROLE, CREATE USER, MANAGE GRANTS
   ON ACCOUNT TO ROLE PROD_TF_ADMIN_ROLE;
 
 -- PROD では SYSADMIN への継承はデフォルト無効
@@ -90,10 +90,9 @@ ALTER DATABASE PROD_GOLD_DB SET DATA_RETENTION_TIME_IN_DAYS = 90;
 CREATE SCHEMA   IF NOT EXISTS PROD_GOLD_DB.MARKETING_MART WITH MANAGED ACCESS;
 ALTER SCHEMA PROD_GOLD_DB.MARKETING_MART ENABLE MANAGED ACCESS;
 
--- 2.1 ネットワークポリシーは Terraform が直接作成・管理するため bootstrap では作成しない
--- （PROD_TF_ADMIN_ROLE に CREATE NETWORK POLICY 権限が付与されているため Terraform apply で自動作成される）
+-- 2.1 ネットワークポリシーは運用対象外
 -- PROD_TFRUNNER_USER にはネットワークポリシーを適用しない
--- （JWT/RSA鍵ペア認証で保護。HCP Terraform ランナーは動的IPのため固定IPによる制限は不可）
+-- （JWT/RSA鍵ペア認証で保護。実行元IPの固定 allowlist は前提にしない）
 
 -- 3. DB の所有権を PROD_TF_ADMIN_ROLE へ移譲
 -- -----------------------------------------------------

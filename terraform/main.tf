@@ -4,42 +4,38 @@ locals {
 
   env_config = {
     DEV = {
-      tf_admin_role              = var.DEV_TF_ADMIN_ROLE
-      db_data_retention_days     = var.DEV_DB_DATA_RETENTION_DAYS
-      bronze_db_name             = var.DEV_BRONZE_DB
-      silver_db_name             = var.DEV_SILVER_DB
-      gold_db_name               = var.DEV_GOLD_DB
-      loader_user_name           = var.DEV_LOADER_USER
-      loader_role_name           = var.DEV_LOADER_ROLE
-      loader_warehouse_name      = var.DEV_LOADER_WH
-      loader_file_format_name    = var.DEV_LOADER_FILE_FORMAT_NAME
-      dbt_user_name              = var.DEV_DBT_USER
-      dbt_role_name              = var.DEV_DBT_ROLE
-      dbt_warehouse_name         = var.DEV_DBT_WH
-      streamlit_user_name        = var.DEV_STREAMLIT_USER
-      streamlit_role_name        = var.DEV_STREAMLIT_ROLE
-      streamlit_warehouse_name   = var.DEV_STREAMLIT_WH
-      network_policy_allowed_ips = var.DEV_NETWORK_POLICY_ALLOWED_IPS
-      network_policy_blocked_ips = var.DEV_NETWORK_POLICY_BLOCKED_IPS
+      tf_admin_role            = var.DEV_TF_ADMIN_ROLE
+      db_data_retention_days   = var.DEV_DB_DATA_RETENTION_DAYS
+      bronze_db_name           = var.DEV_BRONZE_DB
+      silver_db_name           = var.DEV_SILVER_DB
+      gold_db_name             = var.DEV_GOLD_DB
+      loader_user_name         = var.DEV_LOADER_USER
+      loader_role_name         = var.DEV_LOADER_ROLE
+      loader_warehouse_name    = var.DEV_LOADER_WH
+      loader_file_format_name  = var.DEV_LOADER_FILE_FORMAT_NAME
+      dbt_user_name            = var.DEV_DBT_USER
+      dbt_role_name            = var.DEV_DBT_ROLE
+      dbt_warehouse_name       = var.DEV_DBT_WH
+      streamlit_user_name      = var.DEV_STREAMLIT_USER
+      streamlit_role_name      = var.DEV_STREAMLIT_ROLE
+      streamlit_warehouse_name = var.DEV_STREAMLIT_WH
     }
     PROD = {
-      tf_admin_role              = var.PROD_TF_ADMIN_ROLE
-      db_data_retention_days     = var.PROD_DB_DATA_RETENTION_DAYS
-      bronze_db_name             = var.PROD_BRONZE_DB
-      silver_db_name             = var.PROD_SILVER_DB
-      gold_db_name               = var.PROD_GOLD_DB
-      loader_user_name           = var.PROD_LOADER_USER
-      loader_role_name           = var.PROD_LOADER_ROLE
-      loader_warehouse_name      = var.PROD_LOADER_WH
-      loader_file_format_name    = var.PROD_LOADER_FILE_FORMAT_NAME
-      dbt_user_name              = var.PROD_DBT_USER
-      dbt_role_name              = var.PROD_DBT_ROLE
-      dbt_warehouse_name         = var.PROD_DBT_WH
-      streamlit_user_name        = var.PROD_STREAMLIT_USER
-      streamlit_role_name        = var.PROD_STREAMLIT_ROLE
-      streamlit_warehouse_name   = var.PROD_STREAMLIT_WH
-      network_policy_allowed_ips = var.PROD_NETWORK_POLICY_ALLOWED_IPS
-      network_policy_blocked_ips = var.PROD_NETWORK_POLICY_BLOCKED_IPS
+      tf_admin_role            = var.PROD_TF_ADMIN_ROLE
+      db_data_retention_days   = var.PROD_DB_DATA_RETENTION_DAYS
+      bronze_db_name           = var.PROD_BRONZE_DB
+      silver_db_name           = var.PROD_SILVER_DB
+      gold_db_name             = var.PROD_GOLD_DB
+      loader_user_name         = var.PROD_LOADER_USER
+      loader_role_name         = var.PROD_LOADER_ROLE
+      loader_warehouse_name    = var.PROD_LOADER_WH
+      loader_file_format_name  = var.PROD_LOADER_FILE_FORMAT_NAME
+      dbt_user_name            = var.PROD_DBT_USER
+      dbt_role_name            = var.PROD_DBT_ROLE
+      dbt_warehouse_name       = var.PROD_DBT_WH
+      streamlit_user_name      = var.PROD_STREAMLIT_USER
+      streamlit_role_name      = var.PROD_STREAMLIT_ROLE
+      streamlit_warehouse_name = var.PROD_STREAMLIT_WH
     }
   }
 
@@ -80,8 +76,6 @@ locals {
   file_format_trim_space                   = var.SNOWFLAKE_FILE_FORMAT_TRIM_SPACE
   file_format_field_optionally_enclosed_by = upper(var.SNOWFLAKE_FILE_FORMAT_FIELD_OPTIONALLY_ENCLOSED_BY) == "DOUBLE_QUOTE" ? "\"" : var.SNOWFLAKE_FILE_FORMAT_FIELD_OPTIONALLY_ENCLOSED_BY
   file_format_null_if                      = var.SNOWFLAKE_FILE_FORMAT_NULL_IF
-  network_policy_allowed_ips               = local.selected_env.network_policy_allowed_ips
-  network_policy_blocked_ips               = local.selected_env.network_policy_blocked_ips
 
   # HCP Workspace Variables から受け取る値（各ワークスペースで設定）
   selected_loader_user_rsa_public_key    = var.loader_user_rsa_public_key
@@ -186,6 +180,4 @@ module "snowflake_env" {
   loader_user_rsa_public_key               = local.selected_loader_user_rsa_public_key
   dbt_user_rsa_public_key                  = local.selected_dbt_user_rsa_public_key
   streamlit_user_rsa_public_key            = local.selected_streamlit_user_rsa_public_key
-  network_policy_allowed_ip_list           = local.network_policy_allowed_ips
-  network_policy_blocked_ip_list           = local.network_policy_blocked_ips
 }

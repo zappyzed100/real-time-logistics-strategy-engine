@@ -12,6 +12,21 @@ on:
         required: false
         type: boolean
         default: true
+      run_prod_state_cleanup:
+        description: "Run one-time prod remote state cleanup"
+        required: false
+        type: boolean
+        default: false
+      confirm_prod_state_cleanup:
+        description: "Acknowledge removal of known stale prod Terraform state entries"
+        required: false
+        type: boolean
+        default: false
+      expected_prod_workspace:
+        description: "Safety check: target HCP Terraform workspace name"
+        required: false
+        type: string
+        default: "prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms"
       run_provider_upgrade_check:
         description: "Run provider upgrade rehearsal check"
         required: false
@@ -24,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: github.event_name != 'workflow_dispatch' || !inputs.run_prod_state_cleanup
     strategy:
       fail-fast: false
       matrix:
@@ -148,6 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: github.event_name != 'workflow_dispatch' || !inputs.run_prod_state_cleanup
     steps:
       - *checkout_step
       - *install_uv_step
@@ -164,6 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: github.event_name != 'workflow_dispatch' || !inputs.run_prod_state_cleanup
     steps:
       - *checkout_step
       - *install_uv_step
@@ -208,6 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: github.event_name != 'workflow_dispatch' || !inputs.run_prod_state_cleanup
     steps:
       - *checkout_step
       - *install_uv_step
@@ -228,10 +247,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    needs: [terraform-prod-state-preflight]
     if: |
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_prod_plan)
+      (github.event_name == 'workflow_dispatch' && !inputs.run_prod_state_cleanup && inputs.run_prod_plan)
     steps:
       - *checkout_step
       - name: Setup Terraform
@@ -258,11 +278,221 @@ jobs:
             artifacts/terraform/prod-plan.log
           if-no-files-found: warn
 
+  terraform-prod-state-preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.run_prod_state_cleanup && inputs.run_prod_plan)
+    steps:
+      - *checkout_step
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Run prod state preflight
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
+
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+
+          preflight_failed=0
+          preflight_log="artifacts/terraform/prod-state-preflight.log"
+          exec > >(tee "$preflight_log") 2>&1
+
+          echo "Checking prod Terraform state for known migration risks..."
+
+          if terraform -chdir=terraform state list | grep -qx 'module.snowflake_env.snowflake_network_policy.terraform_access_policy'; then
+            echo "ERROR: stale network policy resource remains in prod state: module.snowflake_env.snowflake_network_policy.terraform_access_policy"
+            echo "Expected impact: next apply may attempt to destroy PROD_TERRAFORM_NETWORK_POLICY."
+            preflight_failed=1
+          fi
+
+          for addr in \
+            module.snowflake_env.snowflake_user.loader_user \
+            module.snowflake_env.snowflake_user.dbt_user \
+            module.snowflake_env.snowflake_user.streamlit_user; do
+            state_body="$(terraform -chdir=terraform state show -no-color "$addr" 2>/dev/null || true)"
+            if echo "$state_body" | grep -Eq 'network_policy\s*=\s*"PROD_TERRAFORM_NETWORK_POLICY"'; then
+              echo "ERROR: stale network_policy attribute remains in prod state: $addr"
+              echo "Expected impact: next apply may try to mutate user network policy during migration."
+              preflight_failed=1
+            fi
+          done
+
+          for addr in $(terraform -chdir=terraform state list | grep 'snowflake_grant_privileges_to_account_role' || true); do
+            state_body="$(terraform -chdir=terraform state show -no-color "$addr" 2>/dev/null || true)"
+
+            if echo "$state_body" | grep -Eq 'account_role_name\s*=\s*"PROD_(DBT|LOADER|STREAMLIT)_ROLE"'; then
+              echo "ERROR: legacy functional-role grant remains in prod state: $addr"
+              preflight_failed=1
+            fi
+
+            if echo "$state_body" | grep -Eq '^\s*privileges\s*=\s*\[\s*\]'; then
+              echo "ERROR: invalid empty privileges found in prod state: $addr"
+              preflight_failed=1
+            fi
+          done
+
+          for addr in \
+            module.snowflake_env.module.dbt_bronze_table_grants.snowflake_grant_privileges_to_account_role.on_all[0] \
+            module.snowflake_env.module.streamlit_gold_table_grants.snowflake_grant_privileges_to_account_role.on_all[0] \
+            module.snowflake_env.module.streamlit_gold_view_grants.snowflake_grant_privileges_to_account_role.on_all[0]; do
+            if terraform -chdir=terraform state show -no-color "$addr" >/dev/null 2>&1; then
+              echo "ERROR: stale on_all grant remains in prod state: $addr"
+              preflight_failed=1
+            fi
+          done
+
+          if [ "$preflight_failed" -eq 0 ]; then
+            echo "OK: no known prod state migration risks detected."
+          fi
+
+          if [ "$preflight_failed" -ne 0 ]; then
+            echo "::error::Prod state preflight detected migration risks. Review artifacts/terraform/prod-state-preflight.log before apply."
+            exit 1
+          fi
+
+      - name: Save prod state preflight artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: terraform-prod-state-preflight-${{ github.run_id }}
+          path: artifacts/terraform/prod-state-preflight.log
+          if-no-files-found: warn
+
+  prod-state-cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: prod
+    if: github.event_name == 'workflow_dispatch' && inputs.run_prod_state_cleanup && inputs.confirm_prod_state_cleanup
+    steps:
+      - *checkout_step
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Remove known stale prod state entries
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TARGET_WORKSPACE="prod-real-time-logistics-strategy-engine-distilled-mip-1m-01ms"
+          if [ "${{ inputs.expected_prod_workspace }}" != "$TARGET_WORKSPACE" ]; then
+            echo "::error::expected_prod_workspace does not match the guarded prod workspace."
+            exit 1
+          fi
+
+          mkdir -p artifacts/terraform
+          cat > terraform/ci.auto.tfvars <<'EOF'
+          app_env = "prod"
+          EOF
+
+          terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
+
+          terraform -chdir=terraform state list | tee artifacts/terraform/prod-state-cleanup-before.txt
+          terraform -chdir=terraform state pull > artifacts/terraform/prod-state-before.json
+
+          removed_count=0
+          cleanup_log="artifacts/terraform/prod-state-cleanup.log"
+          exec > >(tee "$cleanup_log") 2>&1
+
+          echo "Starting guarded cleanup for known stale prod state entries..."
+
+          remove_if_present() {
+            local addr="$1"
+            if terraform -chdir=terraform state show -no-color "$addr" >/dev/null 2>&1; then
+              echo "Removing stale state: $addr"
+              terraform -chdir=terraform state rm "$addr"
+              removed_count=$((removed_count + 1))
+            else
+              echo "Already absent: $addr"
+            fi
+          }
+
+          verify_and_remove_user() {
+            local addr="$1"
+            local state_body
+            state_body="$(terraform -chdir=terraform state show -no-color "$addr" 2>/dev/null || true)"
+
+            if [ -z "$state_body" ]; then
+              echo "Already absent: $addr"
+              return
+            fi
+
+            if echo "$state_body" | grep -Eq 'network_policy\s*=\s*"PROD_TERRAFORM_NETWORK_POLICY"'; then
+              echo "Verified stale network_policy attribute on: $addr"
+              terraform -chdir=terraform state rm "$addr"
+              removed_count=$((removed_count + 1))
+              return
+            fi
+
+            echo "::error::State entry exists but stale network_policy marker was not found: $addr"
+            exit 1
+          }
+
+          verify_and_remove_legacy_grant() {
+            local addr="$1"
+            local state_body
+            state_body="$(terraform -chdir=terraform state show -no-color "$addr" 2>/dev/null || true)"
+
+            if [ -z "$state_body" ]; then
+              echo "Already absent: $addr"
+              return
+            fi
+
+            if echo "$state_body" | grep -Eq 'account_role_name\s*=\s*"PROD_(DBT|LOADER|STREAMLIT)_ROLE"'; then
+              echo "Verified legacy functional-role grant on: $addr"
+              terraform -chdir=terraform state rm "$addr"
+              removed_count=$((removed_count + 1))
+              return
+            fi
+
+            echo "::error::State entry exists but legacy functional-role marker was not found: $addr"
+            exit 1
+          }
+
+          remove_if_present 'module.snowflake_env.snowflake_network_policy.terraform_access_policy'
+
+          verify_and_remove_user 'module.snowflake_env.snowflake_user.loader_user'
+          verify_and_remove_user 'module.snowflake_env.snowflake_user.dbt_user'
+          verify_and_remove_user 'module.snowflake_env.snowflake_user.streamlit_user'
+
+          verify_and_remove_legacy_grant 'module.snowflake_env.snowflake_grant_privileges_to_account_role.dbt_wh_usage'
+          verify_and_remove_legacy_grant 'module.snowflake_env.snowflake_grant_privileges_to_account_role.loader_wh_usage'
+          verify_and_remove_legacy_grant 'module.snowflake_env.snowflake_grant_privileges_to_account_role.streamlit_wh_usage'
+
+          terraform -chdir=terraform state list | tee artifacts/terraform/prod-state-cleanup-after.txt
+          terraform -chdir=terraform state pull > artifacts/terraform/prod-state-after.json
+
+          echo "Removed stale entries: $removed_count"
+
+      - name: Save prod state cleanup artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: prod-state-cleanup-${{ github.run_id }}
+          path: |
+            artifacts/terraform/prod-state-cleanup.log
+            artifacts/terraform/prod-state-cleanup-before.txt
+            artifacts/terraform/prod-state-cleanup-after.txt
+            artifacts/terraform/prod-state-before.json
+            artifacts/terraform/prod-state-after.json
+          if-no-files-found: warn
+
   terraform-provider-upgrade-check:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' && inputs.run_provider_upgrade_check
+    if: github.event_name == 'workflow_dispatch' && !inputs.run_prod_state_cleanup && inputs.run_provider_upgrade_check
     steps:
       - *checkout_step
       - name: Setup Terraform

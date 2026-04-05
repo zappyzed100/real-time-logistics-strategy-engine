@@ -90,13 +90,11 @@ Bootstrap SQL で作成したオブジェクトは、初回のみ Terraform stat
 
 - Database: Bronze / Silver / Gold
 - Schema: RAW_DATA / CLEANSED / MARKETING_MART
-- Network policy: `<ENV>_TERRAFORM_NETWORK_POLICY`
 
 import ID 形式:
 
 - `snowflake_database`: `<DATABASE_NAME>`
 - `snowflake_schema`: `<DATABASE_NAME>.<SCHEMA_NAME>`
-- `snowflake_network_policy`: `<NETWORK_POLICY_NAME>`
 
 実行例（DEV）:
 
@@ -108,7 +106,6 @@ TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowf
 TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.bronze_schema' DEV_BRONZE_DB.RAW_DATA
 TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.silver_schema' DEV_SILVER_DB.CLEANSED
 TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_schema.gold_schema' DEV_GOLD_DB.MARKETING_MART
-TF_VAR_app_env=dev terraform -chdir=terraform import 'module.snowflake_env.snowflake_network_policy.terraform_access_policy' DEV_TERRAFORM_NETWORK_POLICY
 ```
 
 注意:
@@ -658,19 +655,9 @@ Loader / dbt ジョブが失敗した場合の切り分け手順です。
 
 方針:
 
-- `modules/snowflake_env/main.tf` で `<ENV>_TERRAFORM_NETWORK_POLICY` を作成する
-- 許可 CIDR は `terraform/common.auto.tfvars` 内の `DEV_NETWORK_POLICY_ALLOWED_IPS` / `PROD_NETWORK_POLICY_ALLOWED_IPS` で管理する
-- Service users（loader/dbt/streamlit）には Terraform で network policy を適用する
-- Terraform 実行ユーザー（`<ENV>_TFRUNNER_USER`）への適用は bootstrap SQL で管理する
-
-環境別の許可 CIDR 方針:
-
-| 環境 | 設定値 | 理由 |
-|------|--------|------|
-| DEV | `["0.0.0.0/0"]`（全許可） | 開発者のローカル IP が固定されないため IP 制限なし。HCP Terraform ランナーからの接続も同様に全許可 |
-| PROD | GitHub Actions ランナーの固定 IP | CI 専用実行に限定し接続元を絞る |
+- Snowflake への接続では、IP allowlist 前提の network policy を標準運用に組み込まない
+- Terraform 実行ユーザー / service users は JWT/RSA 鍵認証とロール分離で保護する
 
 運用上の注意:
 
-- 許可 CIDR を設定しない場合、Terraform 側の network policy リソースは作成されない
-- PROD の HCP Terraform 公開レンジ更新時は `PROD_NETWORK_POLICY_ALLOWED_IPS` と bootstrap SQL の双方を同時更新する
+- 固定 egress を持つ self-hosted runner / proxy が整備された場合のみ、network policy 再導入を検討する
