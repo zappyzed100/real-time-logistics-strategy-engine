@@ -55,10 +55,11 @@ PR から本番反映までの標準フロー:
 4. `main` へマージ
 5. `prod-approval-gate` を承認
 6. 自動継続:
-   - `terraform-prod-apply`
-   - `prod-loader-run`
-   - `prod-dbt-run`
-   - `prod-dbt-test`
+  - `terraform-prod-apply`
+  - `dbt-debug-prod`
+  - `prod-loader-run`
+  - `prod-dbt-run`
+  - `prod-dbt-test`
 
 ### 3.1 トリガー条件（抜粋）
 
@@ -69,7 +70,6 @@ PR から本番反映までの標準フロー:
 ### 3.2 成果物（artifact）
 
 - `artifacts/terraform/prod-plan.log`
-- `artifacts/terraform/prod.tfplan`
 - `artifacts/terraform/prod-apply.log`
 - `artifacts/data-pipeline/prod-loader.log`
 - `artifacts/data-pipeline/prod-dbt-run.log`
@@ -156,6 +156,10 @@ gh run download <RUN_ID> -D artifacts_run_<RUN_ID>
   - 鍵・環境変数不備、CSV 入力不備
 - `prod-dbt-run/test` 失敗:
   - モデル依存破綻、スキーマ不整合、品質テスト失敗
+
+注記:
+
+- Snowflake 接続は JWT/RSA 鍵認証を前提とし、IP allowlist 前提の network policy は標準運用に含めない
 
 ## 7. ロールバック戦略
 

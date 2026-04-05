@@ -6,7 +6,6 @@ locals {
   bronze_schema_name            = var.bronze_schema_name
   silver_schema_name            = var.silver_schema_name
   gold_schema_name              = var.gold_schema_name
-  terraform_network_policy_name = "${local.env}_TERRAFORM_NETWORK_POLICY"
   read_only_role_name           = "${local.env}_READ_ONLY_ROLE"
   read_write_role_name          = "${local.env}_READ_WRITE_ROLE"
   bronze_loader_rw_role_name    = "${local.env}_BRONZE_LOADER_RW_ROLE"
@@ -14,13 +13,6 @@ locals {
   silver_transform_rw_role_name = "${local.env}_SILVER_TRANSFORM_RW_ROLE"
   gold_publish_rw_role_name     = "${local.env}_GOLD_PUBLISH_RW_ROLE"
   gold_consume_ro_role_name     = "${local.env}_GOLD_CONSUME_RO_ROLE"
-}
-
-resource "snowflake_network_policy" "terraform_access_policy" {
-  name            = local.terraform_network_policy_name
-  allowed_ip_list = var.network_policy_allowed_ip_list
-  blocked_ip_list = var.network_policy_blocked_ip_list
-  comment         = "${local.env} environment network policy for service users"
 }
 
 # ============================================================
@@ -37,7 +29,6 @@ resource "snowflake_user" "loader_user" {
   login_name     = var.loader_user_name
   rsa_public_key = var.loader_user_rsa_public_key
   default_role   = snowflake_account_role.loader_role.name
-  network_policy = snowflake_network_policy.terraform_access_policy.name
 }
 
 resource "snowflake_grant_account_role" "loader_role_grant" {
@@ -55,7 +46,6 @@ resource "snowflake_user" "dbt_user" {
   login_name     = var.dbt_user_name
   rsa_public_key = var.dbt_user_rsa_public_key
   default_role   = snowflake_account_role.dbt_role.name
-  network_policy = snowflake_network_policy.terraform_access_policy.name
 }
 
 resource "snowflake_grant_account_role" "dbt_role_grant" {
@@ -75,7 +65,6 @@ resource "snowflake_user" "streamlit_user" {
   # 必要に応じてパスワード認証またはキーペア認証を選択
   rsa_public_key = var.streamlit_user_rsa_public_key
   default_role   = snowflake_account_role.streamlit_role.name
-  network_policy = snowflake_network_policy.terraform_access_policy.name
 }
 
 resource "snowflake_grant_account_role" "streamlit_role_grant" {

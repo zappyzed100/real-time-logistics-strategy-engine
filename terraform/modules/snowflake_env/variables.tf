@@ -198,14 +198,3 @@ variable "streamlit_user_rsa_public_key" {
   sensitive   = true
   description = "StreamlitユーザーのRSA公開鍵"
 }
-
-variable "network_policy_allowed_ip_list" {
-  type        = list(string)
-  description = "network policy で許可する送信元CIDR。common.auto.tfvars で管理すること（HCP Terraform IP 一覧は https://app.terraform.io/api/meta/ip-ranges 参照）。"
-}
-
-variable "network_policy_blocked_ip_list" {
-  type        = list(string)
-  description = "network policy で拒否する送信元CIDR"
-  default     = []
-}

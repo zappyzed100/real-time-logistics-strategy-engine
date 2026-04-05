@@ -263,26 +263,6 @@ variable "PROD_STREAMLIT_WH" {
   description = "PROD Streamlit warehouse 名"
 }
 
-variable "DEV_NETWORK_POLICY_ALLOWED_IPS" {
-  type        = list(string)
-  description = "DEV 向けに許可する送信元CIDR"
-}
-
-variable "PROD_NETWORK_POLICY_ALLOWED_IPS" {
-  type        = list(string)
-  description = "PROD 向けに許可する送信元CIDR"
-}
-
-variable "DEV_NETWORK_POLICY_BLOCKED_IPS" {
-  type        = list(string)
-  description = "DEV 向けに拒否する送信元CIDR"
-}
-
-variable "PROD_NETWORK_POLICY_BLOCKED_IPS" {
-  type        = list(string)
-  description = "PROD 向けに拒否する送信元CIDR"
-}
-
 variable "loader_user_rsa_public_key" {
   type        = string
   default     = null
