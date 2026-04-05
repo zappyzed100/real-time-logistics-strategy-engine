@@ -240,12 +240,44 @@ jobs:
       - name: Run prod terraform plan
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          PROD_STREAMLIT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_STREAMLIT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
           set -o pipefail
           mkdir -p artifacts/terraform
           cat > terraform/ci.auto.tfvars <<'EOF'
           app_env = "prod"
           EOF
+
+          derive_public_key_tfvar() {
+            local private_key_value="$1"
+            local tfvar_name="$2"
+            local key_file public_key_file public_key_value
+
+            [ -n "$private_key_value" ] || return 0
+
+            key_file="$(mktemp)"
+            public_key_file="$(mktemp)"
+
+            python3 -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text(sys.argv[2].replace("\\n", "\n"), encoding="utf-8")' "$key_file" "$private_key_value"
+
+            if [ -n "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:-}" ]; then
+              openssl pkey -pubout -in "$key_file" -passin env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE > "$public_key_file"
+            else
+              openssl pkey -pubout -in "$key_file" > "$public_key_file"
+            fi
+
+            public_key_value="$(sed '/BEGIN PUBLIC KEY/d;/END PUBLIC KEY/d' "$public_key_file" | tr -d '\n\r')"
+            printf '%s = "%s"\n' "$tfvar_name" "$public_key_value" >> terraform/ci.auto.tfvars
+            rm -f "$key_file" "$public_key_file"
+          }
+
+          derive_public_key_tfvar "$PROD_LOADER_USER_RSA_PRIVATE_KEY" loader_user_rsa_public_key
+          derive_public_key_tfvar "$PROD_DBT_USER_RSA_PRIVATE_KEY" dbt_user_rsa_public_key
+          derive_public_key_tfvar "$PROD_STREAMLIT_USER_RSA_PRIVATE_KEY" streamlit_user_rsa_public_key
+
           terraform -chdir=terraform init -reconfigure -backend-config=backend.prod.hcl
           terraform -chdir=terraform plan -lock-timeout=5m -no-color | tee artifacts/terraform/prod-plan.log
 
@@ -318,12 +350,43 @@ jobs:
       - name: Run prod terraform apply
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+          PROD_LOADER_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_LOADER_USER_RSA_PRIVATE_KEY }}
+          PROD_DBT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_DBT_USER_RSA_PRIVATE_KEY }}
+          PROD_STREAMLIT_USER_RSA_PRIVATE_KEY: ${{ secrets.PROD_STREAMLIT_USER_RSA_PRIVATE_KEY }}
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: |
           set -o pipefail
           mkdir -p artifacts/terraform
           cat > terraform/ci.auto.tfvars <<'EOF'
           app_env = "prod"
           EOF
+
+          derive_public_key_tfvar() {
+            local private_key_value="$1"
+            local tfvar_name="$2"
+            local key_file public_key_file public_key_value
+
+            [ -n "$private_key_value" ] || return 0
+
+            key_file="$(mktemp)"
+            public_key_file="$(mktemp)"
+
+            python3 -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text(sys.argv[2].replace("\\n", "\n"), encoding="utf-8")' "$key_file" "$private_key_value"
+
+            if [ -n "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:-}" ]; then
+              openssl pkey -pubout -in "$key_file" -passin env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE > "$public_key_file"
+            else
+              openssl pkey -pubout -in "$key_file" > "$public_key_file"
+            fi
+
+            public_key_value="$(sed '/BEGIN PUBLIC KEY/d;/END PUBLIC KEY/d' "$public_key_file" | tr -d '\n\r')"
+            printf '%s = "%s"\n' "$tfvar_name" "$public_key_value" >> terraform/ci.auto.tfvars
+            rm -f "$key_file" "$public_key_file"
+          }
+
+          derive_public_key_tfvar "$PROD_LOADER_USER_RSA_PRIVATE_KEY" loader_user_rsa_public_key
+          derive_public_key_tfvar "$PROD_DBT_USER_RSA_PRIVATE_KEY" dbt_user_rsa_public_key
+          derive_public_key_tfvar "$PROD_STREAMLIT_USER_RSA_PRIVATE_KEY" streamlit_user_rsa_public_key
 
           TF_ORGANIZATION="$(sed -n 's/^organization = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
           TF_WORKSPACE="$(sed -n 's/^  name = "\(.*\)"/\1/p' terraform/backend.prod.hcl)"
