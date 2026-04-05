@@ -261,14 +261,7 @@ jobs:
             key_file="$(mktemp)"
             public_key_file="$(mktemp)"
 
-            python3 - <<'PY' "$key_file" "$private_key_value"
-            import pathlib
-            import sys
-
-            path = pathlib.Path(sys.argv[1])
-            value = sys.argv[2].replace("\\n", "\n")
-            path.write_text(value, encoding="utf-8")
-            PY
+            python3 -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text(sys.argv[2].replace("\\n", "\n"), encoding="utf-8")' "$key_file" "$private_key_value"
 
             if [ -n "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:-}" ]; then
               openssl pkey -pubout -in "$key_file" -passin env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE > "$public_key_file"
@@ -378,14 +371,7 @@ jobs:
             key_file="$(mktemp)"
             public_key_file="$(mktemp)"
 
-            python3 - <<'PY' "$key_file" "$private_key_value"
-            import pathlib
-            import sys
-
-            path = pathlib.Path(sys.argv[1])
-            value = sys.argv[2].replace("\\n", "\n")
-            path.write_text(value, encoding="utf-8")
-            PY
+            python3 -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text(sys.argv[2].replace("\\n", "\n"), encoding="utf-8")' "$key_file" "$private_key_value"
 
             if [ -n "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:-}" ]; then
               openssl pkey -pubout -in "$key_file" -passin env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE > "$public_key_file"
