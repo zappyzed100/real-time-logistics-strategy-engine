@@ -106,8 +106,9 @@ APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py test
 ## 4.3 PROD 手動実行について
 
 - PROD 反映は CI の承認フロー経由のみ許可されます（ローカル直接実行は運用禁止）
-- 例外として remote state migration が必要な場合も、GitHub Actions の手動 workflow と `environment: prod` 承認を使って実施します
-- 一回限りの cleanup workflow を使って state migration した場合は、`terraform-prod-state-preflight` と `terraform-prod-plan` の通過確認後に workflow 自体を削除します
+- 例外として remote state migration が必要な場合も、GitHub Actions の `CI Pipeline` を `workflow_dispatch` で手動実行し、`environment: prod` 承認を使って実施します
+- cleanup 実行時は `run_prod_state_cleanup=true` と `confirm_prod_state_cleanup=true` を指定し、`run_prod_plan=false` にして cleanup job だけを起動します
+- state migration 完了後は `terraform-prod-state-preflight` と `terraform-prod-plan` の通過を確認し、その後に cleanup 用 job を削除します
 
 ## 5. コンポーネント間の依存関係
 
