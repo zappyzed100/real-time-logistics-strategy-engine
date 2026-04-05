@@ -632,8 +632,14 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const applyLog = fs.readFileSync('artifacts/terraform/prod-apply.log', 'utf8');
-            const summary = applyLog.includes('Apply complete!') ? '✅ Apply completed successfully' : '⚠️ Apply encountered warnings or errors';
+            const applyLogPath = 'artifacts/terraform/prod-apply.log';
+            if (!fs.existsSync(applyLogPath)) {
+              console.log(`Skip commit comment: ${applyLogPath} was not created.`);
+              return;
+            }
+
+            const applyLog = fs.readFileSync(applyLogPath, 'utf8');
+            const summary = applyLog.includes('Apply complete!') ? 'Apply completed successfully' : 'Apply encountered warnings or errors';
             github.rest.repos.createCommitComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
