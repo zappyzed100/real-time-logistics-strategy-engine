@@ -388,6 +388,10 @@ jobs:
       - *setup_python_step
       - *install_dependencies_step
 
+      - name: Generate prod seed output files
+        run: |
+          uv run python src/scripts/data_gen/generate_large_data.py --number 10000 --geo-mode lite
+
       - name: Run prod snowflake loader
         env:
           APP_ENV: prod
