@@ -51,17 +51,10 @@ PR から本番反映までの標準フロー:
 
 1. 開発ブランチで実装・ローカル検証
 2. PR 作成
-3. CI で以下を確認
-  - `terraform-prod-state-preflight`
-  - `terraform-prod-plan`
+3. CI で `terraform-prod-state-preflight` と `terraform-prod-plan` を確認
 4. `main` へマージ
 5. `prod-approval-gate` を承認
-6. CD として自動継続:
-  - `terraform-prod-apply`
-  - `dbt-debug-prod`
-  - `prod-loader-run`
-  - `prod-dbt-run`
-  - `prod-dbt-test`
+6. CD として `terraform-prod-apply`、`dbt-debug-prod`、`prod-loader-run`、`prod-dbt-run`、`prod-dbt-test` が順次実行される
 
 ### 3.1 トリガー条件（抜粋）
 
