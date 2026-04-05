@@ -426,14 +426,14 @@ jobs:
             state_body="$(terraform -chdir=terraform state show -no-color "$addr" 2>/dev/null || true)"
 
             if [ -n "$state_body" ]; then
-              if ! echo "$state_body" | grep -Eq 'network_policy\s*=\s*"PROD_TERRAFORM_NETWORK_POLICY"'; then
-                echo "::error::State entry exists but stale network_policy marker was not found: $addr"
-                exit 1
+              if echo "$state_body" | grep -Eq 'network_policy\s*=\s*"PROD_TERRAFORM_NETWORK_POLICY"'; then
+                echo "Verified stale network_policy attribute on: $addr"
+                terraform -chdir=terraform state rm "$addr"
+                removed_count=$((removed_count + 1))
+              else
+                echo "State already refreshed, keeping existing user entry: $addr"
+                return
               fi
-
-              echo "Verified stale network_policy attribute on: $addr"
-              terraform -chdir=terraform state rm "$addr"
-              removed_count=$((removed_count + 1))
             else
               echo "State already absent, importing fresh state for: $addr"
             fi
