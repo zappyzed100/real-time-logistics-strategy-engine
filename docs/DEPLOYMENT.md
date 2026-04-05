@@ -51,7 +51,7 @@ PR から本番反映までの標準フロー:
 
 1. 開発ブランチで実装・ローカル検証
 2. PR 作成
-3. CI で `terraform-prod-state-preflight` と `terraform-prod-plan` を確認
+3. CI で `terraform-prod-plan` を確認
 4. `main` へマージ
 5. `prod-approval-gate` を承認
 6. CD として `terraform-prod-apply`、`dbt-debug-prod`、`prod-loader-run`、`prod-dbt-run`、`prod-dbt-test` が順次実行される
@@ -59,15 +59,12 @@ PR から本番反映までの標準フロー:
 ### 3.1 トリガー条件（抜粋）
 
 - `terraform-prod-plan`: `pull_request`, `push(main)`, `workflow_dispatch`
-- `terraform-prod-state-preflight`: `pull_request`, `push(main)`, `workflow_dispatch` で実行
 - `prod-approval-gate`: `push(main)` のみ
-- `terraform-prod-plan`: preflight 通過後に実行
 - `terraform-prod-apply` 以降: approval gate 通過後に順次実行
 
 ### 3.2 成果物（artifact）
 
 - `artifacts/terraform/prod-plan.log`
-- `artifacts/terraform/prod-state-preflight.log`
 - `artifacts/terraform/prod-apply.log`
 - `artifacts/data-pipeline/prod-loader.log`
 - `artifacts/data-pipeline/prod-dbt-run.log`
@@ -106,9 +103,6 @@ APP_ENV=dev uv run python src/scripts/deploy/run_dbt.py test
 ## 4.3 PROD 手動実行について
 
 - PROD 反映は CI の承認フロー経由のみ許可されます（ローカル直接実行は運用禁止）
-- 例外として remote state migration が必要な場合も、GitHub Actions の `CI Pipeline` を `workflow_dispatch` で手動実行し、`environment: prod` 承認を使って実施します
-- cleanup 実行時は `run_prod_state_cleanup=true` と `confirm_prod_state_cleanup=true` を指定し、`run_prod_plan=false` にして cleanup job だけを起動します
-- state migration 完了後は `terraform-prod-state-preflight` と `terraform-prod-plan` の通過を確認し、その後に cleanup 用 job を削除します
 
 ## 5. コンポーネント間の依存関係
 
