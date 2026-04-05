@@ -228,6 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    needs: [terraform-prod-state-preflight]
     if: |
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
@@ -381,7 +382,7 @@ jobs:
     permissions:
       contents: read
     environment: prod
-    needs: [lint, test, terraform-prod-plan, terraform-prod-state-preflight]
+    needs: [lint, test, terraform-prod-plan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Wait for production approval

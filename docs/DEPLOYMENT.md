@@ -52,8 +52,8 @@ PR から本番反映までの標準フロー:
 1. 開発ブランチで実装・ローカル検証
 2. PR 作成
 3. CI で以下を確認
-  - `terraform-prod-plan`
   - `terraform-prod-state-preflight`
+  - `terraform-prod-plan`
 4. `main` へマージ
 5. `prod-approval-gate` を承認
 6. CD として自動継続:
@@ -68,7 +68,8 @@ PR から本番反映までの標準フロー:
 - `terraform-prod-plan`: `pull_request`, `push(main)`, `workflow_dispatch`
 - `terraform-prod-state-preflight`: `pull_request`, `push(main)`, `workflow_dispatch` で実行
 - `prod-approval-gate`: `push(main)` のみ
-- `terraform-prod-apply` 以降: approval gate と preflight 通過後に順次実行
+- `terraform-prod-plan`: preflight 通過後に実行
+- `terraform-prod-apply` 以降: approval gate 通過後に順次実行
 
 ### 3.2 成果物（artifact）
 
