@@ -4,6 +4,59 @@ from collections import defaultdict
 from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 
+UNASSIGNED_COST_MULTIPLIER = 3.0
+
+# data/01_raw/estat/prefecture_population_density.csv を基に固定した人口密度。
+CENTER_POPULATION_DENSITY = {
+    "東京": 6410.4,
+    "大阪": 4641.0,
+    "神奈川": 3824.5,
+    "埼玉": 1934.5,
+    "愛知": 1458.7,
+    "千葉": 1219.0,
+    "福岡": 1030.6,
+    "兵庫": 651.0,
+    "沖縄": 643.3,
+    "京都": 559.4,
+    "香川": 506.7,
+    "茨城": 470.5,
+    "静岡": 467.4,
+    "奈良": 359.1,
+    "滋賀": 352.0,
+    "佐賀": 332.7,
+    "広島": 330.4,
+    "長崎": 317.9,
+    "宮城": 316.3,
+    "三重": 306.8,
+    "群馬": 305.0,
+    "栃木": 301.8,
+    "石川": 270.7,
+    "岡山": 265.6,
+    "富山": 243.8,
+    "愛媛": 235.3,
+    "熊本": 234.7,
+    "山口": 219.7,
+    "和歌山": 195.4,
+    "岐阜": 186.4,
+    "福井": 183.1,
+    "山梨": 181.5,
+    "大分": 177.4,
+    "新潟": 175.0,
+    "徳島": 173.6,
+    "鹿児島": 173.0,
+    "鳥取": 157.9,
+    "長野": 151.1,
+    "宮崎": 138.4,
+    "福島": 133.1,
+    "青森": 128.4,
+    "山形": 114.6,
+    "島根": 100.1,
+    "高知": 97.4,
+    "秋田": 82.5,
+    "岩手": 79.3,
+    "北海道": 66.7,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class SimulationOptions:
@@ -12,7 +65,7 @@ class SimulationOptions:
     weight_exponent: float = 0.6
     weight_divisor: float = 12.0
     max_weight_surcharge: float = 1.2
-    orders_per_staff: int = 250
+    orders_per_staff: int = 20
 
     def __post_init__(self) -> None:
         if self.orders_per_staff <= 0:
@@ -63,11 +116,14 @@ class OrderCandidate:
 @dataclass(frozen=True, slots=True)
 class OrderAssignment:
     order_id: str
-    center_id: str
-    center_name: str
+    center_id: str | None
+    center_name: str | None
     distance_km: float
     delivery_cost: float
     capacity_exceeded: bool
+    is_unassigned: bool = False
+    fallback_center_id: str | None = None
+    fallback_center_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +146,12 @@ class SimulationResult:
     total_fixed_cost: float
     total_variable_cost: float
     total_cost: float
+    unassigned_order_count: int
+    unassigned_total_cost: float
+
+
+def center_population_density(center_name: str) -> float:
+    return CENTER_POPULATION_DENSITY.get(center_name, 0.0)
 
 
 def haversine_distance_km(
@@ -162,41 +224,77 @@ def simulate_assignments(
     if not centers:
         raise ValueError("at least one center is required")
 
+    all_candidates = build_order_candidates(orders=orders, centers=centers, options=options)
     candidates_by_order: dict[str, list[OrderCandidate]] = defaultdict(list)
-    for candidate in build_order_candidates(orders=orders, centers=centers, options=options):
+    candidates_by_center: dict[str, list[OrderCandidate]] = defaultdict(list)
+    for candidate in all_candidates:
         candidates_by_order[candidate.order_id].append(candidate)
+        candidates_by_center[candidate.center_id].append(candidate)
 
-    remaining_capacity: dict[str, int] = {center.center_id: center.capacity(options) for center in centers}
+    for center_id in candidates_by_center:
+        candidates_by_center[center_id] = sorted(
+            candidates_by_center[center_id],
+            key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.order_id),
+        )
+
     variable_cost_by_center: defaultdict[str, float] = defaultdict(float)
     assigned_orders_by_center: defaultdict[str, int] = defaultdict(int)
     overflow_orders_by_center: defaultdict[str, int] = defaultdict(int)
-    assignments: list[OrderAssignment] = []
+    assignments_by_order: dict[str, OrderAssignment] = {}
 
+    ranked_centers = sorted(
+        centers,
+        key=lambda center: (-center_population_density(center.center_name), center.center_id, center.center_name),
+    )
+    max_staffing_level = max(center.staffing_level for center in centers)
+
+    # n 人目を 1 ラウンドとし、人口密度の高い拠点から順に、
+    # その 1 人が担当できる 20 件までの未割当配送先を低コスト順で確保する。
+    for staffing_round in range(1, max_staffing_level + 1):
+        for center in ranked_centers:
+            if center.staffing_level < staffing_round:
+                continue
+
+            assigned_in_round = 0
+            for candidate in candidates_by_center[center.center_id]:
+                if candidate.order_id in assignments_by_order:
+                    continue
+
+                assignments_by_order[candidate.order_id] = OrderAssignment(
+                    order_id=candidate.order_id,
+                    center_id=candidate.center_id,
+                    center_name=candidate.center_name,
+                    distance_km=candidate.distance_km,
+                    delivery_cost=candidate.delivery_cost,
+                    capacity_exceeded=False,
+                )
+                assigned_orders_by_center[center.center_id] += 1
+                variable_cost_by_center[center.center_id] += candidate.delivery_cost
+                assigned_in_round += 1
+                if assigned_in_round >= options.orders_per_staff:
+                    break
+
+    unassigned_total_cost = 0.0
     for order in sorted(orders, key=lambda current: current.order_id):
-        ranked_candidates = sorted(
-            candidates_by_order[order.order_id],
-            key=lambda candidate: (candidate.delivery_cost, candidate.center_name, candidate.center_id),
-        )
-        selected = next(
-            (candidate for candidate in ranked_candidates if remaining_capacity[candidate.center_id] > 0), ranked_candidates[0]
-        )
-        capacity_exceeded = remaining_capacity[selected.center_id] <= 0
-        if not capacity_exceeded:
-            remaining_capacity[selected.center_id] -= 1
-        else:
-            overflow_orders_by_center[selected.center_id] += 1
+        if order.order_id in assignments_by_order:
+            continue
 
-        assigned_orders_by_center[selected.center_id] += 1
-        variable_cost_by_center[selected.center_id] += selected.delivery_cost
-        assignments.append(
-            OrderAssignment(
-                order_id=selected.order_id,
-                center_id=selected.center_id,
-                center_name=selected.center_name,
-                distance_km=selected.distance_km,
-                delivery_cost=selected.delivery_cost,
-                capacity_exceeded=capacity_exceeded,
-            )
+        cheapest_candidate = min(
+            candidates_by_order[order.order_id],
+            key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.center_name, candidate.center_id),
+        )
+        penalty_cost = round(cheapest_candidate.delivery_cost * UNASSIGNED_COST_MULTIPLIER, 2)
+        unassigned_total_cost += penalty_cost
+        assignments_by_order[order.order_id] = OrderAssignment(
+            order_id=order.order_id,
+            center_id=None,
+            center_name=None,
+            distance_km=cheapest_candidate.distance_km,
+            delivery_cost=penalty_cost,
+            capacity_exceeded=True,
+            is_unassigned=True,
+            fallback_center_id=cheapest_candidate.center_id,
+            fallback_center_name=cheapest_candidate.center_name,
         )
 
     center_summaries = tuple(
@@ -215,11 +313,16 @@ def simulate_assignments(
     )
 
     total_fixed_cost = round(sum(center.fixed_cost for center in centers), 2)
-    total_variable_cost = round(sum(assignment.delivery_cost for assignment in assignments), 2)
+    ordered_assignments = tuple(
+        assignments_by_order[order.order_id] for order in sorted(orders, key=lambda current: current.order_id)
+    )
+    total_variable_cost = round(sum(assignment.delivery_cost for assignment in ordered_assignments), 2)
     return SimulationResult(
-        assignments=tuple(assignments),
+        assignments=ordered_assignments,
         center_summaries=center_summaries,
         total_fixed_cost=total_fixed_cost,
         total_variable_cost=total_variable_cost,
         total_cost=round(total_fixed_cost + total_variable_cost, 2),
+        unassigned_order_count=sum(1 for assignment in ordered_assignments if assignment.is_unassigned),
+        unassigned_total_cost=round(unassigned_total_cost, 2),
     )

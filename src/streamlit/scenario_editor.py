@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.simulation import CenterScenario, SimulationOptions
+from src.simulation import CenterScenario, OrderDemand, SimulationOptions, SimulationResult
 
 SCENARIO_COLUMNS = [
     "center_id",
@@ -129,3 +129,72 @@ def build_center_scenarios(scenario_df: pd.DataFrame) -> list[CenterScenario]:
         )
         for row in scenario_records
     ]
+
+
+def build_order_demands(analysis_df: pd.DataFrame) -> list[OrderDemand]:
+    normalized_df = analysis_df.rename(columns=str.upper).copy()
+    deduplicated_df = normalized_df.drop_duplicates(subset=["ORDER_ID"]).copy()
+    return [
+        OrderDemand(
+            order_id=str(row["ORDER_ID"]),
+            customer_lat=float(row["CUSTOMER_LAT"]),
+            customer_lon=float(row["CUSTOMER_LON"]),
+            weight_kg=float(row["WEIGHT_KG"]),
+            quantity=int(row["QUANTITY"]),
+        )
+        for row in deduplicated_df.to_dict(orient="records")
+    ]
+
+
+def apply_simulation_result_to_analysis(analysis_df: pd.DataFrame, simulation_result: SimulationResult) -> pd.DataFrame:
+    normalized_df = analysis_df.rename(columns=str.upper).copy()
+    assignment_by_order = {assignment.order_id: assignment for assignment in simulation_result.assignments}
+    order_id_keys = normalized_df["ORDER_ID"].astype(str)
+
+    def assigned_center_id(order_id: str) -> str:
+        return getattr(assignment_by_order[order_id], "center_id", None) or ""
+
+    def assigned_center_name(order_id: str) -> str:
+        return getattr(assignment_by_order[order_id], "center_name", None) or "未割当"
+
+    def is_unassigned(order_id: str) -> bool:
+        assignment = assignment_by_order[order_id]
+        explicit_flag = getattr(assignment, "is_unassigned", None)
+        if explicit_flag is not None:
+            return bool(explicit_flag)
+        return getattr(assignment, "center_id", None) in (None, "")
+
+    def delivery_cost(order_id: str) -> float:
+        return float(getattr(assignment_by_order[order_id], "delivery_cost", 0.0))
+
+    def distance_km(order_id: str) -> float:
+        return float(getattr(assignment_by_order[order_id], "distance_km", 0.0))
+
+    def fallback_center_name(order_id: str) -> str:
+        return getattr(assignment_by_order[order_id], "fallback_center_name", "") or ""
+
+    normalized_df["ASSIGNED_CENTER_ID"] = order_id_keys.map(assigned_center_id)
+    normalized_df["ASSIGNED_CENTER_NAME"] = order_id_keys.map(assigned_center_name)
+    normalized_df["ASSIGNMENT_STATUS"] = order_id_keys.map(lambda order_id: "未割当" if is_unassigned(order_id) else "割当済")
+    normalized_df["IS_UNASSIGNED"] = order_id_keys.map(is_unassigned)
+    normalized_df["SIMULATED_COST"] = order_id_keys.map(delivery_cost)
+    normalized_df["SIMULATED_DISTANCE_KM"] = order_id_keys.map(distance_km)
+    normalized_df["FALLBACK_CENTER_NAME"] = order_id_keys.map(fallback_center_name)
+    return normalized_df
+
+
+def build_center_summary_frame(simulation_result: SimulationResult) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "center_name": summary.center_name,
+                "assigned_orders": summary.assigned_orders,
+                "staffing_level": summary.staffing_level,
+                "capacity": summary.capacity,
+                "fixed_cost": summary.fixed_cost,
+                "variable_cost": summary.variable_cost,
+                "total_cost": summary.total_cost,
+            }
+            for summary in simulation_result.center_summaries
+        ]
+    )

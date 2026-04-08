@@ -1,9 +1,15 @@
+from types import SimpleNamespace
+from typing import cast
+
 import pandas as pd
 
-from src.simulation import SimulationOptions
+from src.simulation import OrderAssignment, SimulationOptions, SimulationResult
 from src.streamlit.scenario_editor import (
+    apply_simulation_result_to_analysis,
     build_center_scenarios,
+    build_center_summary_frame,
     build_initial_scenario_frame,
+    build_order_demands,
     merge_scenario_frame,
     sanitize_scenario_frame,
 )
@@ -100,3 +106,107 @@ def test_build_center_scenarios_converts_frame_to_domain_objects():
     assert centers[0].center_id == "1"
     assert centers[0].staffing_level == 3
     assert centers[0].fixed_cost == 250000.0
+
+
+def test_build_order_demands_converts_analysis_frame_to_domain_inputs():
+    analysis_df = pd.DataFrame(
+        {
+            "ORDER_ID": [1],
+            "CUSTOMER_LAT": [35.68],
+            "CUSTOMER_LON": [139.76],
+            "WEIGHT_KG": [2.5],
+            "QUANTITY": [3],
+        }
+    )
+
+    orders = build_order_demands(analysis_df)
+
+    assert len(orders) == 1
+    assert orders[0].order_id == "1"
+    assert orders[0].total_weight_kg == 7.5
+
+
+def test_apply_simulation_result_to_analysis_adds_assignment_columns():
+    analysis_df = pd.DataFrame(
+        {
+            "ORDER_ID": [1],
+            "CENTER_NAME": ["東京"],
+            "CUSTOMER_LAT": [35.68],
+            "CUSTOMER_LON": [139.76],
+            "WEIGHT_KG": [1.0],
+            "QUANTITY": [1],
+        }
+    )
+    simulation_result = SimulationResult(
+        assignments=(
+            OrderAssignment(
+                order_id="1",
+                center_id=None,
+                center_name=None,
+                distance_km=12.3,
+                delivery_cost=999.0,
+                capacity_exceeded=True,
+                is_unassigned=True,
+                fallback_center_id="13",
+                fallback_center_name="東京",
+            ),
+        ),
+        center_summaries=(),
+        total_fixed_cost=0.0,
+        total_variable_cost=999.0,
+        total_cost=999.0,
+        unassigned_order_count=1,
+        unassigned_total_cost=999.0,
+    )
+
+    result_df = apply_simulation_result_to_analysis(analysis_df, simulation_result)
+
+    assert result_df.loc[0, "ASSIGNED_CENTER_NAME"] == "未割当"
+    assert result_df.loc[0, "ASSIGNMENT_STATUS"] == "未割当"
+    assert result_df.loc[0, "SIMULATED_COST"] == 999.0
+    assert result_df.loc[0, "FALLBACK_CENTER_NAME"] == "東京"
+
+
+def test_apply_simulation_result_to_analysis_accepts_legacy_assignment_without_is_unassigned():
+    analysis_df = pd.DataFrame(
+        {
+            "ORDER_ID": [1],
+            "CENTER_NAME": ["東京"],
+            "CUSTOMER_LAT": [35.68],
+            "CUSTOMER_LON": [139.76],
+            "WEIGHT_KG": [1.0],
+            "QUANTITY": [1],
+        }
+    )
+    legacy_assignment = SimpleNamespace(
+        order_id="1",
+        center_id=None,
+        center_name=None,
+        distance_km=12.3,
+        delivery_cost=999.0,
+        capacity_exceeded=True,
+        fallback_center_name="東京",
+    )
+    simulation_result = cast(SimulationResult, SimpleNamespace(assignments=(legacy_assignment,)))
+
+    result_df = apply_simulation_result_to_analysis(analysis_df, simulation_result)
+
+    assert result_df.loc[0, "ASSIGNMENT_STATUS"] == "未割当"
+    assert bool(result_df.loc[0, "IS_UNASSIGNED"]) is True
+    assert result_df.loc[0, "FALLBACK_CENTER_NAME"] == "東京"
+
+
+def test_build_center_summary_frame_exposes_cost_breakdown():
+    simulation_result = SimulationResult(
+        assignments=(),
+        center_summaries=(),
+        total_fixed_cost=0.0,
+        total_variable_cost=0.0,
+        total_cost=0.0,
+        unassigned_order_count=0,
+        unassigned_total_cost=0.0,
+    )
+
+    summary_df = build_center_summary_frame(simulation_result)
+
+    assert summary_df.empty
