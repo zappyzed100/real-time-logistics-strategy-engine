@@ -1,4 +1,5 @@
 from src.simulation.domain import (
+    CENTER_POPULATION_DENSITY,
     CenterScenario,
     CenterSummary,
     OrderAssignment,
@@ -8,11 +9,13 @@ from src.simulation.domain import (
     SimulationResult,
     build_order_candidates,
     calculate_delivery_cost,
+    center_population_density,
     haversine_distance_km,
     simulate_assignments,
 )
 
 __all__ = [
+    "CENTER_POPULATION_DENSITY",
     "CenterScenario",
     "CenterSummary",
     "OrderAssignment",
@@ -22,6 +25,7 @@ __all__ = [
     "SimulationResult",
     "build_order_candidates",
     "calculate_delivery_cost",
+    "center_population_density",
     "haversine_distance_km",
     "simulate_assignments",
 ]

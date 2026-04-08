@@ -15,10 +15,13 @@ from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
 import streamlit as st
-from src.simulation import SimulationOptions
+from src.simulation import SimulationOptions, simulate_assignments
 from src.streamlit.scenario_editor import (
+    apply_simulation_result_to_analysis,
     build_center_scenarios,
+    build_center_summary_frame,
     build_initial_scenario_frame,
+    build_order_demands,
     merge_scenario_frame,
     sanitize_scenario_frame,
 )
@@ -166,6 +169,27 @@ with st.sidebar:
 st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(updated_rows))
 
 configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
+order_demands = build_order_demands(df)
+simulation_result = simulate_assignments(
+    orders=order_demands,
+    centers=configured_center_scenarios,
+    options=simulation_options,
+)
+filtered_df = apply_simulation_result_to_analysis(df, simulation_result)
+order_plot_df = filtered_df.drop_duplicates(subset=["ORDER_ID"]).copy()
+center_summary_df = build_center_summary_frame(simulation_result)
+center_plot_df = pd.DataFrame(
+    [
+        {
+            "CENTER_NAME": center.center_name,
+            "CENTER_LAT": center.latitude,
+            "CENTER_LON": center.longitude,
+            "STAFFING_LEVEL": center.staffing_level,
+            "FIXED_COST": center.fixed_cost,
+        }
+        for center in configured_center_scenarios
+    ]
+)
 
 overview_left, overview_right, overview_third = st.columns(3)
 with overview_left:
@@ -179,31 +203,57 @@ with overview_third:
 # 2. 主要 KPI の表示 (filtered_df を使用)
 # ---------------------------------------------------------
 st.subheader("Key Performance Indicators")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
-total_cost = filtered_df["SIMULATED_COST"].sum()
-total_orders = len(filtered_df)
+total_cost = simulation_result.total_cost
+total_orders = len(simulation_result.assignments)
 avg_unit_cost = total_cost / total_orders if total_orders > 0 else 0
 
 with col1:
-    st.metric("総配送コスト", f"¥{total_cost:,.0f}")
+    st.metric("総コスト", f"¥{total_cost:,.0f}")
 with col2:
     st.metric("総注文数", f"{total_orders:,.0f} 件")
 with col3:
     st.metric("平均配送単価", f"¥{avg_unit_cost:,.1f}")
+with col4:
+    st.metric("未割当注文", f"{simulation_result.unassigned_order_count:,.0f} 件")
 
 # --- 分析詳細 ---
 st.subheader("分析詳細")
-tab1, tab2 = st.tabs(["拠点別コスト集計", "拠点別データ一覧"])
-
-warehouse_summary = filtered_df.groupby("CENTER_NAME").agg({"SIMULATED_COST": "sum", "ORDER_ID": "count"})
-warehouse_summary = cast(Any, warehouse_summary).rename(columns={"ORDER_ID": "注文数"})
+tab1, tab2 = st.tabs(["拠点別コスト集計", "注文別データ一覧"])
 
 with tab1:
-    st.bar_chart(warehouse_summary["SIMULATED_COST"], width="stretch")
+    if center_summary_df.empty:
+        st.info("表示できる拠点サマリがありません。")
+    else:
+        chart_df = center_summary_df.set_index("center_name")
+        st.bar_chart(chart_df["total_cost"], width="stretch")
+        st.dataframe(
+            chart_df.rename(
+                columns={
+                    "assigned_orders": "担当注文数",
+                    "staffing_level": "人員数",
+                    "capacity": "処理可能件数",
+                    "fixed_cost": "固定費",
+                    "variable_cost": "配送費",
+                    "total_cost": "総コスト",
+                }
+            ).style.format({"固定費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}),
+            width="stretch",
+        )
 with tab2:
     st.dataframe(
-        warehouse_summary.style.format({"SIMULATED_COST": "¥{:,.0f}"}),
+        order_plot_df[
+            [
+                "ORDER_ID",
+                "ASSIGNED_CENTER_NAME",
+                "ASSIGNMENT_STATUS",
+                "FALLBACK_CENTER_NAME",
+                "SIMULATED_COST",
+                "SIMULATED_DISTANCE_KM",
+                "WEIGHT_KG",
+            ]
+        ].style.format({"SIMULATED_COST": "¥{:,.0f}", "SIMULATED_DISTANCE_KM": "{:.1f} km"}),
         width="stretch",
     )
 
@@ -213,27 +263,34 @@ st.subheader("配送エリア・コスト分布の地理的分析")
 map_cols = [
     "CUSTOMER_LAT",
     "CUSTOMER_LON",
-    "CENTER_LAT",
-    "CENTER_LON",
     "SIMULATED_COST",
     "WEIGHT_KG",
+    "ORDER_ID",
+    "ASSIGNED_CENTER_NAME",
+    "ASSIGNMENT_STATUS",
+    "IS_UNASSIGNED",
 ]
 
-if all(col in filtered_df.columns for col in map_cols):
-    plot_df = cast(Any, filtered_df).dropna(subset=map_cols).copy()
-    center_df = plot_df[["CENTER_NAME", "CENTER_LAT", "CENTER_LON"]].drop_duplicates().copy()
+if all(col in order_plot_df.columns for col in map_cols):
+    plot_df = cast(Any, order_plot_df).dropna(subset=map_cols).copy()
 
     def calculate_colors(df_input):
-        cost = df_input["SIMULATED_COST"]
+        cost = df_input["SIMULATED_COST"].astype(float)
         v_min, v_max = cost.min(), cost.quantile(0.95)
         if v_max == v_min:
             v_max = v_min + 1
         norm_cost = ((cost - v_min) / (v_max - v_min)).clip(0, 1)
-        df_input["COLOR_R"], df_input["COLOR_G"], df_input["COLOR_B"] = (
-            255,
-            (255 * (1 - norm_cost)).astype(int),
-            0,
-        )
+        low_band = norm_cost <= 0.5
+        df_input["COLOR_R"] = 0
+        df_input["COLOR_G"] = 0
+        df_input["COLOR_B"] = 0
+        df_input.loc[low_band, "COLOR_R"] = 30
+        df_input.loc[low_band, "COLOR_G"] = (140 + norm_cost[low_band] * 180).astype(int)
+        df_input.loc[low_band, "COLOR_B"] = (220 - norm_cost[low_band] * 220).astype(int)
+        df_input.loc[~low_band, "COLOR_R"] = ((norm_cost[~low_band] - 0.5) * 400 + 30).clip(0, 255).astype(int)
+        df_input.loc[~low_band, "COLOR_G"] = 230
+        df_input.loc[~low_band, "COLOR_B"] = 0
+        df_input.loc[df_input["IS_UNASSIGNED"], ["COLOR_R", "COLOR_G", "COLOR_B"]] = [220, 38, 38]
         return df_input
 
     def sanitize_data(df_input):
@@ -250,9 +307,9 @@ if all(col in filtered_df.columns for col in map_cols):
 
     center_layer = pdk.Layer(
         "ScatterplotLayer",
-        sanitize_data(center_df),
+        sanitize_data(center_plot_df),
         get_position=["CENTER_LON", "CENTER_LAT"],
-        get_color=[0, 100, 255, 200],
+        get_color=[36, 62, 92, 220],
         get_radius=15000,
         pickable=True,
     )
@@ -262,7 +319,8 @@ if all(col in filtered_df.columns for col in map_cols):
     tooltip: Any = {
         "html": (
             "<b>注文ID:</b> {ORDER_ID}<br>"
-            "<b>配送拠点:</b> {CENTER_NAME}<br>"
+            "<b>担当拠点:</b> {ASSIGNED_CENTER_NAME}<br>"
+            "<b>割当状態:</b> {ASSIGNMENT_STATUS}<br>"
             "<hr>"
             "<b>重量:</b> {WEIGHT_KG} kg<br>"
             "<b>配送コスト:</b> ¥{SIMULATED_COST}"
