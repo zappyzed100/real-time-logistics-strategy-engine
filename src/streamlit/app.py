@@ -75,8 +75,9 @@ def _sidebar_style() -> str:
         font-size: 0.9rem;
     }}
     .scenario-row-shipping-cost {{
-        color: #6b7280;
-        font-size: 0.8rem;
+        color: #e2e8f0;
+        font-size: 0.92rem;
+        font-weight: 600;
     }}
     section[data-testid="stSidebar"] [data-baseweb="input"] input[type="number"] {{
         appearance: auto !important;
@@ -88,6 +89,10 @@ def _sidebar_style() -> str:
         appearance: auto !important;
         opacity: 1 !important;
         margin: 0 !important;
+    }}
+    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] button,
+    section[data-testid="stSidebar"] [data-baseweb="input"] button {{
+        display: none !important;
     }}
     </style>
     """
