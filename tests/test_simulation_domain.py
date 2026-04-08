@@ -7,6 +7,7 @@ from src.simulation import (
     SimulationOptions,
     center_population_density,
     load_simulation_constants,
+    prepare_static_simulation_data,
     simulate_assignments,
 )
 
@@ -187,3 +188,34 @@ def test_simulate_assignments_requires_primary_order_rank():
         assert str(exc) == "missing order_candidate_rank=1 for orders: O1"
     else:
         raise AssertionError("ValueError was not raised")
+
+
+def test_simulate_assignments_reuses_prepared_static_data_across_staffing_changes():
+    orders = [
+        OrderDemand("O1", 35.0, 139.0, 1.0, 1),
+        OrderDemand("O2", 35.0, 139.0, 1.0, 1),
+    ]
+    initial_centers = [
+        CenterScenario("13", "東京", 35.0, 139.0, 1.0, 1, 0),
+        CenterScenario("27", "大阪", 35.0, 139.0, 1.0, 1, 0),
+    ]
+    updated_centers = [
+        CenterScenario("13", "東京", 35.0, 139.0, 1.0, 2, 0),
+        CenterScenario("27", "大阪", 35.0, 139.0, 1.0, 0, 0),
+    ]
+    candidates = make_ranked_candidates()
+
+    prepared_static_data = prepare_static_simulation_data(
+        orders=orders,
+        centers=initial_centers,
+        candidates=candidates,
+    )
+
+    result = simulate_assignments(
+        orders=orders,
+        centers=updated_centers,
+        candidates=candidates,
+        prepared_static_data=prepared_static_data,
+    )
+
+    assert [assignment.center_name for assignment in result.assignments] == ["東京", "東京"]
