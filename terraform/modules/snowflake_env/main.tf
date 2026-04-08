@@ -331,10 +331,6 @@ resource "snowflake_table" "inventory" {
   schema   = snowflake_schema.bronze_schema.name
   name     = "INVENTORY"
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   column {
     name     = "CENTER_ID"
     type     = "STRING"

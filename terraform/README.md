@@ -638,6 +638,7 @@ Loader / dbt ジョブが失敗した場合の切り分け手順です。
 方針:
 
 - `prevent_destroy = true` は Bronze のデータテーブル（RAW 層）に限定して適用する
+- ただし `INVENTORY` 廃止の移行期間中は、`SHIPPING_COSTS` への切替完了後に削除できるよう `INVENTORY` のみ一時的に `prevent_destroy` を外してよい
 - Role / User / Network policy / Database / Schema / Warehouse / Stage / File format は設計変更時の再作成・移行を優先し、`prevent_destroy` は適用しない
 - Network policy は bootstrap で作成後、Terraform に import して継続管理する
 
