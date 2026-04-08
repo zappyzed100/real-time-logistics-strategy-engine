@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
 import streamlit as st
-from src.simulation import SimulationOptions, simulate_assignments
+from src.simulation import SimulationOptions, prepare_static_simulation_data, simulate_assignments
 from src.streamlit.scenario_editor import (
     apply_simulation_result_to_analysis,
     build_center_scenarios,
@@ -91,8 +91,7 @@ def _sidebar_style() -> str:
         opacity: 1 !important;
         margin: 0 !important;
     }}
-    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] button,
-    section[data-testid="stSidebar"] [data-baseweb="input"] button {{
+    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] button {{
         display: none !important;
     }}
     </style>
@@ -153,22 +152,127 @@ def create_session() -> Session:
 session = create_session()
 
 PRECOMPUTED_CANDIDATE_TABLE = "FCT_DELIVERY_CANDIDATE_RANKINGS"
+ANALYSIS_COLUMNS = [
+    "ORDER_ID",
+    "CENTER_NAME",
+    "CUSTOMER_LAT",
+    "CUSTOMER_LON",
+    "WEIGHT_KG",
+    "QUANTITY",
+    "DELIVERY_COST",
+]
+PRECOMPUTED_CANDIDATE_COLUMNS = [
+    "ORDER_ID",
+    "CENTER_ID",
+    "CENTER_NAME",
+    "DISTANCE_KM",
+    "DELIVERY_COST",
+    "TOTAL_WEIGHT_KG",
+    "CENTER_CANDIDATE_RANK",
+    "ORDER_CANDIDATE_RANK",
+]
+STATIC_SIMULATION_KEY = "static_simulation_data"
+STATIC_SIMULATION_SIGNATURE_KEY = "static_simulation_center_signature"
+ORDER_DEMANDS_KEY = "order_demands"
+ORDER_CANDIDATES_KEY = "order_candidates"
+ORDER_PLOT_DF_KEY = "order_plot_df"
+ORDER_PLOT_SIGNATURE_KEY = "order_plot_signature"
+DISPLAY_MODE_KEY = "display_mode"
+MAP_SAMPLE_SIZE = 10000
 
 
 @st.cache_data
 def get_analysis_data() -> pd.DataFrame:
-    return session.table(_required_env("STREAMLIT_ANALYSIS_TABLE")).to_pandas()
+    return session.table(_required_env("STREAMLIT_ANALYSIS_TABLE")).select(*ANALYSIS_COLUMNS).to_pandas()
 
 
 @st.cache_data
 def get_precomputed_candidate_data() -> pd.DataFrame:
-    return session.table(PRECOMPUTED_CANDIDATE_TABLE).sort("CENTER_ID", "CENTER_CANDIDATE_RANK", "ORDER_ID").to_pandas()
+    candidate_df = (
+        session.table(PRECOMPUTED_CANDIDATE_TABLE)
+        .select(*PRECOMPUTED_CANDIDATE_COLUMNS)
+        .sort("CENTER_ID", "CENTER_CANDIDATE_RANK", "ORDER_ID")
+        .to_pandas()
+    )
+    candidate_df.columns = [str(col).upper() for col in candidate_df.columns]
+    return candidate_df
+
+
+@st.cache_data
+def get_order_demands(analysis_df: pd.DataFrame) -> list[Any]:
+    return build_order_demands(analysis_df)
+
+
+def build_order_plot_df(analysis_df: pd.DataFrame, simulation_result: Any) -> pd.DataFrame:
+    filtered_df = apply_simulation_result_to_analysis(analysis_df, simulation_result)
+    return filtered_df.drop_duplicates(subset=["ORDER_ID"]).copy()
+
+
+def build_map_plot_df(order_plot_df: pd.DataFrame) -> pd.DataFrame:
+    map_cols = [
+        "CUSTOMER_LAT",
+        "CUSTOMER_LON",
+        "SIMULATED_COST",
+        "WEIGHT_KG",
+        "ORDER_ID",
+        "ASSIGNED_CENTER_NAME",
+        "ASSIGNMENT_STATUS",
+        "IS_UNASSIGNED",
+    ]
+    plot_df = cast(Any, order_plot_df).dropna(subset=map_cols).copy()
+    if len(plot_df) > MAP_SAMPLE_SIZE:
+        plot_df = plot_df.sample(n=MAP_SAMPLE_SIZE, random_state=0).copy()
+    return plot_df
+
+
+def calculate_map_colors(plot_df: pd.DataFrame) -> pd.DataFrame:
+    cost = plot_df["SIMULATED_COST"].astype(float)
+    v_min, v_max = cost.min(), cost.quantile(0.95)
+    if v_max == v_min:
+        v_max = v_min + 1
+    norm_cost = ((cost - v_min) / (v_max - v_min)).clip(0, 1)
+    low_band = norm_cost <= 0.5
+    plot_df["COLOR_R"] = 0
+    plot_df["COLOR_G"] = 0
+    plot_df["COLOR_B"] = 0
+    plot_df.loc[low_band, "COLOR_R"] = 30
+    plot_df.loc[low_band, "COLOR_G"] = (140 + norm_cost[low_band] * 180).astype(int)
+    plot_df.loc[low_band, "COLOR_B"] = (220 - norm_cost[low_band] * 220).astype(int)
+    plot_df.loc[~low_band, "COLOR_R"] = ((norm_cost[~low_band] - 0.5) * 400 + 30).clip(0, 255).astype(int)
+    plot_df.loc[~low_band, "COLOR_G"] = 230
+    plot_df.loc[~low_band, "COLOR_B"] = 0
+    plot_df.loc[plot_df["IS_UNASSIGNED"], ["COLOR_R", "COLOR_G", "COLOR_B"]] = [220, 38, 38]
+    return plot_df
+
+
+def sanitize_map_data(plot_df: pd.DataFrame) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], json.loads(plot_df.to_json(orient="records")))
+
+
+def apply_fullscreen_style() -> None:
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+        div[data-testid="stSidebarCollapsedControl"] {
+            display: none !important;
+        }
+        div[data-testid="stAppViewContainer"] .main .block-container {
+            max-width: 100% !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 df = get_analysis_data()
 df.columns = [str(col).upper() for col in df.columns]
 candidate_df = get_precomputed_candidate_data()
-candidate_df.columns = [str(col).upper() for col in candidate_df.columns]
 
 SCENARIO_STATE_KEY = "scenario_editor_df"
 simulation_options = SimulationOptions()
@@ -180,55 +284,46 @@ else:
         existing_df=st.session_state[SCENARIO_STATE_KEY],
         initial_df=initial_scenario_df,
     )
+if DISPLAY_MODE_KEY not in st.session_state:
+    st.session_state[DISPLAY_MODE_KEY] = "ダッシュボード"
 
-filtered_df = df.copy()
-filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"]
 scenario_df = st.session_state[SCENARIO_STATE_KEY].copy()
+display_mode = str(st.session_state[DISPLAY_MODE_KEY])
+is_fullscreen_mode = display_mode in {"注文別データ一覧", "地図"}
+if is_fullscreen_mode:
+    apply_fullscreen_style()
 updated_rows: list[dict[str, object]] = []
 with st.sidebar:
     st.subheader("拠点情報")
     st.caption("固定費は 100 万円単位です。")
-    variant = SELECTED_INPUT_VARIANT
-    header_columns = st.columns(list(variant["column_widths"]), gap="small")
+    if is_fullscreen_mode:
+        st.info("全画面表示中はシナリオ編集を無効化しています。")
+    header_columns = st.columns([1.1, 1.0, 1.55], gap="small")
     header_columns[0].markdown('<div class="scenario-header">拠点</div>', unsafe_allow_html=True)
-    header_columns[1].markdown('<div class="scenario-header">配送係数</div>', unsafe_allow_html=True)
-    header_columns[2].markdown('<div class="scenario-header">人員数</div>', unsafe_allow_html=True)
-    header_columns[3].markdown('<div class="scenario-header">固定費<br>(100万円単位)</div>', unsafe_allow_html=True)
+    header_columns[1].markdown('<div class="scenario-header">人員数</div>', unsafe_allow_html=True)
+    header_columns[2].markdown('<div class="scenario-header">固定費</div>', unsafe_allow_html=True)
     for row in scenario_df.to_dict(orient="records"):
         center_id = str(row["center_id"])
-        row_columns = st.columns(list(variant["column_widths"]), gap="small")
+        row_columns = st.columns([1.1, 1.0, 1.55], gap="small")
         row_columns[0].markdown(f'<div class="scenario-row-title">{row["center_name"]}</div>', unsafe_allow_html=True)
-        row_columns[1].markdown(
-            f'<div class="scenario-row-shipping-cost">{float(row["shipping_cost"]):.3f}</div>',
-            unsafe_allow_html=True,
-        )
-        staffing_level = row_columns[2].number_input(
+        staffing_level = row_columns[1].number_input(
             "人員数",
             min_value=0,
             step=1,
             value=int(row["staffing_level"]),
             key=f"staffing_level_{center_id}",
-            label_visibility=variant["label_visibility"],
+            label_visibility="collapsed",
+            disabled=is_fullscreen_mode,
         )
-        if variant["fixed_cost_format"] is None:
-            fixed_cost = row_columns[3].number_input(
-                "固定費",
-                min_value=0,
-                step=1_000_000,
-                value=int(row["fixed_cost"]),
-                key=f"fixed_cost_{center_id}",
-                label_visibility=variant["label_visibility"],
-            )
-        else:
-            fixed_cost = row_columns[3].number_input(
-                "固定費",
-                min_value=0,
-                step=1_000_000,
-                value=int(row["fixed_cost"]),
-                key=f"fixed_cost_{center_id}",
-                label_visibility=variant["label_visibility"],
-                format=variant["fixed_cost_format"],
-            )
+        fixed_cost = row_columns[2].number_input(
+            "固定費",
+            min_value=0,
+            step=1_000_000,
+            value=int(row["fixed_cost"]),
+            key=f"fixed_cost_{center_id}",
+            label_visibility="collapsed",
+            disabled=is_fullscreen_mode,
+        )
         updated_rows.append(
             {
                 **row,
@@ -237,19 +332,35 @@ with st.sidebar:
             }
         )
 
-st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(updated_rows))
+updated_scenario_df = pd.DataFrame(updated_rows)
+sanitized_scenario_df = sanitize_scenario_frame(updated_scenario_df)
+st.session_state[SCENARIO_STATE_KEY] = sanitized_scenario_df
 
 configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
-order_demands = build_order_demands(df)
-order_candidates = build_order_candidates_from_frame(candidate_df)
+if ORDER_DEMANDS_KEY not in st.session_state:
+    st.session_state[ORDER_DEMANDS_KEY] = build_order_demands(df)
+order_demands = cast(list[Any], st.session_state[ORDER_DEMANDS_KEY])
+if ORDER_CANDIDATES_KEY not in st.session_state:
+    st.session_state[ORDER_CANDIDATES_KEY] = build_order_candidates_from_frame(candidate_df)
+order_candidates = cast(list[Any], st.session_state[ORDER_CANDIDATES_KEY])
+current_center_signature = tuple((center.center_id, center.center_name) for center in configured_center_scenarios)
+if (
+    STATIC_SIMULATION_KEY not in st.session_state
+    or st.session_state.get(STATIC_SIMULATION_SIGNATURE_KEY) != current_center_signature
+):
+    st.session_state[STATIC_SIMULATION_KEY] = prepare_static_simulation_data(
+        orders=order_demands,
+        centers=configured_center_scenarios,
+        candidates=order_candidates,
+    )
+    st.session_state[STATIC_SIMULATION_SIGNATURE_KEY] = current_center_signature
 simulation_result = simulate_assignments(
     orders=order_demands,
     centers=configured_center_scenarios,
     candidates=order_candidates,
     options=simulation_options,
+    prepared_static_data=st.session_state[STATIC_SIMULATION_KEY],
 )
-filtered_df = apply_simulation_result_to_analysis(df, simulation_result)
-order_plot_df = filtered_df.drop_duplicates(subset=["ORDER_ID"]).copy()
 center_summary_df = build_center_summary_frame(simulation_result)
 center_plot_df = pd.DataFrame(
     [
@@ -261,8 +372,121 @@ center_plot_df = pd.DataFrame(
             "FIXED_COST": center.fixed_cost,
         }
         for center in configured_center_scenarios
-    ]
+    ],
 )
+order_plot_signature = tuple(
+    (
+        assignment.order_id,
+        assignment.center_id or "",
+        assignment.delivery_cost,
+        assignment.is_unassigned,
+        assignment.fallback_center_id or "",
+    )
+    for assignment in simulation_result.assignments
+)
+
+display_mode = cast(
+    str,
+    st.radio(
+        "表示モード",
+        options=["ダッシュボード", "注文別データ一覧", "地図"],
+        key=DISPLAY_MODE_KEY,
+        horizontal=True,
+    ),
+)
+
+order_plot_df: pd.DataFrame | None = None
+
+
+def get_current_order_plot_df() -> pd.DataFrame:
+    cached_signature = st.session_state.get(ORDER_PLOT_SIGNATURE_KEY)
+    if cached_signature != order_plot_signature or ORDER_PLOT_DF_KEY not in st.session_state:
+        st.session_state[ORDER_PLOT_DF_KEY] = build_order_plot_df(df, simulation_result)
+        st.session_state[ORDER_PLOT_SIGNATURE_KEY] = order_plot_signature
+    return cast(pd.DataFrame, st.session_state[ORDER_PLOT_DF_KEY])
+
+
+if display_mode == "注文別データ一覧":
+    order_plot_df = get_current_order_plot_df()
+    st.subheader("注文別データ一覧")
+    st.dataframe(
+        order_plot_df[
+            [
+                "ORDER_ID",
+                "ASSIGNED_CENTER_NAME",
+                "ASSIGNMENT_STATUS",
+                "FALLBACK_CENTER_NAME",
+                "SIMULATED_COST",
+                "SIMULATED_DISTANCE_KM",
+                "WEIGHT_KG",
+            ]
+        ].style.format({"SIMULATED_COST": "¥{:,.0f}", "SIMULATED_DISTANCE_KM": "{:.1f} km"}),
+        width="stretch",
+        height=880,
+    )
+    st.stop()
+
+if display_mode == "地図":
+    order_plot_df = get_current_order_plot_df()
+    st.subheader("配送エリア・コスト分布の地理的分析")
+    st.caption(f"地図上は注文データを最大 {MAP_SAMPLE_SIZE:,} 件表示します。")
+
+    map_cols = [
+        "CUSTOMER_LAT",
+        "CUSTOMER_LON",
+        "SIMULATED_COST",
+        "WEIGHT_KG",
+        "ORDER_ID",
+        "ASSIGNED_CENTER_NAME",
+        "ASSIGNMENT_STATUS",
+        "IS_UNASSIGNED",
+    ]
+
+    if all(col in order_plot_df.columns for col in map_cols):
+        plot_df = build_map_plot_df(order_plot_df)
+        colored_plot_df = calculate_map_colors(plot_df)
+        customer_layer_data = sanitize_map_data(colored_plot_df)
+        center_layer_data = sanitize_map_data(center_plot_df)
+
+        customer_layer = pdk.Layer(
+            "ScatterplotLayer",
+            customer_layer_data,
+            get_position=["CUSTOMER_LON", "CUSTOMER_LAT"],
+            get_color="[COLOR_R, COLOR_G, COLOR_B, 140]",
+            get_radius=3000,
+            pickable=True,
+        )
+
+        center_layer = pdk.Layer(
+            "ScatterplotLayer",
+            center_layer_data,
+            get_position=["CENTER_LON", "CENTER_LAT"],
+            get_color=[36, 62, 92, 220],
+            get_radius=15000,
+            pickable=True,
+        )
+
+        tooltip: Any = {
+            "html": (
+                "<b>注文ID:</b> {ORDER_ID}<br>"
+                "<b>担当拠点:</b> {ASSIGNED_CENTER_NAME}<br>"
+                "<b>割当状態:</b> {ASSIGNMENT_STATUS}<br>"
+                "<hr>"
+                "<b>重量:</b> {WEIGHT_KG} kg<br>"
+                "<b>配送コスト:</b> ¥{SIMULATED_COST}"
+            ),
+            "style": {"color": "white", "backgroundColor": "steelblue"},
+        }
+
+        r = pdk.Deck(
+            layers=[customer_layer, center_layer],
+            initial_view_state=pdk.ViewState(latitude=36.0, longitude=138.0, zoom=5, pitch=45),
+            tooltip=tooltip,
+        )
+        st.pydeck_chart(r)
+    else:
+        st.warning("地図表示に必要なカラムが不足しています。")
+    st.stop()
 
 overview_left, overview_right, overview_third, overview_fourth = st.columns(4)
 with overview_left:
@@ -292,120 +516,32 @@ with col4:
 
 # --- 分析詳細 ---
 st.subheader("分析詳細")
-tab1, tab2 = st.tabs(["拠点別コスト集計", "注文別データ一覧"])
-
-with tab1:
-    if center_summary_df.empty:
-        st.info("表示できる拠点サマリがありません。")
-    else:
-        chart_df = center_summary_df.set_index("center_name")
-        st.bar_chart(chart_df["total_cost"], width="stretch")
-        st.dataframe(
-            chart_df.rename(
-                columns={
-                    "assigned_orders": "担当注文数",
-                    "staffing_level": "人員数",
-                    "capacity": "処理可能件数",
-                    "fixed_cost": "固定費",
-                    "labor_cost": "人件費",
-                    "variable_cost": "配送費",
-                    "total_cost": "総コスト",
-                }
-            ).style.format({"固定費": "¥{:,.0f}", "人件費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}),
-            width="stretch",
-        )
-with tab2:
+st.subheader("拠点別コスト集計")
+if center_summary_df.empty:
+    st.info("表示できる拠点サマリがありません。")
+else:
+    chart_df = center_summary_df.set_index("center_name")
+    st.bar_chart(chart_df["total_cost"], width="stretch")
+    summary_table_df = center_summary_df.merge(
+        sanitized_scenario_df[["center_name", "shipping_cost"]],
+        on="center_name",
+        how="left",
+        validate="one_to_one",
+    ).set_index("center_name")
     st.dataframe(
-        order_plot_df[
-            [
-                "ORDER_ID",
-                "ASSIGNED_CENTER_NAME",
-                "ASSIGNMENT_STATUS",
-                "FALLBACK_CENTER_NAME",
-                "SIMULATED_COST",
-                "SIMULATED_DISTANCE_KM",
-                "WEIGHT_KG",
-            ]
-        ].style.format({"SIMULATED_COST": "¥{:,.0f}", "SIMULATED_DISTANCE_KM": "{:.1f} km"}),
+        summary_table_df.rename(
+            columns={
+                "assigned_orders": "担当注文数",
+                "shipping_cost": "配送係数",
+                "staffing_level": "人員数",
+                "capacity": "処理可能件数",
+                "fixed_cost": "固定費",
+                "labor_cost": "人件費",
+                "variable_cost": "配送費",
+                "total_cost": "総コスト",
+            }
+        ).style.format(
+            {"配送係数": "{:.3f}", "固定費": "¥{:,.0f}", "人件費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}
+        ),
         width="stretch",
     )
-
-# --- 4. 地理情報の可視化 (pydeck) ---
-st.subheader("配送エリア・コスト分布の地理的分析")
-
-map_cols = [
-    "CUSTOMER_LAT",
-    "CUSTOMER_LON",
-    "SIMULATED_COST",
-    "WEIGHT_KG",
-    "ORDER_ID",
-    "ASSIGNED_CENTER_NAME",
-    "ASSIGNMENT_STATUS",
-    "IS_UNASSIGNED",
-]
-
-if all(col in order_plot_df.columns for col in map_cols):
-    plot_df = cast(Any, order_plot_df).dropna(subset=map_cols).copy()
-
-    def calculate_colors(df_input):
-        cost = df_input["SIMULATED_COST"].astype(float)
-        v_min, v_max = cost.min(), cost.quantile(0.95)
-        if v_max == v_min:
-            v_max = v_min + 1
-        norm_cost = ((cost - v_min) / (v_max - v_min)).clip(0, 1)
-        low_band = norm_cost <= 0.5
-        df_input["COLOR_R"] = 0
-        df_input["COLOR_G"] = 0
-        df_input["COLOR_B"] = 0
-        df_input.loc[low_band, "COLOR_R"] = 30
-        df_input.loc[low_band, "COLOR_G"] = (140 + norm_cost[low_band] * 180).astype(int)
-        df_input.loc[low_band, "COLOR_B"] = (220 - norm_cost[low_band] * 220).astype(int)
-        df_input.loc[~low_band, "COLOR_R"] = ((norm_cost[~low_band] - 0.5) * 400 + 30).clip(0, 255).astype(int)
-        df_input.loc[~low_band, "COLOR_G"] = 230
-        df_input.loc[~low_band, "COLOR_B"] = 0
-        df_input.loc[df_input["IS_UNASSIGNED"], ["COLOR_R", "COLOR_G", "COLOR_B"]] = [220, 38, 38]
-        return df_input
-
-    def sanitize_data(df_input):
-        return json.loads(df_input.to_json(orient="records"))
-
-    customer_layer = pdk.Layer(
-        "ScatterplotLayer",
-        sanitize_data(calculate_colors(plot_df)),
-        get_position=["CUSTOMER_LON", "CUSTOMER_LAT"],
-        get_color="[COLOR_R, COLOR_G, COLOR_B, 140]",
-        get_radius=3000,
-        pickable=True,
-    )
-
-    center_layer = pdk.Layer(
-        "ScatterplotLayer",
-        sanitize_data(center_plot_df),
-        get_position=["CENTER_LON", "CENTER_LAT"],
-        get_color=[36, 62, 92, 220],
-        get_radius=15000,
-        pickable=True,
-    )
-
-    view_state = pdk.ViewState(latitude=36.0, longitude=138.0, zoom=5, pitch=45)
-
-    tooltip: Any = {
-        "html": (
-            "<b>注文ID:</b> {ORDER_ID}<br>"
-            "<b>担当拠点:</b> {ASSIGNED_CENTER_NAME}<br>"
-            "<b>割当状態:</b> {ASSIGNMENT_STATUS}<br>"
-            "<hr>"
-            "<b>重量:</b> {WEIGHT_KG} kg<br>"
-            "<b>配送コスト:</b> ¥{SIMULATED_COST}"
-        ),
-        "style": {"color": "white", "backgroundColor": "steelblue"},
-    }
-
-    r = pdk.Deck(
-        layers=[customer_layer, center_layer],
-        initial_view_state=view_state,
-        tooltip=tooltip,
-    )
-    st.pydeck_chart(r)
-else:
-    st.warning("地図表示に必要なカラムが不足しています。")

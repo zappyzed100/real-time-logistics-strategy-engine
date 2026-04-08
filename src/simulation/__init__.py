@@ -10,6 +10,7 @@ from src.simulation.domain import (
     SimulationResult,
     center_population_density,
     load_simulation_constants,
+    prepare_static_simulation_data,
     simulate_assignments,
 )
 
@@ -25,5 +26,6 @@ __all__ = [
     "SimulationResult",
     "center_population_density",
     "load_simulation_constants",
+    "prepare_static_simulation_data",
     "simulate_assignments",
 ]
