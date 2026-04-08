@@ -92,8 +92,7 @@ def _sidebar_style() -> str:
         opacity: 1 !important;
         margin: 0 !important;
     }}
-    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] button,
-    section[data-testid="stSidebar"] [data-baseweb="input"] button {{
+    section[data-testid="stSidebar"] div[data-testid="stNumberInput"] button {{
         display: none !important;
     }}
     </style>
@@ -371,57 +370,39 @@ display_mode = str(st.session_state[DISPLAY_MODE_KEY])
 is_fullscreen_mode = display_mode in {"注文別データ一覧", "地図"}
 if is_fullscreen_mode:
     apply_fullscreen_style()
-updated_rows: list[dict[str, object]] = []
 sidebar_started_at = time.perf_counter()
+updated_rows: list[dict[str, object]] = []
 with st.sidebar:
     st.subheader("拠点情報")
     st.caption("固定費は 100 万円単位です。")
     if is_fullscreen_mode:
         st.info("全画面表示中はシナリオ編集を無効化しています。")
-    variant = SELECTED_INPUT_VARIANT
-    header_columns = st.columns(list(variant["column_widths"]), gap="small")
+    header_columns = st.columns([1.1, 1.0, 1.55], gap="small")
     header_columns[0].markdown('<div class="scenario-header">拠点</div>', unsafe_allow_html=True)
-    header_columns[1].markdown('<div class="scenario-header">配送係数</div>', unsafe_allow_html=True)
-    header_columns[2].markdown('<div class="scenario-header">人員数</div>', unsafe_allow_html=True)
-    header_columns[3].markdown('<div class="scenario-header">固定費<br>(100万円単位)</div>', unsafe_allow_html=True)
+    header_columns[1].markdown('<div class="scenario-header">人員数</div>', unsafe_allow_html=True)
+    header_columns[2].markdown('<div class="scenario-header">固定費</div>', unsafe_allow_html=True)
     for row in scenario_df.to_dict(orient="records"):
         center_id = str(row["center_id"])
-        row_columns = st.columns(list(variant["column_widths"]), gap="small")
+        row_columns = st.columns([1.1, 1.0, 1.55], gap="small")
         row_columns[0].markdown(f'<div class="scenario-row-title">{row["center_name"]}</div>', unsafe_allow_html=True)
-        row_columns[1].markdown(
-            f'<div class="scenario-row-shipping-cost">{float(row["shipping_cost"]):.3f}</div>',
-            unsafe_allow_html=True,
-        )
-        staffing_level = row_columns[2].number_input(
+        staffing_level = row_columns[1].number_input(
             "人員数",
             min_value=0,
             step=1,
             value=int(row["staffing_level"]),
             key=f"staffing_level_{center_id}",
-            label_visibility=variant["label_visibility"],
+            label_visibility="collapsed",
             disabled=is_fullscreen_mode,
         )
-        if variant["fixed_cost_format"] is None:
-            fixed_cost = row_columns[3].number_input(
-                "固定費",
-                min_value=0,
-                step=1_000_000,
-                value=int(row["fixed_cost"]),
-                key=f"fixed_cost_{center_id}",
-                label_visibility=variant["label_visibility"],
-                disabled=is_fullscreen_mode,
-            )
-        else:
-            fixed_cost = row_columns[3].number_input(
-                "固定費",
-                min_value=0,
-                step=1_000_000,
-                value=int(row["fixed_cost"]),
-                key=f"fixed_cost_{center_id}",
-                label_visibility=variant["label_visibility"],
-                format=variant["fixed_cost_format"],
-                disabled=is_fullscreen_mode,
-            )
+        fixed_cost = row_columns[2].number_input(
+            "固定費",
+            min_value=0,
+            step=1_000_000,
+            value=int(row["fixed_cost"]),
+            key=f"fixed_cost_{center_id}",
+            label_visibility="collapsed",
+            disabled=is_fullscreen_mode,
+        )
         updated_rows.append(
             {
                 **row,
@@ -431,7 +412,8 @@ with st.sidebar:
         )
 render_profiler.record_duration("render_sidebar_inputs", sidebar_started_at)
 
-sanitized_scenario_df = render_profiler.measure("sanitize_scenario_frame", sanitize_scenario_frame, pd.DataFrame(updated_rows))
+updated_scenario_df = pd.DataFrame(updated_rows)
+sanitized_scenario_df = render_profiler.measure("sanitize_scenario_frame", sanitize_scenario_frame, updated_scenario_df)
 sidebar_inputs_changed = not sanitized_scenario_df.equals(scenario_df)
 st.session_state[SCENARIO_STATE_KEY] = sanitized_scenario_df
 
@@ -657,11 +639,18 @@ else:
     center_chart_render_started_at = time.perf_counter()
     st.bar_chart(chart_df["total_cost"], width="stretch")
     render_profiler.record_duration("render_center_cost_chart", center_chart_render_started_at)
+    summary_table_df = center_summary_df.merge(
+        sanitized_scenario_df[["center_name", "shipping_cost"]],
+        on="center_name",
+        how="left",
+        validate="one_to_one",
+    ).set_index("center_name")
     center_summary_render_started_at = time.perf_counter()
     st.dataframe(
-        chart_df.rename(
+        summary_table_df.rename(
             columns={
                 "assigned_orders": "担当注文数",
+                "shipping_cost": "配送係数",
                 "staffing_level": "人員数",
                 "capacity": "処理可能件数",
                 "fixed_cost": "固定費",
@@ -669,7 +658,9 @@ else:
                 "variable_cost": "配送費",
                 "total_cost": "総コスト",
             }
-        ).style.format({"固定費": "¥{:,.0f}", "人件費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}),
+        ).style.format(
+            {"配送係数": "{:.3f}", "固定費": "¥{:,.0f}", "人件費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}
+        ),
         width="stretch",
     )
     render_profiler.record_duration("render_center_summary_table", center_summary_render_started_at)
