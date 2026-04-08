@@ -46,8 +46,11 @@ def test_simulate_assignments_uses_staff_capacity_before_falling_back():
 
     assert [assignment.center_name for assignment in result.assignments] == ["東京", "大阪"]
     assert result.center_summaries[0].assigned_orders == 1
+    assert result.center_summaries[0].labor_cost == 500000.0
     assert result.center_summaries[1].assigned_orders == 1
     assert result.total_fixed_cost == 3000
+    assert result.total_labor_cost == 1000000.0
+    assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost
 
 
 def test_center_population_density_returns_hardcoded_density():
@@ -67,7 +70,8 @@ def test_simulate_assignments_prefers_high_density_center_first_on_tie():
 
     assert result.assignments[0].center_name == "東京"
     assert result.assignments[0].capacity_exceeded is False
-    assert result.total_cost == result.total_fixed_cost + result.total_variable_cost
+    assert result.total_labor_cost == 1000000.0
+    assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost
 
 
 def test_simulate_assignments_marks_unassigned_orders_with_penalty_cost():
@@ -86,4 +90,5 @@ def test_simulate_assignments_marks_unassigned_orders_with_penalty_cost():
     assert result.assignments[0].fallback_center_name == "東京"
     assert result.unassigned_order_count == 1
     assert result.unassigned_total_cost == result.total_variable_cost
-    assert result.total_cost == result.total_fixed_cost + result.total_variable_cost
+    assert result.total_labor_cost == 0.0
+    assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost

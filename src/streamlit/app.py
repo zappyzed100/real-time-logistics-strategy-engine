@@ -191,13 +191,15 @@ center_plot_df = pd.DataFrame(
     ]
 )
 
-overview_left, overview_right, overview_third = st.columns(3)
+overview_left, overview_right, overview_third, overview_fourth = st.columns(4)
 with overview_left:
     st.metric("対象拠点数", f"{len(configured_center_scenarios)} 拠点")
 with overview_right:
     st.metric("設定人員合計", f"{sum(center.staffing_level for center in configured_center_scenarios):,} 人")
 with overview_third:
     st.metric("固定費合計", f"¥{sum(center.fixed_cost for center in configured_center_scenarios):,.0f}")
+with overview_fourth:
+    st.metric("人件費合計", f"¥{simulation_result.total_labor_cost:,.0f}")
 
 # ---------------------------------------------------------
 # 2. 主要 KPI の表示 (filtered_df を使用)
@@ -235,10 +237,11 @@ with tab1:
                     "staffing_level": "人員数",
                     "capacity": "処理可能件数",
                     "fixed_cost": "固定費",
+                    "labor_cost": "人件費",
                     "variable_cost": "配送費",
                     "total_cost": "総コスト",
                 }
-            ).style.format({"固定費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}),
+            ).style.format({"固定費": "¥{:,.0f}", "人件費": "¥{:,.0f}", "配送費": "¥{:,.0f}", "総コスト": "¥{:,.0f}"}),
             width="stretch",
         )
 with tab2:

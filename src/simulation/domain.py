@@ -66,6 +66,7 @@ class SimulationOptions:
     weight_divisor: float = 12.0
     max_weight_surcharge: float = 1.2
     orders_per_staff: int = 20
+    labor_cost_per_staff: float = 500000.0
 
     def __post_init__(self) -> None:
         if self.orders_per_staff <= 0:
@@ -74,6 +75,8 @@ class SimulationOptions:
             raise ValueError("distance_rate_per_km must be non-negative")
         if self.weight_divisor <= 0:
             raise ValueError("weight_divisor must be positive")
+        if self.labor_cost_per_staff < 0:
+            raise ValueError("labor_cost_per_staff must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +138,7 @@ class CenterSummary:
     assigned_orders: int
     overflow_orders: int
     fixed_cost: float
+    labor_cost: float
     variable_cost: float
     total_cost: float
 
@@ -144,6 +148,7 @@ class SimulationResult:
     assignments: tuple[OrderAssignment, ...]
     center_summaries: tuple[CenterSummary, ...]
     total_fixed_cost: float
+    total_labor_cost: float
     total_variable_cost: float
     total_cost: float
     unassigned_order_count: int
@@ -306,13 +311,20 @@ def simulate_assignments(
             assigned_orders=assigned_orders_by_center[center.center_id],
             overflow_orders=overflow_orders_by_center[center.center_id],
             fixed_cost=center.fixed_cost,
+            labor_cost=round(center.staffing_level * options.labor_cost_per_staff, 2),
             variable_cost=round(variable_cost_by_center[center.center_id], 2),
-            total_cost=round(variable_cost_by_center[center.center_id] + center.fixed_cost, 2),
+            total_cost=round(
+                variable_cost_by_center[center.center_id]
+                + center.fixed_cost
+                + center.staffing_level * options.labor_cost_per_staff,
+                2,
+            ),
         )
         for center in sorted(centers, key=lambda current: (current.center_name, current.center_id))
     )
 
     total_fixed_cost = round(sum(center.fixed_cost for center in centers), 2)
+    total_labor_cost = round(sum(center.staffing_level * options.labor_cost_per_staff for center in centers), 2)
     ordered_assignments = tuple(
         assignments_by_order[order.order_id] for order in sorted(orders, key=lambda current: current.order_id)
     )
@@ -321,8 +333,9 @@ def simulate_assignments(
         assignments=ordered_assignments,
         center_summaries=center_summaries,
         total_fixed_cost=total_fixed_cost,
+        total_labor_cost=total_labor_cost,
         total_variable_cost=total_variable_cost,
-        total_cost=round(total_fixed_cost + total_variable_cost, 2),
+        total_cost=round(total_fixed_cost + total_labor_cost + total_variable_cost, 2),
         unassigned_order_count=sum(1 for assignment in ordered_assignments if assignment.is_unassigned),
         unassigned_total_cost=round(unassigned_total_cost, 2),
     )
