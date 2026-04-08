@@ -3,9 +3,10 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
-import requests
+import requests  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
 URL = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
@@ -131,12 +132,14 @@ def fetch_estat_data(app_id: str, stats_data_id: str) -> dict:
     return payload
 
 
-def _as_list(value: object) -> list[dict]:
+def _as_list(value: object) -> list[dict[str, Any]]:
     if value is None:
         return []
     if isinstance(value, list):
-        return value
-    return [value]
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        return [value]
+    return []
 
 
 def build_class_maps(data: dict) -> dict[str, dict[str, str]]:
@@ -227,9 +230,10 @@ def attach_center_ids(df: pd.DataFrame, centers: pd.DataFrame) -> pd.DataFrame:
 
         fallback_matches: list[dict[str, object]] = []
         for row in fallback_rows.itertuples(index=False):
-            contains_mask = centers["center_name_normalized"].str.contains(row.fallback_key, na=False)
+            fallback_key = str(row.fallback_key)
+            contains_mask = centers["center_name_normalized"].astype(str).str.contains(fallback_key, na=False)
             reverse_contains_mask = centers["center_name_normalized"].map(
-                lambda value: row.fallback_key in value if isinstance(value, str) else False
+                lambda value: fallback_key in value if isinstance(value, str) else False
             )
             candidates = centers[contains_mask | reverse_contains_mask]
             if len(candidates) == 1:
