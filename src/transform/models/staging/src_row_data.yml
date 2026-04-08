@@ -12,3 +12,5 @@ sources:
         description: "商品マスター"
       - name: LOGISTICS_CENTERS
         description: "物流拠点マスター"
+      - name: SHIPPING_COSTS
+        description: "物流拠点ごとの配送コスト係数マスター"

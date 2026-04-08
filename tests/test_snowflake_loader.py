@@ -84,14 +84,14 @@ def test_build_load_commands_generates_expected_snowflake_sql(monkeypatch, tmp_p
 
 def test_load_csv_to_table_executes_generated_commands_in_order(monkeypatch, tmp_path):
     set_loader_env(monkeypatch)
-    csv_path = tmp_path / "inventory.csv"
+    csv_path = tmp_path / "shipping_costs.csv"
     csv_path.write_text("1,2\n", encoding="utf-8")
 
     fake_conn = FakeConnection()
     loader = SnowflakeLoader(conn=fake_conn, connect=False)
     spec = LoadSpec(
         file_path=csv_path,
-        table_name="INVENTORY",
+        table_name="SHIPPING_COSTS",
         select_list=(
             "$1::STRING",
             "$2::STRING",

@@ -176,8 +176,8 @@ class SnowflakeLoader:
                 ),
             ),
             LoadSpec(
-                file_path=Path("data/04_out/inventory.csv"),
-                table_name="INVENTORY",
+                file_path=Path("data/03_seed/shipping_costs.csv"),
+                table_name="SHIPPING_COSTS",
                 select_list=(
                     "$1::STRING",
                     "$2::STRING",
