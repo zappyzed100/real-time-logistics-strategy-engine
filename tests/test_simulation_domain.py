@@ -2,6 +2,7 @@ from src.simulation import (
     CENTER_POPULATION_DENSITY,
     SIMULATION_CONSTANTS,
     CenterScenario,
+    OrderCandidate,
     OrderDemand,
     SimulationOptions,
     build_order_candidates,
@@ -119,3 +120,26 @@ def test_simulate_assignments_marks_unassigned_orders_with_penalty_cost():
     assert result.unassigned_total_cost == result.total_variable_cost
     assert result.total_labor_cost == 0.0
     assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost
+
+
+def test_simulate_assignments_uses_precomputed_ranked_candidates_without_re_sorting():
+    options = SimulationOptions(orders_per_staff=1)
+    centers = [
+        CenterScenario("13", "東京", 35.0, 139.0, 1.0, 1, 0),
+        CenterScenario("27", "大阪", 35.0, 139.0, 1.0, 1, 0),
+    ]
+    orders = [
+        OrderDemand("O1", 35.0, 139.0, 1.0, 1),
+        OrderDemand("O2", 35.0, 139.0, 1.0, 1),
+    ]
+    candidates = [
+        OrderCandidate("O1", "13", "東京", 4.0, 100.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+        OrderCandidate("O2", "13", "東京", 5.0, 200.0, 1.0, center_candidate_rank=2, order_candidate_rank=1),
+        OrderCandidate("O1", "27", "大阪", 6.0, 300.0, 1.0, center_candidate_rank=1, order_candidate_rank=2),
+        OrderCandidate("O2", "27", "大阪", 7.0, 400.0, 1.0, center_candidate_rank=2, order_candidate_rank=2),
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
+
+    assert [assignment.center_name for assignment in result.assignments] == ["東京", "大阪"]
+    assert result.assignments[1].delivery_cost == 400.0

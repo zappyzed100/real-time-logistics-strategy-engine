@@ -135,6 +135,8 @@ class OrderCandidate:
     distance_km: float
     delivery_cost: float
     total_weight_kg: float
+    center_candidate_rank: int | None = None
+    order_candidate_rank: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,23 +247,27 @@ def build_order_candidates(
 def simulate_assignments(
     orders: list[OrderDemand],
     centers: list[CenterScenario],
+    candidates: list[OrderCandidate] | None = None,
     options: SimulationOptions = SimulationOptions(),
 ) -> SimulationResult:
     if not centers:
         raise ValueError("at least one center is required")
 
-    all_candidates = build_order_candidates(orders=orders, centers=centers, options=options)
+    all_candidates = (
+        candidates if candidates is not None else build_order_candidates(orders=orders, centers=centers, options=options)
+    )
     candidates_by_order: dict[str, list[OrderCandidate]] = defaultdict(list)
     candidates_by_center: dict[str, list[OrderCandidate]] = defaultdict(list)
     for candidate in all_candidates:
         candidates_by_order[candidate.order_id].append(candidate)
         candidates_by_center[candidate.center_id].append(candidate)
 
-    for center_id in candidates_by_center:
-        candidates_by_center[center_id] = sorted(
-            candidates_by_center[center_id],
-            key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.order_id),
-        )
+    if not all(candidate.center_candidate_rank is not None for candidate in all_candidates):
+        for center_id in candidates_by_center:
+            candidates_by_center[center_id] = sorted(
+                candidates_by_center[center_id],
+                key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.order_id),
+            )
 
     variable_cost_by_center: defaultdict[str, float] = defaultdict(float)
     assigned_orders_by_center: defaultdict[str, int] = defaultdict(int)
@@ -307,10 +313,20 @@ def simulate_assignments(
         if order.order_id in assignments_by_order:
             continue
 
-        cheapest_candidate = min(
-            candidates_by_order[order.order_id],
-            key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.center_name, candidate.center_id),
+        cheapest_candidate = next(
+            (candidate for candidate in candidates_by_order[order.order_id] if candidate.order_candidate_rank == 1),
+            None,
         )
+        if cheapest_candidate is None:
+            cheapest_candidate = min(
+                candidates_by_order[order.order_id],
+                key=lambda candidate: (
+                    candidate.delivery_cost,
+                    candidate.distance_km,
+                    candidate.center_name,
+                    candidate.center_id,
+                ),
+            )
         penalty_cost = round(cheapest_candidate.delivery_cost * UNASSIGNED_COST_MULTIPLIER, 2)
         unassigned_total_cost += penalty_cost
         assignments_by_order[order.order_id] = OrderAssignment(
