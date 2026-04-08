@@ -560,7 +560,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_stage_read_write" 
 # ------ tables ------
 resource "snowflake_grant_privileges_to_account_role" "loader_orders_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["INSERT"]
+  privileges        = ["INSERT", "DELETE"]
 
   on_schema_object {
     object_type = "TABLE"
@@ -570,7 +570,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_orders_insert" {
 
 resource "snowflake_grant_privileges_to_account_role" "loader_inventory_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["INSERT"]
+  privileges        = ["INSERT", "DELETE"]
 
   on_schema_object {
     object_type = "TABLE"
@@ -580,7 +580,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_inventory_insert" 
 
 resource "snowflake_grant_privileges_to_account_role" "loader_shipping_costs_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["INSERT"]
+  privileges        = ["INSERT", "DELETE"]
 
   on_schema_object {
     object_type = "TABLE"
@@ -590,7 +590,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_shipping_costs_ins
 
 resource "snowflake_grant_privileges_to_account_role" "loader_logistics_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["INSERT"]
+  privileges        = ["INSERT", "DELETE"]
 
   on_schema_object {
     object_type = "TABLE"
@@ -600,7 +600,7 @@ resource "snowflake_grant_privileges_to_account_role" "loader_logistics_insert" 
 
 resource "snowflake_grant_privileges_to_account_role" "loader_products_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
-  privileges        = ["INSERT"]
+  privileges        = ["INSERT", "DELETE"]
 
   on_schema_object {
     object_type = "TABLE"

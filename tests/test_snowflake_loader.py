@@ -109,6 +109,35 @@ def test_load_csv_to_table_executes_generated_commands_in_order(monkeypatch, tmp
     assert fake_conn.cursor_instance.closed is True
 
 
+def test_load_csv_to_table_truncates_before_copy_when_requested(monkeypatch, tmp_path):
+    set_loader_env(monkeypatch)
+    csv_path = tmp_path / "orders.csv"
+    csv_path.write_text("1,2,3\n", encoding="utf-8")
+
+    fake_conn = FakeConnection()
+    loader = SnowflakeLoader(conn=fake_conn, connect=False)
+    spec = LoadSpec(
+        file_path=csv_path,
+        table_name="ORDERS",
+        select_list=(
+            "$1::STRING",
+            "$2::STRING",
+        ),
+        truncate_before_load=True,
+    )
+
+    expected_commands = loader.build_load_commands(spec)
+
+    loader.load_csv_to_table(spec)
+
+    assert fake_conn.cursor_instance.executed == [
+        "DELETE FROM DEV_BRONZE_DB.RAW_DATA.ORDERS",
+        expected_commands.put_command,
+        expected_commands.copy_command,
+    ]
+    assert fake_conn.cursor_instance.closed is True
+
+
 def test_loader_trims_whitespace_from_required_account_env(monkeypatch):
     set_loader_env(monkeypatch)
     monkeypatch.setenv("TF_VAR_SNOWFLAKE_ACCOUNT", "test-account\r\n")
