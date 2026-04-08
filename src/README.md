@@ -9,6 +9,7 @@ src には次の役割があります。
 - データ生成: `src/scripts/data_gen/`
 - Snowflake へのロード: `src/infrastructure/`
 - dbt 実行補助: `src/scripts/deploy/run_dbt.py`
+- シミュレーション用ドメイン層: `src/simulation/`
 - 可視化: `src/streamlit/app.py`
 
 ## 2. 最短実行フロー
@@ -103,6 +104,10 @@ uv run streamlit run src/streamlit/app.py
 1. `src/streamlit/app.py`
 
 - Gold 層結果の可視化
+
+1. `src/simulation/domain.py`
+
+- Streamlit / FastAPI から共通利用する配賦シミュレーションの計算ロジック
 
 ### 見直し候補 (レガシー寄り)
 
