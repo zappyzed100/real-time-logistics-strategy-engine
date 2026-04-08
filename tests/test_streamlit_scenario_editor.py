@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import cast
 
 import pandas as pd
 
@@ -186,7 +187,7 @@ def test_apply_simulation_result_to_analysis_accepts_legacy_assignment_without_i
         capacity_exceeded=True,
         fallback_center_name="東京",
     )
-    simulation_result = SimpleNamespace(assignments=(legacy_assignment,))
+    simulation_result = cast(SimulationResult, SimpleNamespace(assignments=(legacy_assignment,)))
 
     result_df = apply_simulation_result_to_analysis(analysis_df, simulation_result)
 
