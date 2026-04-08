@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
+
+from src.simulation.native_engine import run_assignment_engine
+
 
 @lru_cache(maxsize=1)
 def load_simulation_constants() -> dict[str, float | int]:
@@ -177,8 +181,97 @@ class SimulationResult:
     unassigned_total_cost: float
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedSimulationData:
+    ordered_orders: tuple[OrderDemand, ...]
+    primary_candidates_by_order: tuple[OrderCandidate | None, ...]
+    ranked_center_indices: np.ndarray
+    center_staffing_levels: np.ndarray
+    center_candidate_offsets: np.ndarray
+    candidate_order_indices: np.ndarray
+    candidate_center_indices: np.ndarray
+    candidate_distance_km: np.ndarray
+    candidate_delivery_cost: np.ndarray
+
+
 def center_population_density(center_name: str) -> float:
     return CENTER_POPULATION_DENSITY.get(center_name, 0.0)
+
+
+def _prepare_simulation_data(
+    orders: list[OrderDemand],
+    centers: list[CenterScenario],
+    candidates: list[OrderCandidate],
+) -> PreparedSimulationData:
+    ordered_orders = tuple(sorted(orders, key=lambda current: current.order_id))
+    order_index_by_id = {order.order_id: index for index, order in enumerate(ordered_orders)}
+    center_index_by_id = {center.center_id: index for index, center in enumerate(centers)}
+    seen_order_ids: set[str] = set()
+    candidates_by_center: list[list[OrderCandidate]] = [[] for _ in centers]
+    primary_candidates_by_order: list[OrderCandidate | None] = [None] * len(ordered_orders)
+
+    for candidate in candidates:
+        center_index = center_index_by_id.get(candidate.center_id)
+        if center_index is None:
+            raise ValueError(f"unknown center_id in candidates: {candidate.center_id}")
+        order_index = order_index_by_id.get(candidate.order_id)
+        if order_index is None:
+            raise ValueError(f"unknown order_id in candidates: {candidate.order_id}")
+        if candidate.center_candidate_rank is None or candidate.order_candidate_rank is None:
+            raise ValueError("precomputed candidates must include center_candidate_rank and order_candidate_rank")
+
+        seen_order_ids.add(candidate.order_id)
+        candidates_by_center[center_index].append(candidate)
+        if candidate.order_candidate_rank == 1 and primary_candidates_by_order[order_index] is None:
+            primary_candidates_by_order[order_index] = candidate
+
+    missing_order_ids = sorted(set(order_index_by_id) - seen_order_ids)
+    if missing_order_ids:
+        raise ValueError(f"missing precomputed candidates for orders: {', '.join(missing_order_ids[:5])}")
+
+    missing_primary_rank_order_ids = [
+        ordered_orders[index].order_id
+        for index, primary_candidate in enumerate(primary_candidates_by_order)
+        if primary_candidate is None
+    ]
+    if missing_primary_rank_order_ids:
+        raise ValueError(f"missing order_candidate_rank=1 for orders: {', '.join(missing_primary_rank_order_ids[:5])}")
+
+    candidate_order_indices_list: list[int] = []
+    candidate_center_indices_list: list[int] = []
+    candidate_distance_km_list: list[float] = []
+    candidate_delivery_cost_list: list[float] = []
+    center_candidate_offsets = [0]
+    for center_index, center_candidates in enumerate(candidates_by_center):
+        for candidate in center_candidates:
+            candidate_order_indices_list.append(order_index_by_id[candidate.order_id])
+            candidate_center_indices_list.append(center_index)
+            candidate_distance_km_list.append(candidate.distance_km)
+            candidate_delivery_cost_list.append(candidate.delivery_cost)
+        center_candidate_offsets.append(len(candidate_order_indices_list))
+
+    ranked_center_indices = np.asarray(
+        [
+            center_index
+            for center_index, center in sorted(
+                enumerate(centers),
+                key=lambda item: (-center_population_density(item[1].center_name), item[1].center_id, item[1].center_name),
+            )
+        ],
+        dtype=np.int32,
+    )
+    center_staffing_levels = np.asarray([center.staffing_level for center in centers], dtype=np.int32)
+    return PreparedSimulationData(
+        ordered_orders=ordered_orders,
+        primary_candidates_by_order=tuple(primary_candidates_by_order),
+        ranked_center_indices=ranked_center_indices,
+        center_staffing_levels=center_staffing_levels,
+        center_candidate_offsets=np.asarray(center_candidate_offsets, dtype=np.int32),
+        candidate_order_indices=np.asarray(candidate_order_indices_list, dtype=np.int32),
+        candidate_center_indices=np.asarray(candidate_center_indices_list, dtype=np.int32),
+        candidate_distance_km=np.asarray(candidate_distance_km_list, dtype=np.float64),
+        candidate_delivery_cost=np.asarray(candidate_delivery_cost_list, dtype=np.float64),
+    )
 
 
 def simulate_assignments(
@@ -192,78 +285,46 @@ def simulate_assignments(
     if not candidates:
         raise ValueError("precomputed candidates are required")
 
-    center_ids = {center.center_id for center in centers}
-    order_ids = {order.order_id for order in orders}
-    candidates_by_order: dict[str, list[OrderCandidate]] = defaultdict(list)
-    candidates_by_center: dict[str, list[OrderCandidate]] = defaultdict(list)
-    for candidate in candidates:
-        if candidate.center_id not in center_ids:
-            raise ValueError(f"unknown center_id in candidates: {candidate.center_id}")
-        if candidate.order_id not in order_ids:
-            raise ValueError(f"unknown order_id in candidates: {candidate.order_id}")
-        if candidate.center_candidate_rank is None or candidate.order_candidate_rank is None:
-            raise ValueError("precomputed candidates must include center_candidate_rank and order_candidate_rank")
-        candidates_by_order[candidate.order_id].append(candidate)
-        candidates_by_center[candidate.center_id].append(candidate)
-
-    missing_order_ids = sorted(order_ids - candidates_by_order.keys())
-    if missing_order_ids:
-        raise ValueError(f"missing precomputed candidates for orders: {', '.join(missing_order_ids[:5])}")
-    missing_primary_rank_order_ids = sorted(
-        order_id
-        for order_id, order_candidates in candidates_by_order.items()
-        if not any(candidate.order_candidate_rank == 1 for candidate in order_candidates)
+    prepared = _prepare_simulation_data(orders=orders, centers=centers, candidates=candidates)
+    native_result = run_assignment_engine(
+        ranked_center_indices=prepared.ranked_center_indices,
+        center_staffing_levels=prepared.center_staffing_levels,
+        center_candidate_offsets=prepared.center_candidate_offsets,
+        candidate_order_indices=prepared.candidate_order_indices,
+        candidate_center_indices=prepared.candidate_center_indices,
+        candidate_distance_km=prepared.candidate_distance_km,
+        candidate_delivery_cost=prepared.candidate_delivery_cost,
+        orders_per_staff=options.orders_per_staff,
+        staffing_round_increment=options.staffing_round_increment,
+        order_count=len(prepared.ordered_orders),
+        center_count=len(centers),
     )
-    if missing_primary_rank_order_ids:
-        raise ValueError(f"missing order_candidate_rank=1 for orders: {', '.join(missing_primary_rank_order_ids[:5])}")
 
     variable_cost_by_center: defaultdict[str, float] = defaultdict(float)
     assigned_orders_by_center: defaultdict[str, int] = defaultdict(int)
     overflow_orders_by_center: defaultdict[str, int] = defaultdict(int)
     assignments_by_order: dict[str, OrderAssignment] = {}
 
-    ranked_centers = sorted(
-        centers,
-        key=lambda center: (-center_population_density(center.center_name), center.center_id, center.center_name),
-    )
-    max_staffing_level = max(center.staffing_level for center in centers)
-
-    # o を 0 から n ずつ進め、各拠点で o を超える範囲から最大 n 人分だけ取り出し、
-    # その人数 × m 件までの未割当配送先を低コスト順で担当させる。
-    for current_staff_floor in range(0, max_staffing_level, options.staffing_round_increment):
-        for center in ranked_centers:
-            if center.staffing_level <= current_staff_floor:
-                continue
-
-            active_staff_in_round = min(options.staffing_round_increment, center.staffing_level - current_staff_floor)
-            assignment_limit = active_staff_in_round * options.orders_per_staff
-            assigned_in_round = 0
-            for candidate in candidates_by_center[center.center_id]:
-                if candidate.order_id in assignments_by_order:
-                    continue
-
-                assignments_by_order[candidate.order_id] = OrderAssignment(
-                    order_id=candidate.order_id,
-                    center_id=candidate.center_id,
-                    center_name=candidate.center_name,
-                    distance_km=candidate.distance_km,
-                    delivery_cost=candidate.delivery_cost,
-                    capacity_exceeded=False,
-                )
-                assigned_orders_by_center[center.center_id] += 1
-                variable_cost_by_center[center.center_id] += candidate.delivery_cost
-                assigned_in_round += 1
-                if assigned_in_round >= assignment_limit:
-                    break
-
     unassigned_total_cost = 0.0
-    for order in sorted(orders, key=lambda current: current.order_id):
-        if order.order_id in assignments_by_order:
+    for order_index, order in enumerate(prepared.ordered_orders):
+        if bool(native_result.assigned_mask[order_index]):
+            assigned_center = centers[int(native_result.assigned_center_indices[order_index])]
+            assignment = OrderAssignment(
+                order_id=order.order_id,
+                center_id=assigned_center.center_id,
+                center_name=assigned_center.center_name,
+                distance_km=float(native_result.assigned_distance_km[order_index]),
+                delivery_cost=float(native_result.assigned_delivery_cost[order_index]),
+                capacity_exceeded=False,
+            )
+            assignments_by_order[order.order_id] = assignment
+            assigned_orders_by_center[assigned_center.center_id] += 1
+            variable_cost_by_center[assigned_center.center_id] += assignment.delivery_cost
             continue
 
-        cheapest_candidate = next(
-            candidate for candidate in candidates_by_order[order.order_id] if candidate.order_candidate_rank == 1
-        )
+        cheapest_candidate = prepared.primary_candidates_by_order[order_index]
+        if cheapest_candidate is None:
+            raise RuntimeError(f"missing primary candidate for order {order.order_id}")
         penalty_cost = round(cheapest_candidate.delivery_cost * UNASSIGNED_COST_MULTIPLIER, 2)
         unassigned_total_cost += penalty_cost
         assignments_by_order[order.order_id] = OrderAssignment(
@@ -301,9 +362,7 @@ def simulate_assignments(
 
     total_fixed_cost = round(sum(center.fixed_cost for center in centers), 2)
     total_labor_cost = round(sum(center.staffing_level * options.labor_cost_per_staff for center in centers), 2)
-    ordered_assignments = tuple(
-        assignments_by_order[order.order_id] for order in sorted(orders, key=lambda current: current.order_id)
-    )
+    ordered_assignments = tuple(assignments_by_order[order.order_id] for order in prepared.ordered_orders)
     total_variable_cost = round(sum(assignment.delivery_cost for assignment in ordered_assignments), 2)
     return SimulationResult(
         assignments=ordered_assignments,
