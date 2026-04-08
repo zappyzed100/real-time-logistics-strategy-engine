@@ -113,6 +113,11 @@ uv run streamlit run src/streamlit/app.py
 
 - Streamlit / FastAPI から共通利用する配賦シミュレーションの計算ロジック
 
+1. `src/simulation/constants.json`
+
+- 配賦シミュレーションで使う外部化済み定数
+- 1人あたり担当件数、人件費、ラウンド増分、未割当ペナルティ倍率を管理
+
 ### 見直し候補 (レガシー寄り)
 
 1. `src/scripts/deploy/deploy_udf.py`

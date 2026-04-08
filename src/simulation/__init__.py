@@ -1,5 +1,6 @@
 from src.simulation.domain import (
     CENTER_POPULATION_DENSITY,
+    SIMULATION_CONSTANTS,
     CenterScenario,
     CenterSummary,
     OrderAssignment,
@@ -11,6 +12,7 @@ from src.simulation.domain import (
     calculate_delivery_cost,
     center_population_density,
     haversine_distance_km,
+    load_simulation_constants,
     simulate_assignments,
 )
 
@@ -21,11 +23,13 @@ __all__ = [
     "OrderAssignment",
     "OrderCandidate",
     "OrderDemand",
+    "SIMULATION_CONSTANTS",
     "SimulationOptions",
     "SimulationResult",
     "build_order_candidates",
     "calculate_delivery_cost",
     "center_population_density",
     "haversine_distance_km",
+    "load_simulation_constants",
     "simulate_assignments",
 ]
