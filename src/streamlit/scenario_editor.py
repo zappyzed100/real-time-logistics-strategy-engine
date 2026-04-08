@@ -148,7 +148,6 @@ def build_order_demands(analysis_df: pd.DataFrame) -> list[OrderDemand]:
 
 def build_order_candidates_from_frame(candidate_df: pd.DataFrame) -> list[OrderCandidate]:
     normalized_df = candidate_df.rename(columns=str.upper).copy()
-    sorted_df = normalized_df.sort_values(by=["CENTER_ID", "CENTER_CANDIDATE_RANK", "ORDER_ID"]).copy()
     return [
         OrderCandidate(
             order_id=str(row["ORDER_ID"]),
@@ -160,7 +159,7 @@ def build_order_candidates_from_frame(candidate_df: pd.DataFrame) -> list[OrderC
             center_candidate_rank=int(row["CENTER_CANDIDATE_RANK"]),
             order_candidate_rank=int(row["ORDER_CANDIDATE_RANK"]),
         )
-        for row in sorted_df.to_dict(orient="records")
+        for row in normalized_df.to_dict(orient="records")
     ]
 
 

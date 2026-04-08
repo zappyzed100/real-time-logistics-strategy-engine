@@ -5,12 +5,7 @@ with candidate_costs as (
 )
 
 select
-    order_id,
-    center_id,
-    center_name,
-    distance_km,
-    delivery_cost,
-    total_weight_kg,
+    candidate_costs.*,
     row_number() over (
         partition by center_id
         order by delivery_cost asc, distance_km asc, order_id asc

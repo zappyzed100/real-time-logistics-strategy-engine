@@ -5,33 +5,19 @@ from src.simulation import (
     OrderCandidate,
     OrderDemand,
     SimulationOptions,
-    build_order_candidates,
     center_population_density,
-    haversine_distance_km,
     load_simulation_constants,
     simulate_assignments,
 )
 
 
-def test_haversine_distance_km_returns_zero_for_same_point():
-    assert haversine_distance_km(35.0, 139.0, 35.0, 139.0) == 0.0
-
-
-def test_build_order_candidates_returns_all_order_center_pairs():
-    centers = [
-        CenterScenario("C1", "Tokyo", 35.6895, 139.6917, 1.5, 2, 1000),
-        CenterScenario("C2", "Osaka", 34.6937, 135.5023, 1.2, 1, 800),
+def make_ranked_candidates() -> list[OrderCandidate]:
+    return [
+        OrderCandidate("O1", "13", "東京", 4.0, 100.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+        OrderCandidate("O2", "13", "東京", 5.0, 200.0, 1.0, center_candidate_rank=2, order_candidate_rank=2),
+        OrderCandidate("O1", "27", "大阪", 6.0, 300.0, 1.0, center_candidate_rank=1, order_candidate_rank=2),
+        OrderCandidate("O2", "27", "大阪", 7.0, 150.0, 1.0, center_candidate_rank=2, order_candidate_rank=1),
     ]
-    orders = [
-        OrderDemand("O1", 35.68, 139.76, 2.0, 1),
-        OrderDemand("O2", 34.70, 135.50, 3.0, 2),
-    ]
-
-    candidates = build_order_candidates(orders=orders, centers=centers)
-
-    assert len(candidates) == 4
-    assert {candidate.order_id for candidate in candidates} == {"O1", "O2"}
-    assert {candidate.center_name for candidate in candidates} == {"Tokyo", "Osaka"}
 
 
 def test_simulate_assignments_uses_staff_capacity_before_falling_back():
@@ -45,7 +31,7 @@ def test_simulate_assignments_uses_staff_capacity_before_falling_back():
         OrderDemand("O2", 35.6897, 139.6919, 1.0, 1),
     ]
 
-    result = simulate_assignments(orders=orders, centers=centers, options=options)
+    result = simulate_assignments(orders=orders, centers=centers, candidates=make_ranked_candidates(), options=options)
 
     assert [assignment.center_name for assignment in result.assignments] == ["東京", "大阪"]
     assert result.center_summaries[0].assigned_orders == 1
@@ -78,7 +64,12 @@ def test_simulate_assignments_prefers_high_density_center_first_on_tie():
     ]
     orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
 
-    result = simulate_assignments(orders=orders, centers=centers, options=options)
+    candidates = [
+        OrderCandidate("O1", "1", "北海道", 1.0, 200.0, 1.0, center_candidate_rank=1, order_candidate_rank=2),
+        OrderCandidate("O1", "13", "東京", 1.0, 200.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
 
     assert result.assignments[0].center_name == "東京"
     assert result.assignments[0].capacity_exceeded is False
@@ -94,7 +85,17 @@ def test_simulate_assignments_uses_staffing_round_increment_chunks():
     ]
     orders = [OrderDemand(f"O{i}", 35.0, 139.0, 1.0, 1) for i in range(1, 7)]
 
-    result = simulate_assignments(orders=orders, centers=centers, options=options)
+    candidates = [
+        OrderCandidate(f"O{i}", "13", "東京", float(i), float(100 + i), 1.0, center_candidate_rank=i, order_candidate_rank=1)
+        for i in range(1, 7)
+    ] + [
+        OrderCandidate(
+            f"O{i}", "27", "大阪", float(10 + i), float(200 + i), 1.0, center_candidate_rank=i, order_candidate_rank=2
+        )
+        for i in range(1, 7)
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
 
     assigned_to_tokyo = [assignment for assignment in result.assignments if assignment.center_name == "東京"]
     unassigned = [assignment for assignment in result.assignments if assignment.is_unassigned]
@@ -110,7 +111,12 @@ def test_simulate_assignments_marks_unassigned_orders_with_penalty_cost():
     ]
     orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
 
-    result = simulate_assignments(orders=orders, centers=centers, options=options)
+    candidates = [
+        OrderCandidate("O1", "13", "東京", 1.0, 100.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+        OrderCandidate("O1", "27", "大阪", 1.0, 120.0, 1.0, center_candidate_rank=1, order_candidate_rank=2),
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
 
     assert result.assignments[0].center_name is None
     assert result.assignments[0].capacity_exceeded is True
@@ -143,3 +149,41 @@ def test_simulate_assignments_uses_precomputed_ranked_candidates_without_re_sort
 
     assert [assignment.center_name for assignment in result.assignments] == ["東京", "大阪"]
     assert result.assignments[1].delivery_cost == 400.0
+
+
+def test_simulate_assignments_requires_precomputed_candidates():
+    centers = [CenterScenario("13", "東京", 35.0, 139.0, 1.0, 1, 0)]
+    orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
+
+    try:
+        simulate_assignments(orders=orders, centers=centers, candidates=[])
+    except ValueError as exc:
+        assert str(exc) == "precomputed candidates are required"
+    else:
+        raise AssertionError("ValueError was not raised")
+
+
+def test_simulate_assignments_requires_candidate_ranks():
+    centers = [CenterScenario("13", "東京", 35.0, 139.0, 1.0, 1, 0)]
+    orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
+    candidates = [OrderCandidate("O1", "13", "東京", 1.0, 100.0, 1.0)]
+
+    try:
+        simulate_assignments(orders=orders, centers=centers, candidates=candidates)
+    except ValueError as exc:
+        assert str(exc) == "precomputed candidates must include center_candidate_rank and order_candidate_rank"
+    else:
+        raise AssertionError("ValueError was not raised")
+
+
+def test_simulate_assignments_requires_primary_order_rank():
+    centers = [CenterScenario("13", "東京", 35.0, 139.0, 1.0, 0, 0)]
+    orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
+    candidates = [OrderCandidate("O1", "13", "東京", 1.0, 100.0, 1.0, center_candidate_rank=1, order_candidate_rank=2)]
+
+    try:
+        simulate_assignments(orders=orders, centers=centers, candidates=candidates)
+    except ValueError as exc:
+        assert str(exc) == "missing order_candidate_rank=1 for orders: O1"
+    else:
+        raise AssertionError("ValueError was not raised")

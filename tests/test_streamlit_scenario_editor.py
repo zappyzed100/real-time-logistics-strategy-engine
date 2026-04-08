@@ -143,9 +143,9 @@ def test_build_order_candidates_from_frame_preserves_precomputed_ranks():
 
     candidates = build_order_candidates_from_frame(candidate_df)
 
-    assert [candidate.order_id for candidate in candidates] == ["O1", "O2"]
-    assert candidates[0].center_candidate_rank == 1
-    assert candidates[1].center_candidate_rank == 2
+    assert [candidate.order_id for candidate in candidates] == ["O2", "O1"]
+    assert candidates[0].center_candidate_rank == 2
+    assert candidates[1].center_candidate_rank == 1
 
 
 def test_apply_simulation_result_to_analysis_adds_assignment_columns():

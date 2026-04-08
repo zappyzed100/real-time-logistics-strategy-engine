@@ -162,7 +162,7 @@ def get_analysis_data() -> pd.DataFrame:
 
 @st.cache_data
 def get_precomputed_candidate_data() -> pd.DataFrame:
-    return session.table(PRECOMPUTED_CANDIDATE_TABLE).to_pandas()
+    return session.table(PRECOMPUTED_CANDIDATE_TABLE).sort("CENTER_ID", "CENTER_CANDIDATE_RANK", "ORDER_ID").to_pandas()
 
 
 df = get_analysis_data()

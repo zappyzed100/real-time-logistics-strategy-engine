@@ -4,7 +4,6 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
-from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 
 
@@ -182,92 +181,41 @@ def center_population_density(center_name: str) -> float:
     return CENTER_POPULATION_DENSITY.get(center_name, 0.0)
 
 
-def haversine_distance_km(
-    origin_lat: float,
-    origin_lon: float,
-    destination_lat: float,
-    destination_lon: float,
-) -> float:
-    radius_km = 6371.0
-    lat_delta = radians((destination_lat - origin_lat) / 2)
-    lon_delta = radians((destination_lon - origin_lon) / 2)
-    a_value = power_sin(lat_delta) + cos(radians(origin_lat)) * cos(radians(destination_lat)) * power_sin(lon_delta)
-    return radius_km * 2 * asin(sqrt(a_value))
-
-
-def power_sin(angle_radians: float) -> float:
-    return sin(angle_radians) ** 2
-
-
-def calculate_delivery_cost(
-    order: OrderDemand,
-    center: CenterScenario,
-    options: SimulationOptions = SimulationOptions(),
-) -> float:
-    distance_km = haversine_distance_km(
-        origin_lat=order.customer_lat,
-        origin_lon=order.customer_lon,
-        destination_lat=center.latitude,
-        destination_lon=center.longitude,
-    )
-    weight_multiplier = 1 + min(
-        (order.total_weight_kg**options.weight_exponent) / options.weight_divisor, options.max_weight_surcharge
-    )
-    return round(
-        (options.base_delivery_fee + distance_km * options.distance_rate_per_km) * center.shipping_cost * weight_multiplier, 2
-    )
-
-
-def build_order_candidates(
-    orders: list[OrderDemand],
-    centers: list[CenterScenario],
-    options: SimulationOptions = SimulationOptions(),
-) -> list[OrderCandidate]:
-    candidates: list[OrderCandidate] = []
-    for order in orders:
-        for center in centers:
-            candidates.append(
-                OrderCandidate(
-                    order_id=order.order_id,
-                    center_id=center.center_id,
-                    center_name=center.center_name,
-                    distance_km=haversine_distance_km(
-                        origin_lat=order.customer_lat,
-                        origin_lon=order.customer_lon,
-                        destination_lat=center.latitude,
-                        destination_lon=center.longitude,
-                    ),
-                    delivery_cost=calculate_delivery_cost(order=order, center=center, options=options),
-                    total_weight_kg=order.total_weight_kg,
-                )
-            )
-    return candidates
-
-
 def simulate_assignments(
     orders: list[OrderDemand],
     centers: list[CenterScenario],
-    candidates: list[OrderCandidate] | None = None,
+    candidates: list[OrderCandidate],
     options: SimulationOptions = SimulationOptions(),
 ) -> SimulationResult:
     if not centers:
         raise ValueError("at least one center is required")
+    if not candidates:
+        raise ValueError("precomputed candidates are required")
 
-    all_candidates = (
-        candidates if candidates is not None else build_order_candidates(orders=orders, centers=centers, options=options)
-    )
+    center_ids = {center.center_id for center in centers}
+    order_ids = {order.order_id for order in orders}
     candidates_by_order: dict[str, list[OrderCandidate]] = defaultdict(list)
     candidates_by_center: dict[str, list[OrderCandidate]] = defaultdict(list)
-    for candidate in all_candidates:
+    for candidate in candidates:
+        if candidate.center_id not in center_ids:
+            raise ValueError(f"unknown center_id in candidates: {candidate.center_id}")
+        if candidate.order_id not in order_ids:
+            raise ValueError(f"unknown order_id in candidates: {candidate.order_id}")
+        if candidate.center_candidate_rank is None or candidate.order_candidate_rank is None:
+            raise ValueError("precomputed candidates must include center_candidate_rank and order_candidate_rank")
         candidates_by_order[candidate.order_id].append(candidate)
         candidates_by_center[candidate.center_id].append(candidate)
 
-    if not all(candidate.center_candidate_rank is not None for candidate in all_candidates):
-        for center_id in candidates_by_center:
-            candidates_by_center[center_id] = sorted(
-                candidates_by_center[center_id],
-                key=lambda candidate: (candidate.delivery_cost, candidate.distance_km, candidate.order_id),
-            )
+    missing_order_ids = sorted(order_ids - candidates_by_order.keys())
+    if missing_order_ids:
+        raise ValueError(f"missing precomputed candidates for orders: {', '.join(missing_order_ids[:5])}")
+    missing_primary_rank_order_ids = sorted(
+        order_id
+        for order_id, order_candidates in candidates_by_order.items()
+        if not any(candidate.order_candidate_rank == 1 for candidate in order_candidates)
+    )
+    if missing_primary_rank_order_ids:
+        raise ValueError(f"missing order_candidate_rank=1 for orders: {', '.join(missing_primary_rank_order_ids[:5])}")
 
     variable_cost_by_center: defaultdict[str, float] = defaultdict(float)
     assigned_orders_by_center: defaultdict[str, int] = defaultdict(int)
@@ -314,19 +262,8 @@ def simulate_assignments(
             continue
 
         cheapest_candidate = next(
-            (candidate for candidate in candidates_by_order[order.order_id] if candidate.order_candidate_rank == 1),
-            None,
+            candidate for candidate in candidates_by_order[order.order_id] if candidate.order_candidate_rank == 1
         )
-        if cheapest_candidate is None:
-            cheapest_candidate = min(
-                candidates_by_order[order.order_id],
-                key=lambda candidate: (
-                    candidate.delivery_cost,
-                    candidate.distance_km,
-                    candidate.center_name,
-                    candidate.center_id,
-                ),
-            )
         penalty_cost = round(cheapest_candidate.delivery_cost * UNASSIGNED_COST_MULTIPLIER, 2)
         unassigned_total_cost += penalty_cost
         assignments_by_order[order.order_id] = OrderAssignment(
