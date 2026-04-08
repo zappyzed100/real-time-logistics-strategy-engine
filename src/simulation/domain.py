@@ -1,10 +1,28 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from math import asin, cos, radians, sin, sqrt
+from pathlib import Path
 
-UNASSIGNED_COST_MULTIPLIER = 3.0
+
+@lru_cache(maxsize=1)
+def load_simulation_constants() -> dict[str, float | int]:
+    constants_path = Path(__file__).with_name("constants.json")
+    with constants_path.open(encoding="utf-8") as constants_file:
+        raw_constants = json.load(constants_file)
+    return {
+        "orders_per_staff": int(raw_constants["orders_per_staff"]),
+        "labor_cost_per_staff": float(raw_constants["labor_cost_per_staff"]),
+        "staffing_round_increment": int(raw_constants["staffing_round_increment"]),
+        "unassigned_cost_multiplier": float(raw_constants["unassigned_cost_multiplier"]),
+    }
+
+
+SIMULATION_CONSTANTS = load_simulation_constants()
+UNASSIGNED_COST_MULTIPLIER = float(SIMULATION_CONSTANTS["unassigned_cost_multiplier"])
 
 # data/01_raw/estat/prefecture_population_density.csv を基に固定した人口密度。
 CENTER_POPULATION_DENSITY = {
@@ -65,12 +83,15 @@ class SimulationOptions:
     weight_exponent: float = 0.6
     weight_divisor: float = 12.0
     max_weight_surcharge: float = 1.2
-    orders_per_staff: int = 20
-    labor_cost_per_staff: float = 500000.0
+    orders_per_staff: int = int(SIMULATION_CONSTANTS["orders_per_staff"])
+    labor_cost_per_staff: float = float(SIMULATION_CONSTANTS["labor_cost_per_staff"])
+    staffing_round_increment: int = int(SIMULATION_CONSTANTS["staffing_round_increment"])
 
     def __post_init__(self) -> None:
         if self.orders_per_staff <= 0:
             raise ValueError("orders_per_staff must be positive")
+        if self.staffing_round_increment <= 0:
+            raise ValueError("staffing_round_increment must be positive")
         if self.distance_rate_per_km < 0:
             raise ValueError("distance_rate_per_km must be non-negative")
         if self.weight_divisor <= 0:
@@ -253,13 +274,15 @@ def simulate_assignments(
     )
     max_staffing_level = max(center.staffing_level for center in centers)
 
-    # n 人目を 1 ラウンドとし、人口密度の高い拠点から順に、
-    # その 1 人が担当できる 20 件までの未割当配送先を低コスト順で確保する。
-    for staffing_round in range(1, max_staffing_level + 1):
+    # o を 0 から n ずつ進め、各拠点で o を超える範囲から最大 n 人分だけ取り出し、
+    # その人数 × m 件までの未割当配送先を低コスト順で担当させる。
+    for current_staff_floor in range(0, max_staffing_level, options.staffing_round_increment):
         for center in ranked_centers:
-            if center.staffing_level < staffing_round:
+            if center.staffing_level <= current_staff_floor:
                 continue
 
+            active_staff_in_round = min(options.staffing_round_increment, center.staffing_level - current_staff_floor)
+            assignment_limit = active_staff_in_round * options.orders_per_staff
             assigned_in_round = 0
             for candidate in candidates_by_center[center.center_id]:
                 if candidate.order_id in assignments_by_order:
@@ -276,7 +299,7 @@ def simulate_assignments(
                 assigned_orders_by_center[center.center_id] += 1
                 variable_cost_by_center[center.center_id] += candidate.delivery_cost
                 assigned_in_round += 1
-                if assigned_in_round >= options.orders_per_staff:
+                if assigned_in_round >= assignment_limit:
                     break
 
     unassigned_total_cost = 0.0

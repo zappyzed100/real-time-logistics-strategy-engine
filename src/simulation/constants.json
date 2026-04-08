@@ -1,0 +1,6 @@
+{
+    "orders_per_staff": 20,
+    "labor_cost_per_staff": 500000,
+    "staffing_round_increment": 1,
+    "unassigned_cost_multiplier": 3.0
+}
