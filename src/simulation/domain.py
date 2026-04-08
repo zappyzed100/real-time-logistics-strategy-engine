@@ -166,10 +166,10 @@ def simulate_assignments(
     for candidate in build_order_candidates(orders=orders, centers=centers, options=options):
         candidates_by_order[candidate.order_id].append(candidate)
 
-    remaining_capacity = {center.center_id: center.capacity(options) for center in centers}
-    variable_cost_by_center = defaultdict(float)
-    assigned_orders_by_center = defaultdict(int)
-    overflow_orders_by_center = defaultdict(int)
+    remaining_capacity: dict[str, int] = {center.center_id: center.capacity(options) for center in centers}
+    variable_cost_by_center: defaultdict[str, float] = defaultdict(float)
+    assigned_orders_by_center: defaultdict[str, int] = defaultdict(int)
+    overflow_orders_by_center: defaultdict[str, int] = defaultdict(int)
     assignments: list[OrderAssignment] = []
 
     for order in sorted(orders, key=lambda current: current.order_id):
