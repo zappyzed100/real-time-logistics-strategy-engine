@@ -24,7 +24,14 @@ uv run python src/scripts/data_gen/generate_large_data.py -n 10000
 生成物。
 
 - `data/04_out/orders.csv`
-- `data/04_out/inventory.csv`
+
+位置生成の精度を上げたい場合は `--geo-mode strict` を使います。
+
+```bash
+uv run python src/scripts/data_gen/generate_large_data.py -n 10000 --geo-mode strict
+```
+
+`strict` モードでは、自分で収集した e-Stat と MLIT の原データから中間データを作る必要があります。取得元、配置方法、前処理の流れは [src/scripts/data_gen/README.md](src/scripts/data_gen/README.md) にまとめています。
 
 ### 2.2 Bronze へロード
 
@@ -82,11 +89,16 @@ uv run streamlit run src/streamlit/app.py
 
 1. `src/scripts/data_gen/generate_large_data.py`
 
-- 受注・在庫データを生成
+- 受注データを生成
 
 1. `src/scripts/data_gen/geospatial.py`
 
 - データ生成で使う地理情報ヘルパー
+- `lite` / `strict` のデータセット切替、MLIT 座標の抽出、500m ジッター付与を担当
+
+1. `src/scripts/data_gen/README.md`
+
+- strict モード用の原データ取得元、配置例、前処理フローのガイド
 
 1. `src/streamlit/app.py`
 

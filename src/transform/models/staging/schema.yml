@@ -34,3 +34,20 @@ models:
         tests:
           - unique
           - not_null
+
+  - name: stg_shipping_costs
+    description: "物流拠点ごとの配送コスト係数。"
+    columns:
+      - name: center_id
+        description: "拠点の主キー。LOGISTICS_CENTERSとの整合性をチェック。"
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_logistics_centers')
+                field: center_id
+      - name: shipping_cost
+        description: "配送コスト係数。"
+        tests:
+          - not_null

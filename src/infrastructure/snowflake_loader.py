@@ -24,6 +24,7 @@ class LoadSpec:
     file_path: Path
     table_name: str
     select_list: tuple[str, ...]
+    truncate_before_load: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,8 @@ class SnowflakeLoader:
 
         cursor = self.conn.cursor()
         try:
+            if spec.truncate_before_load:
+                cursor.execute(f"DELETE FROM {table_fqn}")
             cursor.execute(commands.put_command)
             cursor.execute(commands.copy_command)
             print(f"Loaded {file_path} into {table_fqn}")
@@ -161,6 +164,7 @@ class SnowflakeLoader:
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
                 ),
+                truncate_before_load=True,
             ),
             LoadSpec(
                 file_path=Path("data/03_seed/products.csv"),
@@ -174,10 +178,11 @@ class SnowflakeLoader:
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
                 ),
+                truncate_before_load=True,
             ),
             LoadSpec(
-                file_path=Path("data/04_out/inventory.csv"),
-                table_name="INVENTORY",
+                file_path=Path("data/03_seed/shipping_costs.csv"),
+                table_name="SHIPPING_COSTS",
                 select_list=(
                     "$1::STRING",
                     "$2::STRING",
@@ -185,6 +190,7 @@ class SnowflakeLoader:
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
                 ),
+                truncate_before_load=True,
             ),
             LoadSpec(
                 file_path=Path("data/04_out/orders.csv"),
@@ -199,6 +205,7 @@ class SnowflakeLoader:
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
                 ),
+                truncate_before_load=True,
             ),
         ]
 

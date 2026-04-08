@@ -99,6 +99,15 @@ docker compose run --rm streamlit python src/infrastructure/snowflake_loader.py
 docker compose run --rm streamlit python src/scripts/deploy/run_dbt.py run
 ```
 
+dbt モデルや配送コストロジックを更新した場合は、上の `run` を再実行して Snowflake 上の View を更新してください。
+
+すでに Streamlit を `docker compose up` で起動している場合は、通常はブラウザ再読み込みで最新の集計結果が反映されます。
+アプリ側のコードや依存関係まで変更した場合は、次で Streamlit コンテナを再起動します。
+
+```bash
+docker compose restart streamlit
+```
+
 ### 4.3. モデル参照（Streamlit）
 
 `http://localhost:8501`
