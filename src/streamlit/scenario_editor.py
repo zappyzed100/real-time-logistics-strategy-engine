@@ -17,6 +17,7 @@ SCENARIO_COLUMNS = [
     "fixed_cost",
 ]
 EDITABLE_SCENARIO_COLUMNS = ["staffing_level", "fixed_cost"]
+SCENARIO_PANEL_COLUMNS = ["center_name", "shipping_cost", "baseline_order_count", "staffing_level", "fixed_cost"]
 
 
 def project_root() -> Path:
@@ -42,9 +43,9 @@ def load_center_master_data(
     )
     center_master = center_master.rename(columns={"latitude": "center_lat", "longitude": "center_lon"})
     center_master["center_id"] = center_master["center_id"].astype(str)
-    return center_master[["center_id", "center_name", "center_lat", "center_lon", "shipping_cost"]].sort_values(
-        by=["center_name", "center_id"]
-    )
+    center_master["center_id_sort"] = pd.to_numeric(center_master["center_id"], errors="coerce")
+    sorted_df = center_master.sort_values(by=["center_id_sort", "center_id"]).drop(columns=["center_id_sort"])
+    return sorted_df[["center_id", "center_name", "center_lat", "center_lon", "shipping_cost"]]
 
 
 def build_initial_scenario_frame(
@@ -90,7 +91,13 @@ def sanitize_scenario_frame(scenario_df: pd.DataFrame) -> pd.DataFrame:
         pd.to_numeric(sanitized_df["staffing_level"], errors="coerce").fillna(0).clip(lower=0).round().astype(int)
     )
     sanitized_df["fixed_cost"] = pd.to_numeric(sanitized_df["fixed_cost"], errors="coerce").fillna(0.0).clip(lower=0.0)
-    return sanitized_df[SCENARIO_COLUMNS].sort_values(by=["center_name", "center_id"]).reset_index(drop=True)
+    sanitized_df["center_id_sort"] = pd.to_numeric(sanitized_df["center_id"], errors="coerce")
+    return (
+        sanitized_df[SCENARIO_COLUMNS + ["center_id_sort"]]
+        .sort_values(by=["center_id_sort", "center_id"])
+        .drop(columns=["center_id_sort"])
+        .reset_index(drop=True)
+    )
 
 
 def merge_scenario_frame(existing_df: pd.DataFrame, initial_df: pd.DataFrame) -> pd.DataFrame:

@@ -1,6 +1,5 @@
 import json
 import os
-from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
@@ -52,6 +51,27 @@ _load_env_files()
 # ページ設定
 st.set_page_config(page_title="Logistics KPI Dashboard", layout="wide")
 st.title("🚚 Logistics KPI Dashboard")
+st.markdown(
+    """
+    <style>
+    .scenario-row-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+    }
+    .scenario-row-meta {
+        color: #6b7280;
+        font-size: 0.78rem;
+    }
+    .scenario-fixed-cost-unit {
+        color: #6b7280;
+        font-size: 0.74rem;
+        margin-top: -0.3rem;
+        margin-bottom: 0.1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # Snowpark Session
@@ -98,81 +118,62 @@ else:
         existing_df=st.session_state[SCENARIO_STATE_KEY],
         initial_df=initial_scenario_df,
     )
+filtered_df = df.copy()
+filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"]
+scenario_df = st.session_state[SCENARIO_STATE_KEY].copy()
+updated_rows: list[dict[str, object]] = []
+with st.sidebar:
+    st.subheader("拠点情報")
+    st.caption("左上の矢印でサイドバーごと隠せます。人員数は 1 人単位、固定費は 100 万円単位です。")
+    for row in scenario_df.to_dict(orient="records"):
+        center_id = str(row["center_id"])
+        st.markdown(f'<div class="scenario-row-title">{row["center_name"]}</div>', unsafe_allow_html=True)
+        st.markdown(
+            (
+                '<div class="scenario-row-meta">'
+                f"配送係数 {float(row['shipping_cost']):.3f}"
+                " | "
+                f"現状注文数 {int(row['baseline_order_count']):,}"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+        staffing_level = st.number_input(
+            "人員数",
+            min_value=0,
+            step=1,
+            value=int(row["staffing_level"]),
+            key=f"staffing_level_{center_id}",
+        )
+        st.markdown('<div class="scenario-fixed-cost-unit">固定費は 100万円単位</div>', unsafe_allow_html=True)
+        fixed_cost = st.number_input(
+            "固定費",
+            min_value=0,
+            step=1_000_000,
+            value=int(row["fixed_cost"]),
+            key=f"fixed_cost_{center_id}",
+            format="%d",
+        )
+        st.divider()
+        updated_rows.append(
+            {
+                **row,
+                "staffing_level": staffing_level,
+                "fixed_cost": fixed_cost,
+            }
+        )
 
-# 日付の前処理（フィルタリングの準備）
-df["ORDERED_AT"] = pd.to_datetime(df["ORDERED_AT"])
-df["ORDER_DATE"] = df["ORDERED_AT"].dt.date
-
-# ---------------------------------------------------------
-# 1. サイドバー: フィルタリング & シミュレーション設定（最優先で実行）
-# ---------------------------------------------------------
-st.sidebar.header("🔍 フィルタリングと設定")
-
-# フィルタ項目
-min_date = cast(date, df["ORDER_DATE"].min())
-max_date = cast(date, df["ORDER_DATE"].max())
-selected_dates = st.sidebar.date_input("分析期間", value=(min_date, max_date), min_value=min_date, max_value=max_date)
-all_centers = sorted(df["CENTER_NAME"].unique())
-selected_centers = st.sidebar.multiselect("配送拠点", options=all_centers, default=all_centers)
-
-st.sidebar.markdown("---")
-st.sidebar.header("⚙️ コストシミュレーション")
-weight_factor = st.sidebar.slider("重量コスト係数", 0.5, 2.0, 1.0, 0.1)
-target_center = st.sidebar.selectbox("調整対象拠点", ["なし"] + all_centers)
-base_adjustment = st.sidebar.number_input("拠点別コスト増減額 (円)", value=0)
-
-# --- データフィルタリング & シミュレーション計算 ---
-if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
-    start_date, end_date = selected_dates
-    mask = (df["ORDER_DATE"] >= start_date) & (df["ORDER_DATE"] <= end_date)
-    filtered_df = df.loc[mask].copy()
-else:
-    filtered_df = df.copy()
-
-filtered_df = filtered_df[filtered_df["CENTER_NAME"].isin(selected_centers)]
-
-st.subheader("拠点シナリオ編集")
-st.caption(
-    "47拠点それぞれの人員数と固定費を手動で編集できます。編集値はセッション内で保持され、後続のシミュレーション層へ渡せる形に変換されます。"
-)
-
-scenario_left, scenario_right = st.columns([3, 1])
-with scenario_left:
-    edited_scenario_df = st.data_editor(
-        st.session_state[SCENARIO_STATE_KEY],
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "center_id": st.column_config.TextColumn("拠点ID", disabled=True),
-            "center_name": st.column_config.TextColumn("拠点名", disabled=True),
-            "center_lat": st.column_config.NumberColumn("緯度", format="%.4f", disabled=True),
-            "center_lon": st.column_config.NumberColumn("経度", format="%.4f", disabled=True),
-            "shipping_cost": st.column_config.NumberColumn("配送係数", format="%.3f", disabled=True),
-            "baseline_order_count": st.column_config.NumberColumn("現状注文数", format="%d", disabled=True),
-            "staffing_level": st.column_config.NumberColumn("人員数", min_value=0, step=1),
-            "fixed_cost": st.column_config.NumberColumn("固定費(円)", min_value=0.0, step=10000.0, format="%.0f"),
-        },
-        key="scenario_editor_widget",
-    )
-    st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(edited_scenario_df))
+st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(updated_rows))
 
 configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
 
-with scenario_right:
+overview_left, overview_right, overview_third = st.columns(3)
+with overview_left:
     st.metric("対象拠点数", f"{len(configured_center_scenarios)} 拠点")
+with overview_right:
     st.metric("設定人員合計", f"{sum(center.staffing_level for center in configured_center_scenarios):,} 人")
+with overview_third:
     st.metric("固定費合計", f"¥{sum(center.fixed_cost for center in configured_center_scenarios):,.0f}")
-    with st.expander("シミュレーション入力プレビュー"):
-        st.dataframe(
-            st.session_state[SCENARIO_STATE_KEY][["center_name", "staffing_level", "fixed_cost"]],
-            hide_index=True,
-            width="stretch",
-        )
-
-# シミュレーションコストの算出（以降の表示はすべてこれを使用）
-filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"] * weight_factor
-if target_center != "なし":
-    filtered_df.loc[filtered_df["CENTER_NAME"] == target_center, "SIMULATED_COST"] += base_adjustment
 
 # ---------------------------------------------------------
 # 2. 主要 KPI の表示 (filtered_df を使用)
@@ -185,9 +186,7 @@ total_orders = len(filtered_df)
 avg_unit_cost = total_cost / total_orders if total_orders > 0 else 0
 
 with col1:
-    # 係数が1以外のときに差分を表示する遊び心
-    delta = f"{(weight_factor - 1) * 100:.1f}%" if weight_factor != 1.0 else None
-    st.metric("総配送コスト", f"¥{total_cost:,.0f}", delta=delta, delta_color="inverse")
+    st.metric("総配送コスト", f"¥{total_cost:,.0f}")
 with col2:
     st.metric("総注文数", f"{total_orders:,.0f} 件")
 with col3:

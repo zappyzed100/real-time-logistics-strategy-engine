@@ -29,8 +29,9 @@ def test_build_initial_scenario_frame_loads_all_centers_from_seed_files(tmp_path
         shipping_costs_path=shipping_costs_path,
     )
 
-    assert list(scenario_df["center_name"]) == ["Osaka", "Tokyo"]
-    assert list(scenario_df["baseline_order_count"]) == [1, 2]
+    assert list(scenario_df["center_id"]) == ["1", "2"]
+    assert list(scenario_df["center_name"]) == ["Tokyo", "Osaka"]
+    assert list(scenario_df["baseline_order_count"]) == [2, 1]
     assert list(scenario_df["staffing_level"]) == [1, 1]
     assert list(scenario_df["fixed_cost"]) == [0.0, 0.0]
 
