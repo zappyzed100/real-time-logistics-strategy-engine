@@ -364,6 +364,44 @@ resource "snowflake_table" "inventory" {
   }
 }
 
+resource "snowflake_table" "shipping_costs" {
+  database = snowflake_schema.bronze_schema.database
+  schema   = snowflake_schema.bronze_schema.name
+  name     = "SHIPPING_COSTS"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  column {
+    name     = "CENTER_ID"
+    type     = "STRING"
+    nullable = true
+  }
+  column {
+    name     = "CENTER_NAME"
+    type     = "STRING"
+    nullable = true
+  }
+  column {
+    name     = "SHIPPING_COST"
+    type     = "STRING"
+    nullable = true
+  }
+  column {
+    name    = "SOURCE_FILE"
+    type    = "STRING"
+    comment = "取り込み元のファイル名"
+  }
+  column {
+    name = "LOADED_AT"
+    type = "TIMESTAMP_NTZ"
+    default {
+      expression = "CURRENT_TIMESTAMP()"
+    }
+  }
+}
+
 resource "snowflake_table" "logistics_centers" {
   database = snowflake_schema.bronze_schema.database
   schema   = snowflake_schema.bronze_schema.name
@@ -544,6 +582,16 @@ resource "snowflake_grant_privileges_to_account_role" "loader_inventory_insert" 
   }
 }
 
+resource "snowflake_grant_privileges_to_account_role" "loader_shipping_costs_insert" {
+  account_role_name = snowflake_account_role.bronze_loader_rw_role.name
+  privileges        = ["INSERT"]
+
+  on_schema_object {
+    object_type = "TABLE"
+    object_name = "${local.bronze_db_name}.${local.bronze_schema_name}.${snowflake_table.shipping_costs.name}"
+  }
+}
+
 resource "snowflake_grant_privileges_to_account_role" "loader_logistics_insert" {
   account_role_name = snowflake_account_role.bronze_loader_rw_role.name
   privileges        = ["INSERT"]
@@ -644,6 +692,15 @@ resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_select_invento
   on_schema_object {
     object_type = "TABLE"
     object_name = "${snowflake_table.inventory.database}.${snowflake_table.inventory.schema}.${snowflake_table.inventory.name}"
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "dbt_bronze_select_shipping_costs" {
+  account_role_name = snowflake_account_role.bronze_transform_ro_role.name
+  privileges        = ["SELECT"]
+  on_schema_object {
+    object_type = "TABLE"
+    object_name = "${snowflake_table.shipping_costs.database}.${snowflake_table.shipping_costs.schema}.${snowflake_table.shipping_costs.name}"
   }
 }
 
