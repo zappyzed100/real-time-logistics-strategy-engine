@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -23,14 +24,33 @@ INT32_ARRAY = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags="C_CONTIGUOUS
 FLOAT64_ARRAY = np.ctypeslib.ndpointer(dtype=np.float64, ndim=1, flags="C_CONTIGUOUS")
 UINT8_ARRAY = np.ctypeslib.ndpointer(dtype=np.uint8, ndim=1, flags="C_CONTIGUOUS")
 
+DEFAULT_COMPILER = "clang++"
+COMPILER_ENV_VAR = "SIMULATION_NATIVE_COMPILER"
+
+
+def _preferred_compiler() -> str:
+    compiler = (os.getenv(COMPILER_ENV_VAR) or DEFAULT_COMPILER).strip()
+    if not compiler:
+        return DEFAULT_COMPILER
+    return compiler
+
+
+def _resolve_compiler_binary() -> tuple[str, str]:
+    preferred_compiler = _preferred_compiler()
+    compiler_path = shutil.which(preferred_compiler)
+    if compiler_path is None:
+        raise RuntimeError(
+            f"{preferred_compiler} is required to build the native assignment engine; "
+            f"set {COMPILER_ENV_VAR} to an available compiler if needed"
+        )
+    return preferred_compiler, compiler_path
+
 
 def _compiler_command(output_path: Path, source_path: Path) -> list[str]:
-    compiler = shutil.which("g++")
-    if compiler is None:
-        raise RuntimeError("g++ is required to build the native assignment engine")
+    preferred_compiler, compiler_path = _resolve_compiler_binary()
 
     command = [
-        compiler,
+        compiler_path,
         "-O3",
         "-DNDEBUG",
         "-std=c++17",
@@ -41,18 +61,19 @@ def _compiler_command(output_path: Path, source_path: Path) -> list[str]:
         "-o",
         str(output_path),
     ]
-    if shutil.which("ld.lld") is not None:
+    if preferred_compiler == "clang++" and shutil.which("ld.lld") is not None:
         command.insert(-2, "-fuse-ld=lld")
     return command
 
 
-@lru_cache(maxsize=1)
-def _load_native_library() -> ctypes.CDLL:
+@lru_cache(maxsize=4)
+def _load_native_library(preferred_compiler: str) -> ctypes.CDLL:
     source_path = Path(__file__).with_name("assignment_engine.cpp")
     build_dir = Path(tempfile.gettempdir()) / "real_time_logistics_native_engine"
     build_dir.mkdir(parents=True, exist_ok=True)
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()[:16]
-    output_path = build_dir / f"assignment_engine_{source_digest}.so"
+    compiler_slug = preferred_compiler.replace("+", "x")
+    output_path = build_dir / f"assignment_engine_{compiler_slug}_{source_digest}.so"
 
     if not output_path.exists():
         command = _compiler_command(output_path=output_path, source_path=source_path)
@@ -96,7 +117,8 @@ def run_assignment_engine(
     order_count: int,
     center_count: int,
 ) -> NativeAssignmentResult:
-    library = _load_native_library()
+    preferred_compiler = _preferred_compiler()
+    library = _load_native_library(preferred_compiler)
     ranked_center_indices_array = np.ascontiguousarray(ranked_center_indices, dtype=np.int32)
     center_staffing_levels_array = np.ascontiguousarray(center_staffing_levels, dtype=np.int32)
     center_candidate_offsets_array = np.ascontiguousarray(center_candidate_offsets, dtype=np.int32)

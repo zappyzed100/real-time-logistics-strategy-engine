@@ -9,6 +9,8 @@ This repository uses a single `Dockerfile` with two runtime targets:
 
 `docker-compose.yml` は `development` target を使うため、ローカルで C++ 実装をビルド・検証するだけなら `development` に toolchain を入れれば足ります。現状は `g++` 系を含む `build-essential` に加えて、比較用に `clang` と高速リンク向けの `lld`、ビルド定義用の `cmake` を入れています。将来 native extension を production image のビルド工程でコンパイルする場合は、`production` runtime ではなく `deps-prod` などのビルド側ステージに同等の toolchain を追加します。
 
+ネイティブ配賦エンジンは既定で `clang++` を使います。`g++` に切り替える場合は `SIMULATION_NATIVE_COMPILER=g++` を設定します。
+
 ## Local Development Build
 
 `docker-compose.yml` is configured to build with `target: development`.
