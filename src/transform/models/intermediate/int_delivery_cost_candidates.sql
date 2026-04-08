@@ -27,16 +27,35 @@ candidate_costs as (
         o.customer_lon,
         c.latitude as center_lat,
         c.longitude as center_lon,
+        (
+            6371 * 2 * asin(
+                sqrt(
+                    power(sin(radians((o.customer_lat - c.latitude) / 2)), 2) +
+                    cos(radians(c.latitude)) * cos(radians(o.customer_lat)) *
+                    power(sin(radians((o.customer_lon - c.longitude) / 2)), 2)
+                )
+            )
+        ) as distance_km,
+        p.weight_kg * o.quantity as total_weight_kg,
         round(
             (
-                6371 * 2 * asin(
-                    sqrt(
-                        power(sin(radians((o.customer_lat - c.latitude) / 2)), 2) +
-                        cos(radians(c.latitude)) * cos(radians(o.customer_lat)) *
-                        power(sin(radians((o.customer_lon - c.longitude) / 2)), 2)
-                    )
+                600
+                + (
+                    (
+                        6371 * 2 * asin(
+                            sqrt(
+                                power(sin(radians((o.customer_lat - c.latitude) / 2)), 2) +
+                                cos(radians(c.latitude)) * cos(radians(o.customer_lat)) *
+                                power(sin(radians((o.customer_lon - c.longitude) / 2)), 2)
+                            )
+                        )
+                    ) * 12
                 )
-            ) * (p.weight_kg * o.quantity) * sc.shipping_cost * 10.0,
+            )
+            * sc.shipping_cost
+            * (
+                1 + least(power(p.weight_kg * o.quantity, 0.6) / 12, 1.2)
+            ),
             2
         ) as delivery_cost
     from orders o
