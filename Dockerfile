@@ -37,12 +37,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM base AS development
 
-# Development toolchain: gh, git, terraform, tflint, hadolint, shellcheck, taplo, yamllint, markdownlint-cli2, mermaid-cli.
+# Development toolchain: build-essential, clang/lld, cmake, gh, git, terraform, tflint, hadolint, shellcheck, taplo, yamllint, markdownlint-cli2, mermaid-cli.
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+    build-essential \
+    clang \
+    lld \
+    cmake \
     git \
     curl \
     unzip \

@@ -21,6 +21,7 @@ candidate_costs as (
         o.quantity,
         p.product_name,
         p.weight_kg,
+        c.center_id,
         c.center_name,
         sc.shipping_cost,
         o.customer_lat,

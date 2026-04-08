@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.simulation import CenterScenario, OrderDemand, SimulationOptions, SimulationResult
+from src.simulation import CenterScenario, OrderCandidate, OrderDemand, SimulationOptions, SimulationResult
 
 SCENARIO_COLUMNS = [
     "center_id",
@@ -143,6 +143,23 @@ def build_order_demands(analysis_df: pd.DataFrame) -> list[OrderDemand]:
             quantity=int(row["QUANTITY"]),
         )
         for row in deduplicated_df.to_dict(orient="records")
+    ]
+
+
+def build_order_candidates_from_frame(candidate_df: pd.DataFrame) -> list[OrderCandidate]:
+    normalized_df = candidate_df.rename(columns=str.upper).copy()
+    return [
+        OrderCandidate(
+            order_id=str(row["ORDER_ID"]),
+            center_id=str(row["CENTER_ID"]),
+            center_name=str(row["CENTER_NAME"]),
+            distance_km=float(row["DISTANCE_KM"]),
+            delivery_cost=float(row["DELIVERY_COST"]),
+            total_weight_kg=float(row["TOTAL_WEIGHT_KG"]),
+            center_candidate_rank=int(row["CENTER_CANDIDATE_RANK"]),
+            order_candidate_rank=int(row["ORDER_CANDIDATE_RANK"]),
+        )
+        for row in normalized_df.to_dict(orient="records")
     ]
 
 

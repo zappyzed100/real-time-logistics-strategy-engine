@@ -1,7 +1,9 @@
-with candidate_costs as (
-    select * from {{ ref('int_delivery_cost_candidates') }}
+{{ config(materialized='table') }}
+
+with ranked_candidates as (
+    select * from {{ ref('fct_delivery_candidate_rankings') }}
 )
 
 select *
-from candidate_costs
-qualify row_number() over (partition by order_id order by delivery_cost asc, center_name asc) = 1
+from ranked_candidates
+where order_candidate_rank = 1

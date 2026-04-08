@@ -12,3 +12,18 @@ models:
         description: "計算された配送コスト（円）。"
         tests:
           - not_null
+  - name: fct_delivery_candidate_rankings
+    description: "拠点ごと・注文ごとに順位付けした事前計算済み配送候補。Streamlit の再配賦シミュレーションで利用する。"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+      - name: center_id
+        tests:
+          - not_null
+      - name: center_candidate_rank
+        tests:
+          - not_null
+      - name: order_candidate_rank
+        tests:
+          - not_null

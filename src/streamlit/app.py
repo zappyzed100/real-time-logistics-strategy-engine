@@ -21,6 +21,7 @@ from src.streamlit.scenario_editor import (
     build_center_scenarios,
     build_center_summary_frame,
     build_initial_scenario_frame,
+    build_order_candidates_from_frame,
     build_order_demands,
     merge_scenario_frame,
     sanitize_scenario_frame,
@@ -151,14 +152,23 @@ def create_session() -> Session:
 
 session = create_session()
 
+PRECOMPUTED_CANDIDATE_TABLE = "FCT_DELIVERY_CANDIDATE_RANKINGS"
+
 
 @st.cache_data
 def get_analysis_data() -> pd.DataFrame:
     return session.table(_required_env("STREAMLIT_ANALYSIS_TABLE")).to_pandas()
 
 
+@st.cache_data
+def get_precomputed_candidate_data() -> pd.DataFrame:
+    return session.table(PRECOMPUTED_CANDIDATE_TABLE).sort("CENTER_ID", "CENTER_CANDIDATE_RANK", "ORDER_ID").to_pandas()
+
+
 df = get_analysis_data()
 df.columns = [str(col).upper() for col in df.columns]
+candidate_df = get_precomputed_candidate_data()
+candidate_df.columns = [str(col).upper() for col in candidate_df.columns]
 
 SCENARIO_STATE_KEY = "scenario_editor_df"
 simulation_options = SimulationOptions()
@@ -231,9 +241,11 @@ st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(upda
 
 configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
 order_demands = build_order_demands(df)
+order_candidates = build_order_candidates_from_frame(candidate_df)
 simulation_result = simulate_assignments(
     orders=order_demands,
     centers=configured_center_scenarios,
+    candidates=order_candidates,
     options=simulation_options,
 )
 filtered_df = apply_simulation_result_to_analysis(df, simulation_result)

@@ -9,6 +9,7 @@ from src.streamlit.scenario_editor import (
     build_center_scenarios,
     build_center_summary_frame,
     build_initial_scenario_frame,
+    build_order_candidates_from_frame,
     build_order_demands,
     merge_scenario_frame,
     sanitize_scenario_frame,
@@ -124,6 +125,27 @@ def test_build_order_demands_converts_analysis_frame_to_domain_inputs():
     assert len(orders) == 1
     assert orders[0].order_id == "1"
     assert orders[0].total_weight_kg == 7.5
+
+
+def test_build_order_candidates_from_frame_preserves_precomputed_ranks():
+    candidate_df = pd.DataFrame(
+        {
+            "ORDER_ID": ["O2", "O1"],
+            "CENTER_ID": ["13", "13"],
+            "CENTER_NAME": ["東京", "東京"],
+            "DISTANCE_KM": [5.0, 3.0],
+            "DELIVERY_COST": [600.0, 500.0],
+            "TOTAL_WEIGHT_KG": [2.0, 1.0],
+            "CENTER_CANDIDATE_RANK": [2, 1],
+            "ORDER_CANDIDATE_RANK": [1, 1],
+        }
+    )
+
+    candidates = build_order_candidates_from_frame(candidate_df)
+
+    assert [candidate.order_id for candidate in candidates] == ["O2", "O1"]
+    assert candidates[0].center_candidate_rank == 2
+    assert candidates[1].center_candidate_rank == 1
 
 
 def test_apply_simulation_result_to_analysis_adds_assignment_columns():

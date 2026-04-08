@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 import snowflake.connector
 from cryptography.hazmat.backends import default_backend
@@ -9,6 +10,13 @@ from cryptography.hazmat.primitives import serialization
 from dotenv import load_dotenv
 
 from src.utils.env_policy import assert_prod_access_allowed
+
+
+class RelationSpec(NamedTuple):
+    database: str
+    schema: str
+    name: str
+    relation_type: str
 
 
 def _target() -> str:
@@ -98,24 +106,29 @@ def _snowflake_connection(target: str):
     )
 
 
-def _drop_views(conn, target: str) -> None:
+def _relation_specs(target: str) -> list[RelationSpec]:
     silver_db = _target_value(target, "SILVER_DB")
     silver_schema = _required("SNOWFLAKE_SILVER_SCHEMA")
     gold_db = _target_value(target, "GOLD_DB")
     gold_schema = _required("SNOWFLAKE_GOLD_SCHEMA")
 
-    views = [
-        f"{silver_db}.{silver_schema}.stg_orders",
-        f"{silver_db}.{silver_schema}.stg_products",
-        f"{silver_db}.{silver_schema}.stg_logistics_centers",
-        f"{silver_db}.{silver_schema}.int_delivery_cost_candidates",
-        f"{gold_db}.{gold_schema}.fct_delivery_analysis",
+    return [
+        RelationSpec(silver_db, silver_schema, "stg_orders", "VIEW"),
+        RelationSpec(silver_db, silver_schema, "stg_products", "VIEW"),
+        RelationSpec(silver_db, silver_schema, "stg_logistics_centers", "VIEW"),
+        RelationSpec(silver_db, silver_schema, "int_delivery_cost_candidates", "VIEW"),
+        RelationSpec(gold_db, gold_schema, "fct_delivery_candidate_rankings", "TABLE"),
+        RelationSpec(gold_db, gold_schema, "fct_delivery_analysis", "TABLE"),
     ]
+
+
+def _drop_relations(conn, target: str) -> None:
+    relations = _relation_specs(target)
 
     cur = conn.cursor()
     try:
-        for view in views:
-            sql = f"DROP VIEW IF EXISTS {view}"
+        for relation in relations:
+            sql = f"DROP {relation.relation_type} IF EXISTS {relation.database}.{relation.schema}.{relation.name}"
             print(f"[drop] {sql}")
             cur.execute(sql)
     finally:
@@ -138,36 +151,47 @@ def _run_dbt(target: str, repo_root: Path) -> None:
         raise RuntimeError(f"dbt run failed with exit code {result.returncode}")
 
 
-def _assert_views(conn, target: str) -> None:
-    silver_db = _target_value(target, "SILVER_DB")
-    silver_schema = _required("SNOWFLAKE_SILVER_SCHEMA")
-    gold_db = _target_value(target, "GOLD_DB")
-    gold_schema = _required("SNOWFLAKE_GOLD_SCHEMA")
-
-    expected = {
-        (silver_db.upper(), silver_schema.upper(), "STG_ORDERS"),
-        (silver_db.upper(), silver_schema.upper(), "STG_PRODUCTS"),
-        (silver_db.upper(), silver_schema.upper(), "STG_LOGISTICS_CENTERS"),
-        (silver_db.upper(), silver_schema.upper(), "INT_DELIVERY_COST_CANDIDATES"),
-        (gold_db.upper(), gold_schema.upper(), "FCT_DELIVERY_ANALYSIS"),
+def _assert_relations(conn, target: str) -> None:
+    expected_relations = _relation_specs(target)
+    expected_by_key = {
+        (relation.database.upper(), relation.schema.upper(), relation.name.upper()): relation.relation_type
+        for relation in expected_relations
     }
 
     cur = conn.cursor()
     try:
-        cur.execute(f"SHOW VIEWS IN SCHEMA {silver_db}.{silver_schema}")
-        silver_actual = {(str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper()) for r in cur.fetchall()}
-
-        cur.execute(f"SHOW VIEWS IN SCHEMA {gold_db}.{gold_schema}")
-        gold_actual = {(str(r[3]).upper(), str(r[4]).upper(), str(r[1]).upper()) for r in cur.fetchall()}
-
-        actual = silver_actual | gold_actual
+        actual_by_key: dict[tuple[str, str, str], str] = {}
+        for relation in expected_relations:
+            cur.execute(
+                f"""
+                select table_catalog, table_schema, table_name, table_type
+                from {relation.database}.information_schema.tables
+                where table_schema = %s and table_name = %s
+                """,
+                (relation.schema.upper(), relation.name.upper()),
+            )
+            for row in cur.fetchall():
+                key = (str(row[0]).upper(), str(row[1]).upper(), str(row[2]).upper())
+                actual_by_key[key] = "TABLE" if str(row[3]).upper() == "BASE TABLE" else str(row[3]).upper()
     finally:
         cur.close()
 
-    missing = expected - actual
+    missing = set(expected_by_key) - set(actual_by_key)
     if missing:
         formatted = ", ".join([".".join(m) for m in sorted(missing)])
-        raise RuntimeError(f"Rebuild verification failed. Missing views: {formatted}")
+        raise RuntimeError(f"Rebuild verification failed. Missing relations: {formatted}")
+
+    wrong_type = {
+        key: (expected_by_key[key], actual_by_key[key])
+        for key in expected_by_key
+        if actual_by_key[key] != expected_by_key[key]
+    }
+    if wrong_type:
+        formatted = ", ".join(
+            f"{'.'.join(key)} expected={expected_type} actual={actual_type}"
+            for key, (expected_type, actual_type) in sorted(wrong_type.items())
+        )
+        raise RuntimeError(f"Rebuild verification failed. Wrong relation types: {formatted}")
 
 
 def main() -> int:
@@ -180,13 +204,13 @@ def main() -> int:
 
     conn = _snowflake_connection(target)
     try:
-        _drop_views(conn, target)
+        _drop_relations(conn, target)
         _run_dbt(target, repo_root)
-        _assert_views(conn, target)
+        _assert_relations(conn, target)
     finally:
         conn.close()
 
-    print("[verify] OK: silver/gold views were recreated successfully")
+    print("[verify] OK: silver/gold relations were recreated successfully")
     return 0
 
 

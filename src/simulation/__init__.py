@@ -8,10 +8,7 @@ from src.simulation.domain import (
     OrderDemand,
     SimulationOptions,
     SimulationResult,
-    build_order_candidates,
-    calculate_delivery_cost,
     center_population_density,
-    haversine_distance_km,
     load_simulation_constants,
     simulate_assignments,
 )
@@ -26,10 +23,7 @@ __all__ = [
     "SIMULATION_CONSTANTS",
     "SimulationOptions",
     "SimulationResult",
-    "build_order_candidates",
-    "calculate_delivery_cost",
     "center_population_density",
-    "haversine_distance_km",
     "load_simulation_constants",
     "simulate_assignments",
 ]
