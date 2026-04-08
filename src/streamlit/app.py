@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, TypedDict, cast
 
 import pandas as pd
 import pydeck as pdk  # type: ignore[import-untyped]
@@ -26,6 +26,71 @@ from src.streamlit.scenario_editor import (
     sanitize_scenario_frame,
 )
 from src.utils.env_policy import assert_prod_access_allowed
+
+
+class ExperimentalInputVariant(TypedDict):
+    column_widths: tuple[float, float, float, float]
+    label_visibility: Literal["visible", "hidden", "collapsed"]
+    fixed_cost_format: str | None
+
+
+SELECTED_INPUT_VARIANT: ExperimentalInputVariant = {
+    "column_widths": (0.95, 0.6, 1.35, 1.75),
+    "label_visibility": "collapsed",
+    "fixed_cost_format": None,
+}
+
+SIDEBAR_WIDTH_PX = 520
+
+
+def _sidebar_style() -> str:
+    return f"""
+    <style>
+    section[data-testid=\"stSidebar\"][aria-expanded=\"true\"] {{
+        width: {SIDEBAR_WIDTH_PX}px !important;
+        min-width: {SIDEBAR_WIDTH_PX}px !important;
+    }}
+    section[data-testid=\"stSidebar\"][aria-expanded=\"true\"] > div {{
+        width: {SIDEBAR_WIDTH_PX}px !important;
+        min-width: {SIDEBAR_WIDTH_PX}px !important;
+    }}
+    section[data-testid=\"stSidebar\"][aria-expanded=\"false\"] {{
+        width: auto !important;
+        min-width: 0 !important;
+    }}
+    section[data-testid=\"stSidebar\"][aria-expanded=\"false\"] > div {{
+        width: auto !important;
+        min-width: 0 !important;
+    }}
+    .scenario-header {{
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #f8fafc;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.2rem;
+    }}
+    .scenario-row-title {{
+        font-weight: 700;
+        font-size: 0.9rem;
+    }}
+    .scenario-row-shipping-cost {{
+        color: #6b7280;
+        font-size: 0.8rem;
+    }}
+    section[data-testid="stSidebar"] [data-baseweb="input"] input[type="number"] {{
+        appearance: auto !important;
+        -moz-appearance: auto !important;
+    }}
+    section[data-testid="stSidebar"] [data-baseweb="input"] input[type="number"]::-webkit-outer-spin-button,
+    section[data-testid="stSidebar"] [data-baseweb="input"] input[type="number"]::-webkit-inner-spin-button {{
+        -webkit-appearance: auto !important;
+        appearance: auto !important;
+        opacity: 1 !important;
+        margin: 0 !important;
+    }}
+    </style>
+    """
 
 
 def _load_env_files() -> None:
@@ -54,31 +119,10 @@ _load_env_files()
 # ページ設定
 st.set_page_config(page_title="Logistics KPI Dashboard", layout="wide")
 st.title("🚚 Logistics KPI Dashboard")
-st.markdown(
-    """
-    <style>
-    .scenario-row-title {
-        font-weight: 700;
-        font-size: 0.98rem;
-    }
-    .scenario-row-meta {
-        color: #6b7280;
-        font-size: 0.78rem;
-    }
-    .scenario-fixed-cost-unit {
-        color: #6b7280;
-        font-size: 0.74rem;
-        margin-top: -0.3rem;
-        margin-bottom: 0.1rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown(_sidebar_style(), unsafe_allow_html=True)
 
 
 # Snowpark Session
-@st.cache_resource
 def create_session() -> Session:
     target_prefix = _target_env_prefix()
     pem = _required_env(f"{target_prefix}_STREAMLIT_USER_RSA_PRIVATE_KEY").replace("\\n", "\n")
@@ -121,43 +165,55 @@ else:
         existing_df=st.session_state[SCENARIO_STATE_KEY],
         initial_df=initial_scenario_df,
     )
+
 filtered_df = df.copy()
 filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"]
 scenario_df = st.session_state[SCENARIO_STATE_KEY].copy()
 updated_rows: list[dict[str, object]] = []
 with st.sidebar:
     st.subheader("拠点情報")
-    st.caption("左上の矢印でサイドバーごと隠せます。人員数は 1 人単位、固定費は 100 万円単位です。")
+    st.caption("固定費は 100 万円単位です。")
+    variant = SELECTED_INPUT_VARIANT
+    header_columns = st.columns(list(variant["column_widths"]), gap="small")
+    header_columns[0].markdown('<div class="scenario-header">拠点</div>', unsafe_allow_html=True)
+    header_columns[1].markdown('<div class="scenario-header">配送係数</div>', unsafe_allow_html=True)
+    header_columns[2].markdown('<div class="scenario-header">人員数</div>', unsafe_allow_html=True)
+    header_columns[3].markdown('<div class="scenario-header">固定費<br>(100万円単位)</div>', unsafe_allow_html=True)
     for row in scenario_df.to_dict(orient="records"):
         center_id = str(row["center_id"])
-        st.markdown(f'<div class="scenario-row-title">{row["center_name"]}</div>', unsafe_allow_html=True)
-        st.markdown(
-            (
-                '<div class="scenario-row-meta">'
-                f"配送係数 {float(row['shipping_cost']):.3f}"
-                " | "
-                f"現状注文数 {int(row['baseline_order_count']):,}"
-                "</div>"
-            ),
+        row_columns = st.columns(list(variant["column_widths"]), gap="small")
+        row_columns[0].markdown(f'<div class="scenario-row-title">{row["center_name"]}</div>', unsafe_allow_html=True)
+        row_columns[1].markdown(
+            f'<div class="scenario-row-shipping-cost">{float(row["shipping_cost"]):.3f}</div>',
             unsafe_allow_html=True,
         )
-        staffing_level = st.number_input(
+        staffing_level = row_columns[2].number_input(
             "人員数",
             min_value=0,
             step=1,
             value=int(row["staffing_level"]),
             key=f"staffing_level_{center_id}",
+            label_visibility=variant["label_visibility"],
         )
-        st.markdown('<div class="scenario-fixed-cost-unit">固定費は 100万円単位</div>', unsafe_allow_html=True)
-        fixed_cost = st.number_input(
-            "固定費",
-            min_value=0,
-            step=1_000_000,
-            value=int(row["fixed_cost"]),
-            key=f"fixed_cost_{center_id}",
-            format="%d",
-        )
-        st.divider()
+        if variant["fixed_cost_format"] is None:
+            fixed_cost = row_columns[3].number_input(
+                "固定費",
+                min_value=0,
+                step=1_000_000,
+                value=int(row["fixed_cost"]),
+                key=f"fixed_cost_{center_id}",
+                label_visibility=variant["label_visibility"],
+            )
+        else:
+            fixed_cost = row_columns[3].number_input(
+                "固定費",
+                min_value=0,
+                step=1_000_000,
+                value=int(row["fixed_cost"]),
+                key=f"fixed_cost_{center_id}",
+                label_visibility=variant["label_visibility"],
+                format=variant["fixed_cost_format"],
+            )
         updated_rows.append(
             {
                 **row,
@@ -201,9 +257,6 @@ with overview_third:
 with overview_fourth:
     st.metric("人件費合計", f"¥{simulation_result.total_labor_cost:,.0f}")
 
-# ---------------------------------------------------------
-# 2. 主要 KPI の表示 (filtered_df を使用)
-# ---------------------------------------------------------
 st.subheader("Key Performance Indicators")
 col1, col2, col3, col4 = st.columns(4)
 
