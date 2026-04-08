@@ -10,7 +10,7 @@ from src.scripts.data_gen.geospatial import build_generation_context, generate_r
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="受注・在庫データを生成する")
+    parser = argparse.ArgumentParser(description="受注データを生成する")
     parser.add_argument(
         "--number",
         "-n",
@@ -103,24 +103,6 @@ def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
     print(f"Orders CSV generated: {output_path} ({total_written:,} rows)")
 
 
-def generate_inventory():
-    # 拠点と商品の全組み合わせに対して在庫を生成
-    products_df = pd.read_csv("data/03_seed/products.csv")
-    centers_df = pd.read_csv("data/03_seed/logistics_centers.csv")
-
-    inventory = []
-    for c_id in centers_df["center_id"]:
-        for p_id in products_df["product_id"]:
-            inventory.append(
-                {
-                    "center_id": c_id,
-                    "product_id": p_id,
-                    "stock_quantity": np.random.randint(10, 500),
-                }
-            )
-    return pd.DataFrame(inventory)
-
-
 def main():
     args = parse_args()
     if args.number <= 0:
@@ -132,10 +114,6 @@ def main():
 
     print(f"Generating {args.number:,} orders (geo-mode={args.geo_mode}, chunk-size={args.chunk_size:,})...")
     write_orders_csv(args.number, geo_mode=args.geo_mode, chunk_size=args.chunk_size)
-
-    print("Generating full inventory matrix...")
-    inventory_df = generate_inventory()
-    inventory_df.to_csv("data/04_out/inventory.csv", index=False)
 
     print("Done. Files saved to data/04_out/ directory.")
 
