@@ -16,6 +16,13 @@ from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
 import streamlit as st
+from src.simulation import SimulationOptions
+from src.streamlit.scenario_editor import (
+    build_center_scenarios,
+    build_initial_scenario_frame,
+    merge_scenario_frame,
+    sanitize_scenario_frame,
+)
 from src.utils.env_policy import assert_prod_access_allowed
 
 
@@ -81,6 +88,17 @@ def get_analysis_data() -> pd.DataFrame:
 df = get_analysis_data()
 df.columns = [str(col).upper() for col in df.columns]
 
+SCENARIO_STATE_KEY = "scenario_editor_df"
+simulation_options = SimulationOptions()
+initial_scenario_df = build_initial_scenario_frame(df, simulation_options)
+if SCENARIO_STATE_KEY not in st.session_state:
+    st.session_state[SCENARIO_STATE_KEY] = initial_scenario_df
+else:
+    st.session_state[SCENARIO_STATE_KEY] = merge_scenario_frame(
+        existing_df=st.session_state[SCENARIO_STATE_KEY],
+        initial_df=initial_scenario_df,
+    )
+
 # 日付の前処理（フィルタリングの準備）
 df["ORDERED_AT"] = pd.to_datetime(df["ORDERED_AT"])
 df["ORDER_DATE"] = df["ORDERED_AT"].dt.date
@@ -112,6 +130,44 @@ else:
     filtered_df = df.copy()
 
 filtered_df = filtered_df[filtered_df["CENTER_NAME"].isin(selected_centers)]
+
+st.subheader("拠点シナリオ編集")
+st.caption(
+    "47拠点それぞれの人員数と固定費を手動で編集できます。編集値はセッション内で保持され、後続のシミュレーション層へ渡せる形に変換されます。"
+)
+
+scenario_left, scenario_right = st.columns([3, 1])
+with scenario_left:
+    edited_scenario_df = st.data_editor(
+        st.session_state[SCENARIO_STATE_KEY],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "center_id": st.column_config.TextColumn("拠点ID", disabled=True),
+            "center_name": st.column_config.TextColumn("拠点名", disabled=True),
+            "center_lat": st.column_config.NumberColumn("緯度", format="%.4f", disabled=True),
+            "center_lon": st.column_config.NumberColumn("経度", format="%.4f", disabled=True),
+            "shipping_cost": st.column_config.NumberColumn("配送係数", format="%.3f", disabled=True),
+            "baseline_order_count": st.column_config.NumberColumn("現状注文数", format="%d", disabled=True),
+            "staffing_level": st.column_config.NumberColumn("人員数", min_value=0, step=1),
+            "fixed_cost": st.column_config.NumberColumn("固定費(円)", min_value=0.0, step=10000.0, format="%.0f"),
+        },
+        key="scenario_editor_widget",
+    )
+    st.session_state[SCENARIO_STATE_KEY] = sanitize_scenario_frame(pd.DataFrame(edited_scenario_df))
+
+configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
+
+with scenario_right:
+    st.metric("対象拠点数", f"{len(configured_center_scenarios)} 拠点")
+    st.metric("設定人員合計", f"{sum(center.staffing_level for center in configured_center_scenarios):,} 人")
+    st.metric("固定費合計", f"¥{sum(center.fixed_cost for center in configured_center_scenarios):,.0f}")
+    with st.expander("シミュレーション入力プレビュー"):
+        st.dataframe(
+            st.session_state[SCENARIO_STATE_KEY][["center_name", "staffing_level", "fixed_cost"]],
+            hide_index=True,
+            width="stretch",
+        )
 
 # シミュレーションコストの算出（以降の表示はすべてこれを使用）
 filtered_df["SIMULATED_COST"] = filtered_df["DELIVERY_COST"] * weight_factor

@@ -105,6 +105,10 @@ uv run streamlit run src/streamlit/app.py
 
 - Gold 層結果の可視化
 
+1. `src/streamlit/scenario_editor.py`
+
+- 47拠点のシナリオ編集UIに必要な初期値生成、検証、ドメイン変換ヘルパー
+
 1. `src/simulation/domain.py`
 
 - Streamlit / FastAPI から共通利用する配賦シミュレーションの計算ロジック
