@@ -212,3 +212,22 @@ def test_build_center_summary_frame_exposes_cost_breakdown():
     summary_df = build_center_summary_frame(simulation_result)
 
     assert summary_df.empty
+
+
+def test_build_center_summary_frame_accepts_legacy_summary_without_labor_cost():
+    legacy_summary = SimpleNamespace(
+        center_name="東京",
+        assigned_orders=3,
+        staffing_level=2,
+        capacity=40,
+        fixed_cost=1000000.0,
+        variable_cost=2500.0,
+        total_cost=1002500.0,
+    )
+    simulation_result = cast(SimulationResult, SimpleNamespace(center_summaries=(legacy_summary,)))
+
+    summary_df = build_center_summary_frame(simulation_result)
+
+    assert summary_df.loc[0, "center_name"] == "東京"
+    assert summary_df.loc[0, "labor_cost"] == 0.0
+    assert summary_df.loc[0, "total_cost"] == 1002500.0

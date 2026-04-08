@@ -192,7 +192,7 @@ def build_center_summary_frame(simulation_result: SimulationResult) -> pd.DataFr
                 "staffing_level": summary.staffing_level,
                 "capacity": summary.capacity,
                 "fixed_cost": summary.fixed_cost,
-                "labor_cost": summary.labor_cost,
+                "labor_cost": float(getattr(summary, "labor_cost", 0.0)),
                 "variable_cost": summary.variable_cost,
                 "total_cost": summary.total_cost,
             }
