@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from pathlib import Path
 from typing import Any, Literal, TypedDict, cast
 
@@ -180,80 +179,6 @@ ORDER_PLOT_DF_KEY = "order_plot_df"
 ORDER_PLOT_SIGNATURE_KEY = "order_plot_signature"
 DISPLAY_MODE_KEY = "display_mode"
 MAP_SAMPLE_SIZE = 10000
-PROFILE_EXPANDED_KEY = "render_profile_expanded"
-
-
-class RenderProfiler:
-    def __init__(self) -> None:
-        self.started_at = time.perf_counter()
-        self.records: list[tuple[str, float]] = []
-
-    def measure(self, label: str, fn, *args, **kwargs):
-        started_at = time.perf_counter()
-        result = fn(*args, **kwargs)
-        self.records.append((label, (time.perf_counter() - started_at) * 1000))
-        return result
-
-    def record_duration(self, label: str, started_at: float) -> None:
-        self.records.append((label, (time.perf_counter() - started_at) * 1000))
-
-    def total_elapsed_ms(self) -> float:
-        return (time.perf_counter() - self.started_at) * 1000
-
-
-def build_profile_frame(records: list[tuple[str, float]], total_elapsed_ms: float) -> pd.DataFrame:
-    rows = [
-        {"step": label, "elapsed_ms": elapsed_ms}
-        for label, elapsed_ms in sorted(records, key=lambda item: item[1], reverse=True)
-    ]
-    measured_total_ms = sum(elapsed_ms for _, elapsed_ms in records)
-    other_ms = max(total_elapsed_ms - measured_total_ms, 0.0)
-    if other_ms >= 0.1:
-        rows.append({"step": "other_unmeasured", "elapsed_ms": other_ms})
-    profile_df = pd.DataFrame(rows)
-    if profile_df.empty:
-        return profile_df
-    denominator = total_elapsed_ms if total_elapsed_ms > 0 else 1.0
-    profile_df["share_pct"] = profile_df["elapsed_ms"] / denominator * 100
-    return profile_df
-
-
-def render_profile_panel(
-    profiler: RenderProfiler,
-    *,
-    sidebar_inputs_changed: bool,
-    display_mode: str,
-) -> None:
-    total_elapsed_ms = profiler.total_elapsed_ms()
-    profile_df = build_profile_frame(profiler.records, total_elapsed_ms)
-    top_step = profile_df.iloc[0] if not profile_df.empty else None
-    trigger_label = "拠点情報更新" if sidebar_inputs_changed else "表示切替 / 初期表示"
-    with st.expander("再描画プロファイル", expanded=bool(st.session_state.get(PROFILE_EXPANDED_KEY, True))):
-        st.session_state[PROFILE_EXPANDED_KEY] = True
-        metric_left, metric_center, metric_right = st.columns(3)
-        metric_left.metric("サーバー処理合計", f"{total_elapsed_ms:,.1f} ms")
-        metric_center.metric(
-            "最長ステップ",
-            top_step["step"] if top_step is not None else "-",
-            f"{float(top_step['elapsed_ms']):,.1f} ms" if top_step is not None else None,
-        )
-        metric_right.metric("再実行トリガー", trigger_label)
-        st.caption(
-            f"表示モード: {display_mode}。この表は Streamlit サーバー側の処理時間で、ブラウザ側の描画時間は含みません。"
-        )
-        if profile_df.empty:
-            st.info("計測データがありません。")
-        else:
-            st.dataframe(
-                profile_df,
-                width="stretch",
-                hide_index=True,
-                column_config={
-                    "step": "処理",
-                    "elapsed_ms": st.column_config.NumberColumn("時間", format="%.3f ms"),
-                    "share_pct": st.column_config.NumberColumn("構成比", format="%.1f%%"),
-                },
-            )
 
 
 @st.cache_data
@@ -348,13 +273,10 @@ def apply_fullscreen_style() -> None:
 df = get_analysis_data()
 df.columns = [str(col).upper() for col in df.columns]
 candidate_df = get_precomputed_candidate_data()
-render_profiler = RenderProfiler()
 
 SCENARIO_STATE_KEY = "scenario_editor_df"
 simulation_options = SimulationOptions()
-initial_scenario_df = render_profiler.measure(
-    "build_initial_scenario_frame", build_initial_scenario_frame, df, simulation_options
-)
+initial_scenario_df = build_initial_scenario_frame(df, simulation_options)
 if SCENARIO_STATE_KEY not in st.session_state:
     st.session_state[SCENARIO_STATE_KEY] = initial_scenario_df
 else:
@@ -370,7 +292,6 @@ display_mode = str(st.session_state[DISPLAY_MODE_KEY])
 is_fullscreen_mode = display_mode in {"注文別データ一覧", "地図"}
 if is_fullscreen_mode:
     apply_fullscreen_style()
-sidebar_started_at = time.perf_counter()
 updated_rows: list[dict[str, object]] = []
 with st.sidebar:
     st.subheader("拠点情報")
@@ -410,58 +331,38 @@ with st.sidebar:
                 "fixed_cost": fixed_cost,
             }
         )
-render_profiler.record_duration("render_sidebar_inputs", sidebar_started_at)
 
 updated_scenario_df = pd.DataFrame(updated_rows)
-sanitized_scenario_df = render_profiler.measure("sanitize_scenario_frame", sanitize_scenario_frame, updated_scenario_df)
-sidebar_inputs_changed = not sanitized_scenario_df.equals(scenario_df)
+sanitized_scenario_df = sanitize_scenario_frame(updated_scenario_df)
 st.session_state[SCENARIO_STATE_KEY] = sanitized_scenario_df
 
-configured_center_scenarios = render_profiler.measure(
-    "build_center_scenarios", build_center_scenarios, st.session_state[SCENARIO_STATE_KEY]
-)
+configured_center_scenarios = build_center_scenarios(st.session_state[SCENARIO_STATE_KEY])
 if ORDER_DEMANDS_KEY not in st.session_state:
-    st.session_state[ORDER_DEMANDS_KEY] = render_profiler.measure("build_order_demands", build_order_demands, df)
-else:
-    render_profiler.records.append(("order_demands_session_cache_hit", 0.0))
+    st.session_state[ORDER_DEMANDS_KEY] = build_order_demands(df)
 order_demands = cast(list[Any], st.session_state[ORDER_DEMANDS_KEY])
 if ORDER_CANDIDATES_KEY not in st.session_state:
-    st.session_state[ORDER_CANDIDATES_KEY] = render_profiler.measure(
-        "build_order_candidates_from_frame",
-        build_order_candidates_from_frame,
-        candidate_df,
-    )
-else:
-    render_profiler.records.append(("order_candidates_session_cache_hit", 0.0))
+    st.session_state[ORDER_CANDIDATES_KEY] = build_order_candidates_from_frame(candidate_df)
 order_candidates = cast(list[Any], st.session_state[ORDER_CANDIDATES_KEY])
 current_center_signature = tuple((center.center_id, center.center_name) for center in configured_center_scenarios)
 if (
     STATIC_SIMULATION_KEY not in st.session_state
     or st.session_state.get(STATIC_SIMULATION_SIGNATURE_KEY) != current_center_signature
 ):
-    st.session_state[STATIC_SIMULATION_KEY] = render_profiler.measure(
-        "prepare_static_simulation_data",
-        prepare_static_simulation_data,
+    st.session_state[STATIC_SIMULATION_KEY] = prepare_static_simulation_data(
         orders=order_demands,
         centers=configured_center_scenarios,
         candidates=order_candidates,
     )
     st.session_state[STATIC_SIMULATION_SIGNATURE_KEY] = current_center_signature
-else:
-    render_profiler.records.append(("prepare_static_simulation_data_cache_hit", 0.0))
-simulation_result = render_profiler.measure(
-    "simulate_assignments",
-    simulate_assignments,
+simulation_result = simulate_assignments(
     orders=order_demands,
     centers=configured_center_scenarios,
     candidates=order_candidates,
     options=simulation_options,
     prepared_static_data=st.session_state[STATIC_SIMULATION_KEY],
 )
-center_summary_df = render_profiler.measure("build_center_summary_frame", build_center_summary_frame, simulation_result)
-center_plot_df = render_profiler.measure(
-    "build_center_plot_df",
-    pd.DataFrame,
+center_summary_df = build_center_summary_frame(simulation_result)
+center_plot_df = pd.DataFrame(
     [
         {
             "CENTER_NAME": center.center_name,
@@ -486,9 +387,7 @@ order_plot_signature = tuple(
 
 display_mode = cast(
     str,
-    render_profiler.measure(
-        "render_display_mode_selector",
-        st.radio,
+    st.radio(
         "表示モード",
         options=["ダッシュボード", "注文別データ一覧", "地図"],
         key=DISPLAY_MODE_KEY,
@@ -502,19 +401,14 @@ order_plot_df: pd.DataFrame | None = None
 def get_current_order_plot_df() -> pd.DataFrame:
     cached_signature = st.session_state.get(ORDER_PLOT_SIGNATURE_KEY)
     if cached_signature != order_plot_signature or ORDER_PLOT_DF_KEY not in st.session_state:
-        st.session_state[ORDER_PLOT_DF_KEY] = render_profiler.measure(
-            "build_order_plot_df", build_order_plot_df, df, simulation_result
-        )
+        st.session_state[ORDER_PLOT_DF_KEY] = build_order_plot_df(df, simulation_result)
         st.session_state[ORDER_PLOT_SIGNATURE_KEY] = order_plot_signature
-    else:
-        render_profiler.records.append(("order_plot_df_session_cache_hit", 0.0))
     return cast(pd.DataFrame, st.session_state[ORDER_PLOT_DF_KEY])
 
 
 if display_mode == "注文別データ一覧":
     order_plot_df = get_current_order_plot_df()
     st.subheader("注文別データ一覧")
-    order_detail_render_started_at = time.perf_counter()
     st.dataframe(
         order_plot_df[
             [
@@ -530,8 +424,6 @@ if display_mode == "注文別データ一覧":
         width="stretch",
         height=880,
     )
-    render_profiler.record_duration("render_order_detail_table", order_detail_render_started_at)
-    render_profile_panel(render_profiler, sidebar_inputs_changed=sidebar_inputs_changed, display_mode=display_mode)
     st.stop()
 
 if display_mode == "地図":
@@ -551,14 +443,12 @@ if display_mode == "地図":
     ]
 
     if all(col in order_plot_df.columns for col in map_cols):
-        plot_df = render_profiler.measure("build_map_plot_df", build_map_plot_df, order_plot_df)
-        colored_plot_df = render_profiler.measure("calculate_map_colors", calculate_map_colors, plot_df)
-        customer_layer_data = render_profiler.measure("sanitize_customer_map_data", sanitize_map_data, colored_plot_df)
-        center_layer_data = render_profiler.measure("sanitize_center_map_data", sanitize_map_data, center_plot_df)
+        plot_df = build_map_plot_df(order_plot_df)
+        colored_plot_df = calculate_map_colors(plot_df)
+        customer_layer_data = sanitize_map_data(colored_plot_df)
+        center_layer_data = sanitize_map_data(center_plot_df)
 
-        customer_layer = render_profiler.measure(
-            "build_customer_layer",
-            pdk.Layer,
+        customer_layer = pdk.Layer(
             "ScatterplotLayer",
             customer_layer_data,
             get_position=["CUSTOMER_LON", "CUSTOMER_LAT"],
@@ -567,9 +457,7 @@ if display_mode == "地図":
             pickable=True,
         )
 
-        center_layer = render_profiler.measure(
-            "build_center_layer",
-            pdk.Layer,
+        center_layer = pdk.Layer(
             "ScatterplotLayer",
             center_layer_data,
             get_position=["CENTER_LON", "CENTER_LAT"],
@@ -578,29 +466,26 @@ if display_mode == "地図":
             pickable=True,
         )
 
-        r = render_profiler.measure(
-            "build_map_deck",
-            pdk.Deck,
+        tooltip: Any = {
+            "html": (
+                "<b>注文ID:</b> {ORDER_ID}<br>"
+                "<b>担当拠点:</b> {ASSIGNED_CENTER_NAME}<br>"
+                "<b>割当状態:</b> {ASSIGNMENT_STATUS}<br>"
+                "<hr>"
+                "<b>重量:</b> {WEIGHT_KG} kg<br>"
+                "<b>配送コスト:</b> ¥{SIMULATED_COST}"
+            ),
+            "style": {"color": "white", "backgroundColor": "steelblue"},
+        }
+
+        r = pdk.Deck(
             layers=[customer_layer, center_layer],
             initial_view_state=pdk.ViewState(latitude=36.0, longitude=138.0, zoom=5, pitch=45),
-            tooltip={
-                "html": (
-                    "<b>注文ID:</b> {ORDER_ID}<br>"
-                    "<b>担当拠点:</b> {ASSIGNED_CENTER_NAME}<br>"
-                    "<b>割当状態:</b> {ASSIGNMENT_STATUS}<br>"
-                    "<hr>"
-                    "<b>重量:</b> {WEIGHT_KG} kg<br>"
-                    "<b>配送コスト:</b> ¥{SIMULATED_COST}"
-                ),
-                "style": {"color": "white", "backgroundColor": "steelblue"},
-            },
+            tooltip=tooltip,
         )
-        map_render_started_at = time.perf_counter()
         st.pydeck_chart(r)
-        render_profiler.record_duration("render_pydeck_chart", map_render_started_at)
     else:
         st.warning("地図表示に必要なカラムが不足しています。")
-    render_profile_panel(render_profiler, sidebar_inputs_changed=sidebar_inputs_changed, display_mode=display_mode)
     st.stop()
 
 overview_left, overview_right, overview_third, overview_fourth = st.columns(4)
@@ -636,16 +521,13 @@ if center_summary_df.empty:
     st.info("表示できる拠点サマリがありません。")
 else:
     chart_df = center_summary_df.set_index("center_name")
-    center_chart_render_started_at = time.perf_counter()
     st.bar_chart(chart_df["total_cost"], width="stretch")
-    render_profiler.record_duration("render_center_cost_chart", center_chart_render_started_at)
     summary_table_df = center_summary_df.merge(
         sanitized_scenario_df[["center_name", "shipping_cost"]],
         on="center_name",
         how="left",
         validate="one_to_one",
     ).set_index("center_name")
-    center_summary_render_started_at = time.perf_counter()
     st.dataframe(
         summary_table_df.rename(
             columns={
@@ -663,6 +545,3 @@ else:
         ),
         width="stretch",
     )
-    render_profiler.record_duration("render_center_summary_table", center_summary_render_started_at)
-
-render_profile_panel(render_profiler, sidebar_inputs_changed=sidebar_inputs_changed, display_mode=display_mode)
