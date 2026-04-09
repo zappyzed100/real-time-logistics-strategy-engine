@@ -35,7 +35,7 @@ function App() {
     const [focusedScenarioFieldId, setFocusedScenarioFieldId] = useState<string | null>(null);
     const [syncDurationMs, setSyncDurationMs] = useState<number | null>(null);
     const hasBootstrappedRef = useRef<boolean>(false);
-    const lastSimulatedSignatureRef = useRef<string>("");
+    const lastSimulatedAssignmentSignatureRef = useRef<string>("");
     const mapSectionRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
@@ -51,7 +51,7 @@ function App() {
                 setHealthStatus(healthPayload.status);
                 setDashboardData(dashboardPayload);
                 setScenarioRows(dashboardPayload.scenario_rows);
-                lastSimulatedSignatureRef.current = getScenarioSignature(dashboardPayload.scenario_rows);
+                lastSimulatedAssignmentSignatureRef.current = getAssignmentSignature(dashboardPayload.scenario_rows);
                 hasBootstrappedRef.current = true;
             })
             .catch((error: unknown) => {
@@ -75,7 +75,7 @@ function App() {
             setErrorMessage(null);
             const nextDashboardData = await simulateDashboard(nextScenarioRows);
             setSyncDurationMs(Math.round(performance.now() - syncStartTime));
-            lastSimulatedSignatureRef.current = getScenarioSignature(nextDashboardData.scenario_rows);
+            lastSimulatedAssignmentSignatureRef.current = getAssignmentSignature(nextDashboardData.scenario_rows);
             setDashboardData(nextDashboardData);
             setScenarioRows(nextDashboardData.scenario_rows);
         } catch (error: unknown) {
@@ -85,9 +85,8 @@ function App() {
         }
     }
 
-    function handleScenarioNumberChange(centerId: string, field: "staffing_level" | "fixed_cost", value: string) {
-        const numericValue = Number(value);
-        const nextValue = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+    function handleScenarioNumberChange(centerId: string, field: "staffing_level" | "fixed_cost", nextValue: number) {
+        setErrorMessage(null);
 
         setScenarioRows((currentRows) =>
             currentRows.map((row) => {
@@ -97,10 +96,53 @@ function App() {
 
                 return {
                     ...row,
-                    [field]: field === "staffing_level" ? Math.round(nextValue) : nextValue,
+                    [field]: nextValue,
                 };
             }),
         );
+    }
+
+    function applyFixedCostChange(centerId: string, centerName: string, nextFixedCost: number) {
+        setDashboardData((currentData) => {
+            if (!currentData) {
+                return currentData;
+            }
+
+            const previousScenarioRow = currentData.scenario_rows.find((row) => row.center_id === centerId);
+            if (!previousScenarioRow) {
+                return currentData;
+            }
+
+            const fixedCostDelta = nextFixedCost - previousScenarioRow.fixed_cost;
+            if (fixedCostDelta === 0) {
+                return currentData;
+            }
+
+            return {
+                ...currentData,
+                scenario_rows: currentData.scenario_rows.map((row) =>
+                    row.center_id === centerId ? { ...row, fixed_cost: nextFixedCost } : row,
+                ),
+                center_summary_rows: currentData.center_summary_rows.map((row) =>
+                    row.center_name === centerName
+                        ? {
+                            ...row,
+                            fixed_cost: nextFixedCost,
+                            total_cost: row.total_cost + fixedCostDelta,
+                        }
+                        : row,
+                ),
+                map_center_rows: currentData.map_center_rows.map((row) =>
+                    row.center_id === centerId ? { ...row, fixed_cost: nextFixedCost } : row,
+                ),
+                metrics: {
+                    ...currentData.metrics,
+                    total_fixed_cost: currentData.metrics.total_fixed_cost + fixedCostDelta,
+                    total_cost: currentData.metrics.total_cost + fixedCostDelta,
+                },
+            };
+        });
+        setSyncDurationMs(0);
     }
 
     function handleScenarioFieldFocus(centerId: string, field: "staffing_level" | "fixed_cost", currentValue: number) {
@@ -120,10 +162,19 @@ function App() {
         }));
     }
 
-    function handleScenarioFieldBlur(centerId: string, field: "staffing_level" | "fixed_cost") {
+    function handleScenarioFieldBlur(
+        centerId: string,
+        centerName: string,
+        field: "staffing_level" | "fixed_cost",
+        currentValue: number,
+    ) {
         const fieldId = getScenarioFieldId(centerId, field);
         const draftValue = scenarioDraftValues[fieldId] ?? "";
-        handleScenarioNumberChange(centerId, field, draftValue);
+        const nextValue = normalizeScenarioValue(field, draftValue);
+        handleScenarioNumberChange(centerId, field, nextValue);
+        if (field === "fixed_cost" && nextValue !== currentValue) {
+            applyFixedCostChange(centerId, centerName, nextValue);
+        }
         setScenarioDraftValues((currentDrafts) => {
             const nextDrafts = { ...currentDrafts };
             delete nextDrafts[fieldId];
@@ -137,8 +188,8 @@ function App() {
             return;
         }
 
-        const nextSignature = getScenarioSignature(scenarioRows);
-        if (focusedScenarioFieldId !== null || nextSignature === lastSimulatedSignatureRef.current) {
+        const nextAssignmentSignature = getAssignmentSignature(scenarioRows);
+        if (focusedScenarioFieldId !== null || nextAssignmentSignature === lastSimulatedAssignmentSignatureRef.current) {
             return;
         }
 
@@ -243,7 +294,7 @@ function App() {
                                                     value={getScenarioDraftValue(scenarioDraftValues, row, "staffing_level")}
                                                     onFocus={() => handleScenarioFieldFocus(row.center_id, "staffing_level", row.staffing_level)}
                                                     onChange={(event) => handleScenarioFieldChange(row.center_id, "staffing_level", event.target.value)}
-                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, "staffing_level")}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "staffing_level", row.staffing_level)}
                                                     onKeyDown={(event) => {
                                                         if (event.key === "Enter") {
                                                             event.currentTarget.blur();
@@ -258,7 +309,7 @@ function App() {
                                                     value={getScenarioDraftValue(scenarioDraftValues, row, "fixed_cost")}
                                                     onFocus={() => handleScenarioFieldFocus(row.center_id, "fixed_cost", row.fixed_cost)}
                                                     onChange={(event) => handleScenarioFieldChange(row.center_id, "fixed_cost", event.target.value)}
-                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, "fixed_cost")}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "fixed_cost", row.fixed_cost)}
                                                     onKeyDown={(event) => {
                                                         if (event.key === "Enter") {
                                                             event.currentTarget.blur();
@@ -591,8 +642,14 @@ function formatShortCurrency(value: number): string {
     return `${Math.round(value / 10_000).toLocaleString("ja-JP")}万円`;
 }
 
-function getScenarioSignature(rows: ScenarioRow[]): string {
-    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level, row.fixed_cost]));
+function normalizeScenarioValue(field: "staffing_level" | "fixed_cost", value: string): number {
+    const numericValue = Number(value);
+    const nextValue = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+    return field === "staffing_level" ? Math.round(nextValue) : nextValue;
+}
+
+function getAssignmentSignature(rows: ScenarioRow[]): string {
+    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level]));
 }
 
 function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
