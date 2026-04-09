@@ -42,10 +42,32 @@ export type OrderRow = {
     weight_kg: number;
 };
 
+export type MapOrderRow = {
+    order_id: string;
+    customer_lat: number;
+    customer_lon: number;
+    assigned_center_name: string;
+    assignment_status: string;
+    simulated_cost: number;
+    weight_kg: number;
+    is_unassigned: boolean;
+};
+
+export type MapCenterRow = {
+    center_id: string;
+    center_name: string;
+    center_lat: number;
+    center_lon: number;
+    staffing_level: number;
+    fixed_cost: number;
+};
+
 export type DashboardResponse = {
     scenario_rows: ScenarioRow[];
     center_summary_rows: CenterSummaryRow[];
     order_rows: OrderRow[];
+    map_order_rows: MapOrderRow[];
+    map_center_rows: MapCenterRow[];
     metrics: DashboardMetrics;
 };
 

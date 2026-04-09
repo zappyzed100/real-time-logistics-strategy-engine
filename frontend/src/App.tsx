@@ -7,8 +7,9 @@ import {
     type OrderRow,
     type ScenarioRow,
 } from "./api/client";
+import { SimulationMap } from "./components/SimulationMap";
 
-type DisplayMode = "dashboard" | "orders";
+type DisplayMode = "dashboard" | "orders" | "map";
 
 function App() {
     const [healthStatus, setHealthStatus] = useState<string>("loading");
@@ -77,7 +78,7 @@ function App() {
 
     return (
         <main className="app-shell">
-            <section className="hero-card">
+            <section className={`hero-card ${displayMode === "map" ? "is-wide" : ""}`}>
                 <p className="eyebrow">Issue #223</p>
                 <h1>FastAPI + React migration</h1>
                 <p className="lead">
@@ -105,6 +106,13 @@ function App() {
                                 onClick={() => setDisplayMode("orders")}
                             >
                                 注文別データ一覧
+                            </button>
+                            <button
+                                type="button"
+                                className={`mode-button ${displayMode === "map" ? "is-active" : ""}`}
+                                onClick={() => setDisplayMode("map")}
+                            >
+                                地図
                             </button>
                         </section>
 
@@ -220,7 +228,7 @@ function App() {
                                     </div>
                                 </section>
                             </>
-                        ) : (
+                        ) : displayMode === "orders" ? (
                             <section className="data-section">
                                 <div className="section-heading">
                                     <h2>注文別データ一覧</h2>
@@ -255,6 +263,32 @@ function App() {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </section>
+                        ) : (
+                            <section className="data-section">
+                                <div className="section-heading">
+                                    <h2>配送エリア・コスト分布の地理的分析</h2>
+                                    <span>{formatInteger(dashboardData.map_order_rows.length)} 件を表示</span>
+                                </div>
+                                <p className="map-caption">
+                                    OpenStreetMap 上に注文サンプルと拠点を重ねています。未割当は赤、低コストは青、高コストは黄です。
+                                </p>
+                                <div className="map-layout">
+                                    <SimulationMap orderRows={dashboardData.map_order_rows} centerRows={dashboardData.map_center_rows} />
+                                    <aside className="map-legend">
+                                        <h3>凡例</h3>
+                                        <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
+                                        <p><span className="legend-dot is-high-cost" /> 高コスト注文</p>
+                                        <p><span className="legend-dot is-unassigned" /> 未割当注文</p>
+                                        <p><span className="legend-dot is-center" /> 物流拠点</p>
+                                        <div className="map-legend-metrics">
+                                            <span>表示注文数</span>
+                                            <strong>{formatInteger(dashboardData.map_order_rows.length)} 件</strong>
+                                            <span>表示拠点数</span>
+                                            <strong>{formatInteger(dashboardData.map_center_rows.length)} 拠点</strong>
+                                        </div>
+                                    </aside>
                                 </div>
                             </section>
                         )}

@@ -41,10 +41,32 @@ class OrderRow(BaseModel):
     weight_kg: float
 
 
+class MapOrderRow(BaseModel):
+    order_id: str
+    customer_lat: float
+    customer_lon: float
+    assigned_center_name: str
+    assignment_status: str
+    simulated_cost: float
+    weight_kg: float
+    is_unassigned: bool
+
+
+class MapCenterRow(BaseModel):
+    center_id: str
+    center_name: str
+    center_lat: float
+    center_lon: float
+    staffing_level: int
+    fixed_cost: float
+
+
 class DashboardResponse(BaseModel):
     scenario_rows: list[ScenarioRow]
     center_summary_rows: list[CenterSummaryRow]
     order_rows: list[OrderRow]
+    map_order_rows: list[MapOrderRow]
+    map_center_rows: list[MapCenterRow]
     metrics: DashboardMetrics
 
 

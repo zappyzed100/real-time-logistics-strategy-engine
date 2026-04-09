@@ -37,6 +37,10 @@ body {
     backdrop-filter: blur(16px);
 }
 
+.hero-card.is-wide {
+    width: min(1240px, 100%);
+}
+
 .eyebrow {
     margin: 0 0 12px;
     font-size: 0.85rem;
@@ -250,6 +254,99 @@ tbody tr:last-child td {
     max-height: 70vh;
 }
 
+.map-caption {
+    margin: 0 0 14px;
+    color: #5b748f;
+    font-size: 0.95rem;
+}
+
+.map-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 18px;
+    align-items: start;
+}
+
+.map-panel {
+    overflow: hidden;
+    min-height: 72vh;
+    border-radius: 24px;
+    border: 1px solid rgba(84, 115, 158, 0.16);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 18px 50px rgba(25, 60, 110, 0.1);
+}
+
+.leaflet-map {
+    height: 72vh;
+    width: 100%;
+}
+
+.map-legend {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(247, 250, 255, 0.96);
+    border: 1px solid rgba(84, 115, 158, 0.12);
+}
+
+.map-legend h3 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.map-legend p {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #39506d;
+}
+
+.legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+.legend-dot.is-low-cost {
+    background: #2e7fe8;
+}
+
+.legend-dot.is-high-cost {
+    background: #f3c623;
+}
+
+.legend-dot.is-unassigned {
+    background: #dc2626;
+}
+
+.legend-dot.is-center {
+    background: #173252;
+}
+
+.map-legend-metrics {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(84, 115, 158, 0.14);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.map-legend-metrics span {
+    color: #5b748f;
+    font-size: 0.88rem;
+}
+
+.map-legend-metrics strong {
+    font-size: 1.05rem;
+}
+
+.leaflet-container {
+    font-family: "IBM Plex Sans JP", "Noto Sans JP", sans-serif;
+}
+
 .status-badge {
     display: inline-flex;
     align-items: center;
@@ -279,10 +376,20 @@ tbody tr:last-child td {
     .metrics-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .map-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 640px) {
     .metrics-grid {
         grid-template-columns: 1fr;
+    }
+
+    .leaflet-map,
+    .map-panel {
+        min-height: 58vh;
+        height: 58vh;
     }
 }

@@ -11,7 +11,15 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
-from src.api.schemas import CenterSummaryRow, DashboardMetrics, DashboardResponse, OrderRow, ScenarioRow
+from src.api.schemas import (
+    CenterSummaryRow,
+    DashboardMetrics,
+    DashboardResponse,
+    MapCenterRow,
+    MapOrderRow,
+    OrderRow,
+    ScenarioRow,
+)
 from src.simulation import (
     OrderCandidate,
     OrderDemand,
@@ -52,6 +60,7 @@ PRECOMPUTED_CANDIDATE_COLUMNS = [
     "CENTER_CANDIDATE_RANK",
     "ORDER_CANDIDATE_RANK",
 ]
+MAP_SAMPLE_SIZE = 10000
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +193,23 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
         .sort_values(by=["ORDER_ID"])
         .reset_index(drop=True)
     )
+    map_order_df = order_plot_df.dropna(
+        subset=[
+            "CUSTOMER_LAT",
+            "CUSTOMER_LON",
+            "SIMULATED_COST",
+            "WEIGHT_KG",
+            "ORDER_ID",
+            "ASSIGNED_CENTER_NAME",
+            "ASSIGNMENT_STATUS",
+            "IS_UNASSIGNED",
+        ]
+    ).copy()
+    if len(map_order_df) > MAP_SAMPLE_SIZE:
+        map_order_df = map_order_df.sample(n=MAP_SAMPLE_SIZE, random_state=0).copy()
+    map_center_df = sanitized_scenario_df[
+        ["center_id", "center_name", "center_lat", "center_lon", "staffing_level", "fixed_cost"]
+    ].copy()
 
     total_cost = simulation_result.total_cost
     total_orders = len(simulation_result.assignments)
@@ -226,6 +252,30 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
                 weight_kg=float(row["WEIGHT_KG"]),
             )
             for row in order_plot_df.to_dict(orient="records")
+        ],
+        map_order_rows=[
+            MapOrderRow(
+                order_id=str(row["ORDER_ID"]),
+                customer_lat=float(row["CUSTOMER_LAT"]),
+                customer_lon=float(row["CUSTOMER_LON"]),
+                assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
+                assignment_status=str(row["ASSIGNMENT_STATUS"]),
+                simulated_cost=float(row["SIMULATED_COST"]),
+                weight_kg=float(row["WEIGHT_KG"]),
+                is_unassigned=bool(row["IS_UNASSIGNED"]),
+            )
+            for row in map_order_df.to_dict(orient="records")
+        ],
+        map_center_rows=[
+            MapCenterRow(
+                center_id=str(row["center_id"]),
+                center_name=str(row["center_name"]),
+                center_lat=float(row["center_lat"]),
+                center_lon=float(row["center_lon"]),
+                staffing_level=int(row["staffing_level"]),
+                fixed_cost=float(row["fixed_cost"]),
+            )
+            for row in map_center_df.to_dict(orient="records")
         ],
         metrics=DashboardMetrics(
             total_cost=total_cost,
