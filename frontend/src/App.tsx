@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
     fetchDashboardBootstrap,
     fetchHealth,
@@ -11,6 +11,11 @@ import { SimulationMap } from "./components/SimulationMap";
 
 type DisplayMode = "dashboard" | "orders";
 type OrderSortKey = "simulated_cost" | "simulated_distance_km" | "weight_kg" | "order_id";
+type ScenarioGridStyle = CSSProperties & {
+    "--scenario-name-column-width": string;
+    "--scenario-staffing-column-width": string;
+    "--scenario-fixed-cost-column-width": string;
+};
 const ORDER_PAGE_SIZE = 100;
 
 function App() {
@@ -28,18 +33,21 @@ function App() {
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [scenarioDraftValues, setScenarioDraftValues] = useState<Record<string, string>>({});
     const [focusedScenarioFieldId, setFocusedScenarioFieldId] = useState<string | null>(null);
+    const [syncDurationMs, setSyncDurationMs] = useState<number | null>(null);
     const hasBootstrappedRef = useRef<boolean>(false);
     const lastSimulatedSignatureRef = useRef<string>("");
     const mapSectionRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         let isMounted = true;
+        const syncStartTime = performance.now();
 
         Promise.all([fetchHealth(), fetchDashboardBootstrap()])
             .then(([healthPayload, dashboardPayload]) => {
                 if (!isMounted) {
                     return;
                 }
+                setSyncDurationMs(Math.round(performance.now() - syncStartTime));
                 setHealthStatus(healthPayload.status);
                 setDashboardData(dashboardPayload);
                 setScenarioRows(dashboardPayload.scenario_rows);
@@ -60,10 +68,13 @@ function App() {
     }, []);
 
     async function handleSimulate(nextScenarioRows: ScenarioRow[]) {
+        const syncStartTime = performance.now();
+
         try {
             setIsSimulating(true);
             setErrorMessage(null);
             const nextDashboardData = await simulateDashboard(nextScenarioRows);
+            setSyncDurationMs(Math.round(performance.now() - syncStartTime));
             lastSimulatedSignatureRef.current = getScenarioSignature(nextDashboardData.scenario_rows);
             setDashboardData(nextDashboardData);
             setScenarioRows(nextDashboardData.scenario_rows);
@@ -168,6 +179,7 @@ function App() {
     );
     const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
     const selectedMapOrder = dashboardData?.map_order_rows.find((row) => row.order_id === selectedOrderId) ?? null;
+    const scenarioGridStyle = getScenarioGridStyle(scenarioRows, scenarioDraftValues);
 
     return (
         <main className="app-shell">
@@ -203,13 +215,16 @@ function App() {
 
                         {displayMode === "dashboard" ? (
                             <div className="dashboard-layout">
-                                <aside className="scenario-sidebar-card">
+                                <aside className="scenario-sidebar-card" style={scenarioGridStyle}>
                                     <div className="scenario-sidebar-header">
                                         <div>
                                             <h2>拠点情報</h2>
                                             <p>変更は自動で反映されます。</p>
                                         </div>
-                                        <span className={`sync-chip ${isSimulating ? "is-active" : ""}`}>{isSimulating ? "反映中..." : "同期済み"}</span>
+                                        <div className="sync-status">
+                                            <span className={`sync-chip ${isSimulating ? "is-active" : ""}`}>{isSimulating ? "反映中..." : "同期済み"}</span>
+                                            <span className="sync-duration">{syncDurationMs === null ? "-- ms" : `${formatInteger(syncDurationMs)} ms`}</span>
+                                        </div>
                                     </div>
                                     <div className="scenario-sidebar-column-header" aria-hidden="true">
                                         <span>拠点名</span>
@@ -595,6 +610,73 @@ function getScenarioDraftValue(
 ): string {
     const fieldId = getScenarioFieldId(row.center_id, field);
     return drafts[fieldId] ?? String(row[field]);
+}
+
+function getScenarioGridStyle(rows: ScenarioRow[], drafts: Record<string, string>): ScenarioGridStyle {
+    const nameColumnWidth = getScenarioColumnWidth({
+        headerText: "拠点名",
+        cellTexts: rows.map((row) => row.center_name),
+        minWidth: 40,
+        horizontalPadding: 8,
+        font: "700 16px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+        headerFont: "700 12px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+    });
+    const staffingColumnWidth = getScenarioColumnWidth({
+        headerText: "配置人員数",
+        cellTexts: [...rows.map((row) => getScenarioDraftValue(drafts, row, "staffing_level")), "999"],
+        minWidth: 72,
+        horizontalPadding: 28,
+        font: "400 16px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+        headerFont: "700 12px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+    });
+    const fixedCostColumnWidth = getScenarioColumnWidth({
+        headerText: "固定費",
+        cellTexts: [...rows.map((row) => getScenarioDraftValue(drafts, row, "fixed_cost")), "10000000000"],
+        minWidth: 112,
+        horizontalPadding: 28,
+        font: "400 16px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+        headerFont: "700 12px 'IBM Plex Sans JP', 'Noto Sans JP', sans-serif",
+    });
+
+    return {
+        "--scenario-name-column-width": `${nameColumnWidth}px`,
+        "--scenario-staffing-column-width": `${staffingColumnWidth}px`,
+        "--scenario-fixed-cost-column-width": `${fixedCostColumnWidth}px`,
+    };
+}
+
+function getScenarioColumnWidth(options: {
+    headerText: string;
+    cellTexts: string[];
+    minWidth: number;
+    horizontalPadding: number;
+    font: string;
+    headerFont: string;
+}): number {
+    const headerWidth = measureTextWidth(options.headerText, options.headerFont);
+    const cellWidth = options.cellTexts.reduce(
+        (currentMax, text) => Math.max(currentMax, measureTextWidth(text, options.font)),
+        0,
+    );
+
+    return Math.max(options.minWidth, Math.ceil(Math.max(headerWidth, cellWidth) + options.horizontalPadding));
+}
+
+let scenarioMeasureCanvas: HTMLCanvasElement | null = null;
+
+function measureTextWidth(text: string, font: string): number {
+    if (typeof document === "undefined") {
+        return text.length * 16;
+    }
+
+    scenarioMeasureCanvas ??= document.createElement("canvas");
+    const context = scenarioMeasureCanvas.getContext("2d");
+    if (!context) {
+        return text.length * 16;
+    }
+
+    context.font = font;
+    return context.measureText(text).width;
 }
 
 function getFilteredOrderRows(

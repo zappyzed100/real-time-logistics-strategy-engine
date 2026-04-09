@@ -165,7 +165,7 @@ h1 {
 .dashboard-layout {
     margin-top: 28px;
     display: grid;
-    grid-template-columns: 440px minmax(0, 1fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: 24px;
     align-items: start;
 }
@@ -180,6 +180,12 @@ h1 {
 }
 
 .scenario-sidebar-card {
+    --scenario-name-column-width: 4em;
+    --scenario-staffing-column-width: 72px;
+    --scenario-fixed-cost-column-width: 112px;
+    width: max-content;
+    max-width: 100%;
+    justify-self: start;
     position: sticky;
     top: 24px;
     max-height: calc(100vh - 48px);
@@ -204,8 +210,10 @@ h1 {
     top: 0;
     z-index: 2;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 72px 112px;
-    gap: 10px;
+    grid-template-columns:
+        var(--scenario-name-column-width) var(--scenario-staffing-column-width) var(--scenario-fixed-cost-column-width);
+    justify-content: start;
+    gap: 14px;
     margin: 0 0 10px;
     padding: 10px 12px;
     border-radius: 14px;
@@ -242,9 +250,11 @@ h1 {
 
 .scenario-sidebar-row.is-inline {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 72px 112px;
+    grid-template-columns:
+        var(--scenario-name-column-width) var(--scenario-staffing-column-width) var(--scenario-fixed-cost-column-width);
+    justify-content: start;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
     padding: 10px 12px;
 }
 
@@ -309,22 +319,34 @@ h1 {
     font-weight: 700;
 }
 
+.sync-status {
+    display: grid;
+    justify-items: end;
+    gap: 6px;
+}
+
+.sync-duration {
+    color: rgba(219, 234, 254, 0.78);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
 .sync-chip.is-active {
     background: rgba(253, 230, 138, 0.2);
     color: #fde68a;
 }
 
-.scenario-compact-input {
+.table-input.scenario-compact-input {
     min-width: 0;
     text-align: right;
 }
 
 .scenario-compact-input.is-staffing {
-    width: 72px;
+    width: 100%;
 }
 
 .scenario-compact-input.is-fixed-cost {
-    width: 112px;
+    width: 100%;
 }
 
 .section-heading {
@@ -712,7 +734,8 @@ tbody tr:last-child td {
     }
 
     .scenario-sidebar-column-header {
-        grid-template-columns: minmax(0, 1fr) 72px 112px;
+        grid-template-columns:
+            var(--scenario-name-column-width) var(--scenario-staffing-column-width) var(--scenario-fixed-cost-column-width);
     }
 
     .scenario-sidebar-row.is-inline {
