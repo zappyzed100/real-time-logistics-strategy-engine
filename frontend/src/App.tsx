@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     fetchDashboardBootstrap,
     fetchHealth,
@@ -9,7 +9,7 @@ import {
 } from "./api/client";
 import { SimulationMap } from "./components/SimulationMap";
 
-type DisplayMode = "dashboard" | "orders" | "map";
+type DisplayMode = "dashboard" | "orders";
 type OrderSortKey = "simulated_cost" | "simulated_distance_km" | "weight_kg" | "order_id";
 
 function App() {
@@ -22,6 +22,8 @@ function App() {
     const [orderSearchText, setOrderSearchText] = useState<string>("");
     const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "割当済" | "未割当">("all");
     const [orderSortKey, setOrderSortKey] = useState<OrderSortKey>("simulated_cost");
+    const hasBootstrappedRef = useRef<boolean>(false);
+    const lastSimulatedSignatureRef = useRef<string>("");
 
     useEffect(() => {
         let isMounted = true;
@@ -34,6 +36,8 @@ function App() {
                 setHealthStatus(healthPayload.status);
                 setDashboardData(dashboardPayload);
                 setScenarioRows(dashboardPayload.scenario_rows);
+                lastSimulatedSignatureRef.current = getScenarioSignature(dashboardPayload.scenario_rows);
+                hasBootstrappedRef.current = true;
             })
             .catch((error: unknown) => {
                 if (!isMounted) {
@@ -48,11 +52,12 @@ function App() {
         };
     }, []);
 
-    async function handleSimulate() {
+    async function handleSimulate(nextScenarioRows: ScenarioRow[]) {
         try {
             setIsSimulating(true);
             setErrorMessage(null);
-            const nextDashboardData = await simulateDashboard(scenarioRows);
+            const nextDashboardData = await simulateDashboard(nextScenarioRows);
+            lastSimulatedSignatureRef.current = getScenarioSignature(nextDashboardData.scenario_rows);
             setDashboardData(nextDashboardData);
             setScenarioRows(nextDashboardData.scenario_rows);
         } catch (error: unknown) {
@@ -80,6 +85,25 @@ function App() {
         );
     }
 
+    useEffect(() => {
+        if (!hasBootstrappedRef.current) {
+            return;
+        }
+
+        const nextSignature = getScenarioSignature(scenarioRows);
+        if (nextSignature === lastSimulatedSignatureRef.current) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            void handleSimulate(scenarioRows);
+        }, 250);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [scenarioRows]);
+
     const filteredOrderRows = dashboardData
         ? getFilteredOrderRows(dashboardData.order_rows, {
             searchText: orderSearchText,
@@ -91,7 +115,6 @@ function App() {
     return (
         <main className="app-shell">
             <section className={`hero-card ${displayMode === "dashboard" ? "is-dashboard" : "is-wide"}`}>
-                <p className="eyebrow">Issue #223</p>
                 <h1>FastAPI + React migration</h1>
                 <p className="lead">
                     Streamlit から差分更新型 UI へ移行するためのフロントエンド基盤です。まずは FastAPI との接続と
@@ -119,13 +142,6 @@ function App() {
                             >
                                 注文別データ一覧
                             </button>
-                            <button
-                                type="button"
-                                className={`mode-button ${displayMode === "map" ? "is-active" : ""}`}
-                                onClick={() => setDisplayMode("map")}
-                            >
-                                地図
-                            </button>
                         </section>
 
                         {displayMode === "dashboard" ? (
@@ -134,48 +150,34 @@ function App() {
                                     <div className="scenario-sidebar-header">
                                         <div>
                                             <h2>拠点情報</h2>
-                                            <p>固定費は 100 万円単位です。</p>
+                                            <p>変更は自動で反映されます。</p>
                                         </div>
-                                        <button type="button" className="primary-button" onClick={handleSimulate} disabled={isSimulating}>
-                                            {isSimulating ? "再計算中..." : "再計算"}
-                                        </button>
+                                        <span className={`sync-chip ${isSimulating ? "is-active" : ""}`}>{isSimulating ? "反映中..." : "同期済み"}</span>
                                     </div>
                                     <div className="scenario-sidebar-grid">
                                         {scenarioRows.map((row) => (
-                                            <article key={row.center_id} className="scenario-sidebar-row">
-                                                <div className="scenario-sidebar-title-row">
-                                                    <strong>{row.center_name}</strong>
-                                                    <span>{row.shipping_cost.toFixed(3)}</span>
-                                                </div>
-                                                <span className="scenario-sidebar-subtext">基準注文数 {formatInteger(row.baseline_order_count)} 件</span>
-                                                <div className="scenario-sidebar-inputs">
-                                                    <label>
-                                                        <span>人員数</span>
-                                                        <input
-                                                            className="table-input"
-                                                            type="number"
-                                                            min="0"
-                                                            step="1"
-                                                            value={row.staffing_level}
-                                                            onChange={(event) =>
-                                                                handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
-                                                            }
-                                                        />
-                                                    </label>
-                                                    <label>
-                                                        <span>固定費</span>
-                                                        <input
-                                                            className="table-input"
-                                                            type="number"
-                                                            min="0"
-                                                            step="1000000"
-                                                            value={row.fixed_cost}
-                                                            onChange={(event) =>
-                                                                handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
-                                                            }
-                                                        />
-                                                    </label>
-                                                </div>
+                                            <article key={row.center_id} className="scenario-sidebar-row is-inline">
+                                                <strong>{row.center_name}</strong>
+                                                <input
+                                                    className="table-input"
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value={row.staffing_level}
+                                                    onChange={(event) =>
+                                                        handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
+                                                    }
+                                                />
+                                                <input
+                                                    className="table-input"
+                                                    type="number"
+                                                    min="0"
+                                                    step="1000000"
+                                                    value={row.fixed_cost}
+                                                    onChange={(event) =>
+                                                        handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
+                                                    }
+                                                />
                                             </article>
                                         ))}
                                     </div>
@@ -232,21 +234,50 @@ function App() {
                                             <h2>分析詳細</h2>
                                             <span>拠点別総コスト</span>
                                         </div>
-                                        <div className="cost-bar-list">
-                                            {dashboardData.center_summary_rows.map((row) => (
-                                                <div key={row.center_name} className="cost-bar-row">
-                                                    <div className="cost-bar-header">
-                                                        <strong>{row.center_name}</strong>
-                                                        <span>{formatCurrency(row.total_cost)}</span>
+                                        <div className="chart-scroll-shell">
+                                            <div
+                                                className="vertical-bar-chart"
+                                                style={{ width: `${Math.max(dashboardData.center_summary_rows.length * 44, 960)}px` }}
+                                            >
+                                                {dashboardData.center_summary_rows.map((row) => (
+                                                    <div key={row.center_name} className="vertical-bar-item">
+                                                        <div className="vertical-bar-value">{formatShortCurrency(row.total_cost)}</div>
+                                                        <div className="vertical-bar-track">
+                                                            <div
+                                                                className="vertical-bar-fill"
+                                                                style={{ height: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="vertical-bar-label">{row.center_name}</div>
                                                     </div>
-                                                    <div className="cost-bar-track">
-                                                        <div
-                                                            className="cost-bar-fill"
-                                                            style={{ width: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
-                                                        />
-                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="data-section">
+                                        <div className="section-heading">
+                                            <h2>地図</h2>
+                                            <span>{formatInteger(dashboardData.map_order_rows.length)} 件を表示</span>
+                                        </div>
+                                        <p className="map-caption">
+                                            OpenStreetMap 上に注文データを最大 10,000 件表示します。未割当は赤、低コストは青、高コストは黄です。
+                                        </p>
+                                        <div className="map-layout is-embedded">
+                                            <SimulationMap orderRows={dashboardData.map_order_rows} centerRows={dashboardData.map_center_rows} />
+                                            <aside className="map-legend">
+                                                <h3>凡例</h3>
+                                                <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
+                                                <p><span className="legend-dot is-high-cost" /> 高コスト注文</p>
+                                                <p><span className="legend-dot is-unassigned" /> 未割当注文</p>
+                                                <p><span className="legend-dot is-center" /> 物流拠点</p>
+                                                <div className="map-legend-metrics">
+                                                    <span>表示注文数</span>
+                                                    <strong>{formatInteger(dashboardData.map_order_rows.length)} 件</strong>
+                                                    <span>表示拠点数</span>
+                                                    <strong>{formatInteger(dashboardData.map_center_rows.length)} 拠点</strong>
                                                 </div>
-                                            ))}
+                                            </aside>
                                         </div>
                                     </section>
 
@@ -260,6 +291,7 @@ function App() {
                                                 <thead>
                                                     <tr>
                                                         <th>拠点</th>
+                                                        <th>基準注文数</th>
                                                         <th>配送係数</th>
                                                         <th>担当注文数</th>
                                                         <th>人員数</th>
@@ -274,6 +306,7 @@ function App() {
                                                     {dashboardData.center_summary_rows.map((row) => (
                                                         <tr key={row.center_name}>
                                                             <td>{row.center_name}</td>
+                                                            <td>{formatInteger(getScenarioRowByCenterName(scenarioRows, row.center_name)?.baseline_order_count ?? 0)}</td>
                                                             <td>{row.shipping_cost.toFixed(3)}</td>
                                                             <td>{formatInteger(row.assigned_orders)}</td>
                                                             <td>{formatInteger(row.staffing_level)}</td>
@@ -290,7 +323,7 @@ function App() {
                                     </section>
                                 </div>
                             </div>
-                        ) : displayMode === "orders" ? (
+                        ) : (
                             <section className="data-section">
                                 <div className="section-heading">
                                     <h2>注文別データ一覧</h2>
@@ -366,32 +399,6 @@ function App() {
                                     </table>
                                 </div>
                             </section>
-                        ) : (
-                            <section className="data-section">
-                                <div className="section-heading">
-                                    <h2>配送エリア・コスト分布の地理的分析</h2>
-                                    <span>{formatInteger(dashboardData.map_order_rows.length)} 件を表示</span>
-                                </div>
-                                <p className="map-caption">
-                                    OpenStreetMap 上に注文データを最大 10,000 件表示します。未割当は赤、低コストは青、高コストは黄です。
-                                </p>
-                                <div className="map-layout">
-                                    <SimulationMap orderRows={dashboardData.map_order_rows} centerRows={dashboardData.map_center_rows} />
-                                    <aside className="map-legend">
-                                        <h3>凡例</h3>
-                                        <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
-                                        <p><span className="legend-dot is-high-cost" /> 高コスト注文</p>
-                                        <p><span className="legend-dot is-unassigned" /> 未割当注文</p>
-                                        <p><span className="legend-dot is-center" /> 物流拠点</p>
-                                        <div className="map-legend-metrics">
-                                            <span>表示注文数</span>
-                                            <strong>{formatInteger(dashboardData.map_order_rows.length)} 件</strong>
-                                            <span>表示拠点数</span>
-                                            <strong>{formatInteger(dashboardData.map_center_rows.length)} 拠点</strong>
-                                        </div>
-                                    </aside>
-                                </div>
-                            </section>
                         )}
                     </>
                 ) : null}
@@ -437,6 +444,22 @@ function getCostBarWidth(totalCost: number, rows: DashboardResponse["center_summ
     }
 
     return (totalCost / maxCost) * 100;
+}
+
+function formatShortCurrency(value: number): string {
+    if (value >= 100_000_000) {
+        return `${(value / 100_000_000).toFixed(1)}億円`;
+    }
+
+    return `${Math.round(value / 10_000).toLocaleString("ja-JP")}万円`;
+}
+
+function getScenarioSignature(rows: ScenarioRow[]): string {
+    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level, row.fixed_cost]));
+}
+
+function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
+    return rows.find((row) => row.center_name === centerName);
 }
 
 function getFilteredOrderRows(
