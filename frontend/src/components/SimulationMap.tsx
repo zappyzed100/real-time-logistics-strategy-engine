@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapCenterRow, MapOrderRow } from "../api/client.js";
 
@@ -12,6 +12,7 @@ type SimulationMapProps = {
 
 export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows, selectedOrderId, selectedOrder }: SimulationMapProps) {
     const [zoomLevel, setZoomLevel] = useState<number>(5);
+    const orderLayerRef = useRef<L.GeoJSON | null>(null);
     const orderFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
         () => ({
             type: "FeatureCollection",
@@ -46,6 +47,34 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
         [centerRows],
     );
 
+    useEffect(() => {
+        const orderLayer = orderLayerRef.current;
+        if (!orderLayer) {
+            return;
+        }
+
+        orderLayer.eachLayer((layer) => {
+            if (!(layer instanceof L.CircleMarker)) {
+                return;
+            }
+
+            const properties = layer.feature?.properties as MapOrderRow | undefined;
+            if (!properties) {
+                return;
+            }
+
+            const isSelected = properties.order_id === selectedOrderId;
+            layer.setRadius(getOrderRadius(properties.weight_kg, zoomLevel, isSelected));
+            layer.setStyle({
+                fillColor: getOrderColor(properties),
+                color: isSelected ? "#111827" : properties.is_unassigned ? "#7f1d1d" : "rgba(11, 26, 43, 0.12)",
+                weight: isSelected ? 2.4 : properties.is_unassigned ? 1.6 : 0.9,
+                opacity: 1,
+                fillOpacity: isSelected ? 1 : properties.is_unassigned ? 0.98 : 0.72,
+            });
+        });
+    }, [orderRows, selectedOrderId, zoomLevel]);
+
     return (
         <div className="map-panel">
             <MapContainer center={[36.2, 138.2]} zoom={5} scrollWheelZoom preferCanvas className="leaflet-map">
@@ -56,6 +85,9 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <GeoJSON
+                    ref={(layer) => {
+                        orderLayerRef.current = layer;
+                    }}
                     data={orderFeatures}
                     pointToLayer={(feature, latlng) => {
                         const properties = feature.properties as MapOrderRow;
@@ -75,8 +107,7 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                         layer.bindPopup(
                             [
                                 `<strong>注文ID:</strong> ${properties.order_id}`,
-                                `<strong>担当拠点:</strong> ${properties.assigned_center_name}`,
-                                `<strong>割当状態:</strong> ${properties.assignment_status}`,
+                                `<strong>配達拠点:</strong> ${getAssignedCenterDisplayText(properties)}`,
                                 `<strong>重量:</strong> ${properties.weight_kg.toFixed(1)} kg`,
                                 `<strong>配送コスト:</strong> ¥${Math.round(properties.simulated_cost).toLocaleString("ja-JP")}`,
                             ].join("<br>"),
@@ -141,11 +172,23 @@ function SelectedOrderViewport({ selectedOrder }: { selectedOrder?: MapOrderRow 
 }
 
 function getOrderRadius(weightKg: number, zoomLevel: number, isSelected: boolean): number {
-    const weightRadius = Math.max(4.5, Math.min(10.5, 4.5 + weightKg / 18));
-    const zoomBonus = Math.max(0, zoomLevel - 5) * 0.35;
-    return Math.min(isSelected ? 17 : 13, weightRadius + zoomBonus + (isSelected ? 3.5 : 0));
+    void weightKg;
+
+    if (zoomLevel <= 5) {
+        return isSelected ? 4.5 : 3;
+    }
+
+    return isSelected ? 6.5 : 5.5;
 }
 
 function getOrderColor(row: MapOrderRow): string {
     return `rgb(${row.color_r}, ${row.color_g}, ${row.color_b})`;
+}
+
+function getAssignedCenterDisplayText(row: MapOrderRow): string {
+    if (row.assignment_status === "割当済" && row.assigned_center_name.trim() !== "") {
+        return row.assigned_center_name;
+    }
+
+    return "未割当";
 }
