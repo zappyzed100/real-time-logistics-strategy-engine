@@ -26,6 +26,7 @@ from src.streamlit.scenario_editor import (
     build_initial_scenario_frame,
     build_order_candidates_from_frame,
     build_order_demands,
+    merge_scenario_frame,
     sanitize_scenario_frame,
 )
 from src.utils.env_policy import assert_prod_access_allowed
@@ -224,5 +225,7 @@ def get_dashboard_bootstrap() -> DashboardResponse:
 
 
 def simulate_dashboard(scenario_rows: list[ScenarioRow]) -> DashboardResponse:
-    scenario_df = pd.DataFrame([row.model_dump() for row in scenario_rows])
+    static_data = get_static_dashboard_data()
+    editable_scenario_df = pd.DataFrame([row.model_dump() for row in scenario_rows])
+    scenario_df = merge_scenario_frame(existing_df=editable_scenario_df, initial_df=static_data.initial_scenario_df)
     return _build_dashboard_response(scenario_df)

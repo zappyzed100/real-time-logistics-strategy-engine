@@ -151,6 +151,29 @@ h1 {
     font-size: 0.9rem;
 }
 
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.primary-button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #2158c9 0%, #4d84ef 100%);
+    color: white;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(42, 93, 190, 0.24);
+}
+
+.primary-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .table-shell {
     overflow-x: auto;
     border-radius: 20px;
@@ -179,6 +202,22 @@ th {
 
 tbody tr:last-child td {
     border-bottom: none;
+}
+
+.table-input {
+    width: 100%;
+    min-width: 120px;
+    border: 1px solid rgba(84, 115, 158, 0.24);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font: inherit;
+    color: #173252;
+    background: #fbfdff;
+}
+
+.table-input:focus {
+    outline: 2px solid rgba(77, 132, 239, 0.28);
+    border-color: #4d84ef;
 }
 
 @media (max-width: 900px) {

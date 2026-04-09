@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { fetchDashboardBootstrap, fetchHealth, type DashboardResponse } from "./api/client";
+import {
+    fetchDashboardBootstrap,
+    fetchHealth,
+    simulateDashboard,
+    type DashboardResponse,
+    type ScenarioRow,
+} from "./api/client";
 
 function App() {
     const [healthStatus, setHealthStatus] = useState<string>("loading");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null);
+    const [scenarioRows, setScenarioRows] = useState<ScenarioRow[]>([]);
+    const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -16,6 +24,7 @@ function App() {
                 }
                 setHealthStatus(healthPayload.status);
                 setDashboardData(dashboardPayload);
+                setScenarioRows(dashboardPayload.scenario_rows);
             })
             .catch((error: unknown) => {
                 if (!isMounted) {
@@ -29,6 +38,38 @@ function App() {
             isMounted = false;
         };
     }, []);
+
+    async function handleSimulate() {
+        try {
+            setIsSimulating(true);
+            setErrorMessage(null);
+            const nextDashboardData = await simulateDashboard(scenarioRows);
+            setDashboardData(nextDashboardData);
+            setScenarioRows(nextDashboardData.scenario_rows);
+        } catch (error: unknown) {
+            setErrorMessage(error instanceof Error ? error.message : "unknown error");
+        } finally {
+            setIsSimulating(false);
+        }
+    }
+
+    function handleScenarioNumberChange(centerId: string, field: "staffing_level" | "fixed_cost", value: string) {
+        const numericValue = Number(value);
+        const nextValue = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+
+        setScenarioRows((currentRows) =>
+            currentRows.map((row) => {
+                if (row.center_id !== centerId) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    [field]: field === "staffing_level" ? Math.round(nextValue) : nextValue,
+                };
+            }),
+        );
+    }
 
     return (
         <main className="app-shell">
@@ -68,7 +109,12 @@ function App() {
                         <section className="data-section">
                             <div className="section-heading">
                                 <h2>拠点シナリオ</h2>
-                                <span>{formatInteger(dashboardData.scenario_rows.length)} 拠点</span>
+                                <div className="section-actions">
+                                    <span>{formatInteger(scenarioRows.length)} 拠点</span>
+                                    <button type="button" className="primary-button" onClick={handleSimulate} disabled={isSimulating}>
+                                        {isSimulating ? "再計算中..." : "再計算"}
+                                    </button>
+                                </div>
                             </div>
                             <div className="table-shell">
                                 <table>
@@ -82,13 +128,35 @@ function App() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {dashboardData.scenario_rows.map((row) => (
+                                        {scenarioRows.map((row) => (
                                             <tr key={row.center_id}>
                                                 <td>{row.center_name}</td>
                                                 <td>{row.shipping_cost.toFixed(3)}</td>
                                                 <td>{formatInteger(row.baseline_order_count)}</td>
-                                                <td>{formatInteger(row.staffing_level)}</td>
-                                                <td>{formatCurrency(row.fixed_cost)}</td>
+                                                <td>
+                                                    <input
+                                                        className="table-input"
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        value={row.staffing_level}
+                                                        onChange={(event) =>
+                                                            handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
+                                                        }
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        className="table-input"
+                                                        type="number"
+                                                        min="0"
+                                                        step="1000000"
+                                                        value={row.fixed_cost}
+                                                        onChange={(event) =>
+                                                            handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
+                                                        }
+                                                    />
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

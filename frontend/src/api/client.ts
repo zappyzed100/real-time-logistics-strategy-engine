@@ -58,3 +58,20 @@ export async function fetchDashboardBootstrap(): Promise<DashboardResponse> {
 
     return (await response.json()) as DashboardResponse;
 }
+
+
+export async function simulateDashboard(scenarioRows: ScenarioRow[]): Promise<DashboardResponse> {
+    const response = await fetch("/api/dashboard/simulate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ scenario_rows: scenarioRows }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`dashboard simulate failed: ${response.status}`);
+    }
+
+    return (await response.json()) as DashboardResponse;
+}
