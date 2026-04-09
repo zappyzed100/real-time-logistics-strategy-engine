@@ -31,9 +31,20 @@ class CenterSummaryRow(BaseModel):
     total_cost: float
 
 
+class OrderRow(BaseModel):
+    order_id: str
+    assigned_center_name: str
+    assignment_status: str
+    fallback_center_name: str
+    simulated_cost: float
+    simulated_distance_km: float
+    weight_kg: float
+
+
 class DashboardResponse(BaseModel):
     scenario_rows: list[ScenarioRow]
     center_summary_rows: list[CenterSummaryRow]
+    order_rows: list[OrderRow]
     metrics: DashboardMetrics
 
 

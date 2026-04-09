@@ -104,6 +104,32 @@ h1 {
     font-size: 0.95rem;
 }
 
+.mode-switch {
+    margin-top: 28px;
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(226, 235, 247, 0.9);
+}
+
+.mode-button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: transparent;
+    color: #46617f;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mode-button.is-active {
+    background: white;
+    color: #173252;
+    box-shadow: 0 8px 18px rgba(29, 57, 98, 0.12);
+}
+
 .metrics-grid {
     margin-top: 28px;
     display: grid;
@@ -218,6 +244,31 @@ tbody tr:last-child td {
 .table-input:focus {
     outline: 2px solid rgba(77, 132, 239, 0.28);
     border-color: #4d84ef;
+}
+
+.order-table-shell {
+    max-height: 70vh;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.status-badge.is-ok {
+    background: #d9f7df;
+    color: #1f7a36;
+}
+
+.status-badge.is-warning {
+    background: #fde1de;
+    color: #a83324;
 }
 
 @media (max-width: 900px) {

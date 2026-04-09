@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 from dotenv import load_dotenv
 from snowflake.snowpark import Session
 
-from src.api.schemas import CenterSummaryRow, DashboardMetrics, DashboardResponse, ScenarioRow
+from src.api.schemas import CenterSummaryRow, DashboardMetrics, DashboardResponse, OrderRow, ScenarioRow
 from src.simulation import (
     OrderCandidate,
     OrderDemand,
@@ -21,6 +21,7 @@ from src.simulation import (
 )
 from src.simulation.domain import StaticPreparedSimulationData
 from src.streamlit.scenario_editor import (
+    apply_simulation_result_to_analysis,
     build_center_scenarios,
     build_center_summary_frame,
     build_initial_scenario_frame,
@@ -177,6 +178,12 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
         how="left",
         validate="one_to_one",
     )
+    order_plot_df = (
+        apply_simulation_result_to_analysis(static_data.analysis_df, simulation_result)
+        .drop_duplicates(subset=["ORDER_ID"])
+        .sort_values(by=["ORDER_ID"])
+        .reset_index(drop=True)
+    )
 
     total_cost = simulation_result.total_cost
     total_orders = len(simulation_result.assignments)
@@ -207,6 +214,18 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
                 total_cost=float(row["total_cost"]),
             )
             for row in center_summary_df.to_dict(orient="records")
+        ],
+        order_rows=[
+            OrderRow(
+                order_id=str(row["ORDER_ID"]),
+                assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
+                assignment_status=str(row["ASSIGNMENT_STATUS"]),
+                fallback_center_name=str(row.get("FALLBACK_CENTER_NAME", "") or ""),
+                simulated_cost=float(row["SIMULATED_COST"]),
+                simulated_distance_km=float(row["SIMULATED_DISTANCE_KM"]),
+                weight_kg=float(row["WEIGHT_KG"]),
+            )
+            for row in order_plot_df.to_dict(orient="records")
         ],
         metrics=DashboardMetrics(
             total_cost=total_cost,

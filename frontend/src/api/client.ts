@@ -32,9 +32,20 @@ export type CenterSummaryRow = {
     total_cost: number;
 };
 
+export type OrderRow = {
+    order_id: string;
+    assigned_center_name: string;
+    assignment_status: string;
+    fallback_center_name: string;
+    simulated_cost: number;
+    simulated_distance_km: number;
+    weight_kg: number;
+};
+
 export type DashboardResponse = {
     scenario_rows: ScenarioRow[];
     center_summary_rows: CenterSummaryRow[];
+    order_rows: OrderRow[];
     metrics: DashboardMetrics;
 };
 
