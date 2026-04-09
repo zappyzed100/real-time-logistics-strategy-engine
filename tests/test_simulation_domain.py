@@ -78,6 +78,25 @@ def test_simulate_assignments_prefers_high_density_center_first_on_tie():
     assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost
 
 
+def test_simulate_assignments_uses_distance_rank_order_within_center():
+    options = SimulationOptions(orders_per_staff=1)
+    centers = [CenterScenario("1", "Alpha", 35.0, 139.0, 1.0, 1, 0)]
+    orders = [
+        OrderDemand("O1", 35.0, 139.0, 1.0, 1),
+        OrderDemand("O2", 35.0, 139.0, 1.0, 1),
+    ]
+    candidates = [
+        OrderCandidate("O2", "1", "Alpha", 5.0, 100.0, 1.0, center_candidate_rank=2, order_candidate_rank=1),
+        OrderCandidate("O1", "1", "Alpha", 1.0, 300.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
+
+    assert [assignment.center_name for assignment in result.assignments] == [None, "Alpha"]
+    assert result.assignments[1].delivery_cost == 100.0
+    assert result.unassigned_order_count == 1
+
+
 def test_simulate_assignments_uses_staffing_round_increment_chunks():
     options = SimulationOptions(orders_per_staff=2, staffing_round_increment=2)
     centers = [
