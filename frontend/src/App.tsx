@@ -98,7 +98,7 @@ function App() {
             setDashboardData(nextDashboardData);
             setScenarioRows(nextDashboardData.scenario_rows);
         } catch (error: unknown) {
-            if (isAbortError(error)) {
+            if (abortController.signal.aborted || simulateRequestIdRef.current !== requestId || isAbortError(error)) {
                 return;
             }
             setErrorMessage(error instanceof Error ? error.message : "unknown error");
@@ -127,7 +127,7 @@ function App() {
         );
     }
 
-    function applyFixedCostChange(centerId: string, centerName: string, nextFixedCost: number) {
+    function applyFixedCostChange(centerId: string, centerName: string, staffingLevel: number, nextFixedCost: number) {
         setDashboardData((currentData) => {
             if (!currentData) {
                 return currentData;
@@ -138,10 +138,20 @@ function App() {
                 return currentData;
             }
 
-            const fixedCostDelta = nextFixedCost - previousScenarioRow.fixed_cost;
-            if (fixedCostDelta === 0) {
+            const effectivePreviousFixedCost = getEffectiveFixedCost({
+                staffing_level: staffingLevel,
+                fixed_cost: previousScenarioRow.fixed_cost,
+            });
+            const effectiveNextFixedCost = getEffectiveFixedCost({
+                staffing_level: staffingLevel,
+                fixed_cost: nextFixedCost,
+            });
+
+            if (previousScenarioRow.fixed_cost === nextFixedCost) {
                 return currentData;
             }
+
+            const fixedCostDelta = effectiveNextFixedCost - effectivePreviousFixedCost;
 
             return {
                 ...currentData,
@@ -152,7 +162,7 @@ function App() {
                     row.center_name === centerName
                         ? {
                             ...row,
-                            fixed_cost: nextFixedCost,
+                            fixed_cost: effectiveNextFixedCost,
                             total_cost: row.total_cost + fixedCostDelta,
                         }
                         : row,
@@ -191,6 +201,7 @@ function App() {
         centerId: string,
         centerName: string,
         field: "staffing_level" | "fixed_cost",
+        staffingLevel: number,
         currentValue: number,
     ) {
         const fieldId = getScenarioFieldId(centerId, field);
@@ -198,7 +209,7 @@ function App() {
         const nextValue = normalizeScenarioValue(field, draftValue);
         handleScenarioNumberChange(centerId, field, nextValue);
         if (field === "fixed_cost" && nextValue !== currentValue) {
-            applyFixedCostChange(centerId, centerName, nextValue);
+            applyFixedCostChange(centerId, centerName, staffingLevel, nextValue);
         }
         setScenarioDraftValues((currentDrafts) => {
             const nextDrafts = { ...currentDrafts };
@@ -338,7 +349,7 @@ function App() {
                                                     value={getScenarioDraftValue(scenarioDraftValues, row, "staffing_level")}
                                                     onFocus={() => handleScenarioFieldFocus(row.center_id, "staffing_level", row.staffing_level)}
                                                     onChange={(event) => handleScenarioFieldChange(row.center_id, "staffing_level", event.target.value)}
-                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "staffing_level", row.staffing_level)}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "staffing_level", row.staffing_level, row.staffing_level)}
                                                     onKeyDown={(event) => {
                                                         if (event.key === "Enter") {
                                                             event.currentTarget.blur();
@@ -353,7 +364,7 @@ function App() {
                                                     value={getScenarioDraftValue(scenarioDraftValues, row, "fixed_cost")}
                                                     onFocus={() => handleScenarioFieldFocus(row.center_id, "fixed_cost", row.fixed_cost)}
                                                     onChange={(event) => handleScenarioFieldChange(row.center_id, "fixed_cost", event.target.value)}
-                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "fixed_cost", row.fixed_cost)}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, row.center_name, "fixed_cost", row.staffing_level, row.fixed_cost)}
                                                     onKeyDown={(event) => {
                                                         if (event.key === "Enter") {
                                                             event.currentTarget.blur();
@@ -377,7 +388,7 @@ function App() {
                                         </article>
                                         <article className="metric-card">
                                             <span className="metric-label">固定費合計</span>
-                                            <strong>{formatCurrency(sumScenarioValues(scenarioRows, "fixed_cost"))}</strong>
+                                            <strong>{formatCurrency(sumEffectiveFixedCosts(scenarioRows))}</strong>
                                         </article>
                                         <article className="metric-card">
                                             <span className="metric-label">人件費合計</span>
@@ -669,6 +680,10 @@ function sumScenarioValues(rows: ScenarioRow[], field: "staffing_level" | "fixed
     return rows.reduce((total, row) => total + row[field], 0);
 }
 
+function sumEffectiveFixedCosts(rows: ScenarioRow[]): number {
+    return rows.reduce((total, row) => total + getEffectiveFixedCost(row), 0);
+}
+
 function getCostBarWidth(totalCost: number, rows: DashboardResponse["center_summary_rows"]): number {
     const maxCost = rows.reduce((currentMax, row) => Math.max(currentMax, row.total_cost), 0);
     if (maxCost <= 0) {
@@ -692,8 +707,15 @@ function normalizeScenarioValue(field: "staffing_level" | "fixed_cost", value: s
     return field === "staffing_level" ? Math.round(nextValue) : nextValue;
 }
 
+function getEffectiveFixedCost(row: Pick<ScenarioRow, "staffing_level" | "fixed_cost">): number {
+    return row.staffing_level <= 0 ? 0 : row.fixed_cost;
+}
+
 function isAbortError(error: unknown): boolean {
-    return error instanceof DOMException && error.name === "AbortError";
+    return (
+        (error instanceof DOMException && error.name === "AbortError")
+        || (error instanceof Error && (error.name === "AbortError" || error.message === "Failed to fetch"))
+    );
 }
 
 function getAssignmentSignature(rows: ScenarioRow[]): string {

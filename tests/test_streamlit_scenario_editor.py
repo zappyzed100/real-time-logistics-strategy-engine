@@ -64,6 +64,26 @@ def test_sanitize_scenario_frame_clamps_invalid_values():
     assert sanitized_df.loc[0, "fixed_cost"] == 0.0
 
 
+def test_sanitize_scenario_frame_preserves_fixed_cost_when_staffing_is_zero():
+    scenario_df = pd.DataFrame(
+        {
+            "center_id": ["1"],
+            "center_name": ["Tokyo"],
+            "center_lat": [35.68],
+            "center_lon": [139.76],
+            "shipping_cost": [1.5],
+            "baseline_order_count": [10],
+            "staffing_level": [0],
+            "fixed_cost": [350000.0],
+        }
+    )
+
+    sanitized_df = sanitize_scenario_frame(scenario_df)
+
+    assert sanitized_df.loc[0, "staffing_level"] == 0
+    assert sanitized_df.loc[0, "fixed_cost"] == 350000.0
+
+
 def test_merge_scenario_frame_preserves_existing_editable_values():
     initial_df = pd.DataFrame(
         {

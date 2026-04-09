@@ -126,7 +126,29 @@ def test_simulate_assignments_marks_unassigned_orders_with_penalty_cost():
     assert result.unassigned_order_count == 1
     assert result.unassigned_total_cost == result.total_variable_cost
     assert result.total_labor_cost == 0.0
+    assert result.total_fixed_cost == 0.0
     assert result.total_cost == result.total_fixed_cost + result.total_labor_cost + result.total_variable_cost
+
+
+def test_simulate_assignments_does_not_charge_fixed_cost_when_staffing_is_zero():
+    options = SimulationOptions(orders_per_staff=1)
+    centers = [
+        CenterScenario("13", "東京", 35.0, 139.0, 1.0, 0, 500),
+        CenterScenario("27", "大阪", 35.0, 139.0, 1.2, 1, 700),
+    ]
+    orders = [OrderDemand("O1", 35.0, 139.0, 1.0, 1)]
+    candidates = [
+        OrderCandidate("O1", "27", "大阪", 1.0, 120.0, 1.0, center_candidate_rank=1, order_candidate_rank=1),
+        OrderCandidate("O1", "13", "東京", 2.0, 200.0, 1.0, center_candidate_rank=1, order_candidate_rank=2),
+    ]
+
+    result = simulate_assignments(orders=orders, centers=centers, candidates=candidates, options=options)
+
+    assert result.total_fixed_cost == 700
+    assert result.center_summaries[0].fixed_cost == 700
+    assert result.center_summaries[0].center_name == "大阪"
+    zero_staff_summary = next(summary for summary in result.center_summaries if summary.center_name == "東京")
+    assert zero_staff_summary.fixed_cost == 0.0
 
 
 def test_simulate_assignments_uses_precomputed_ranked_candidates_without_re_sorting():
