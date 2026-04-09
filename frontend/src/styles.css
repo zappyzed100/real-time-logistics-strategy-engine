@@ -1,0 +1,105 @@
+:root {
+    color-scheme: light;
+    font-family: "IBM Plex Sans JP", "Noto Sans JP", sans-serif;
+    background:
+        radial-gradient(circle at top left, rgba(211, 230, 255, 0.8), transparent 35%),
+        linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
+    color: #0b1a2b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+}
+
+#root {
+    min-height: 100vh;
+}
+
+.app-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+}
+
+.hero-card {
+    width: min(760px, 100%);
+    padding: 40px;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.84);
+    box-shadow: 0 24px 80px rgba(25, 60, 110, 0.12);
+    border: 1px solid rgba(84, 115, 158, 0.16);
+    backdrop-filter: blur(16px);
+}
+
+.eyebrow {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2d6cdf;
+}
+
+h1 {
+    margin: 0;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.05;
+}
+
+.lead {
+    margin: 18px 0 0;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: #39506d;
+}
+
+.status-row {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.status-label {
+    font-size: 0.95rem;
+    color: #46617f;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: lowercase;
+}
+
+.status-ok {
+    background: #d9f7df;
+    color: #1f7a36;
+}
+
+.status-loading {
+    background: #e3ebf7;
+    color: #37557c;
+}
+
+.status-error {
+    background: #fde1de;
+    color: #a83324;
+}
+
+.error-text {
+    margin-top: 16px;
+    color: #a83324;
+    font-size: 0.95rem;
+}
