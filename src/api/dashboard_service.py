@@ -148,12 +148,12 @@ def _calculate_map_colors(plot_df: pd.DataFrame) -> pd.DataFrame:
     colored_df["COLOR_R"] = 0
     colored_df["COLOR_G"] = 0
     colored_df["COLOR_B"] = 0
-    colored_df.loc[low_band, "COLOR_R"] = 30
-    colored_df.loc[low_band, "COLOR_G"] = (140 + normalized_cost[low_band] * 180).astype(int)
-    colored_df.loc[low_band, "COLOR_B"] = (220 - normalized_cost[low_band] * 220).astype(int)
-    colored_df.loc[~low_band, "COLOR_R"] = ((normalized_cost[~low_band] - 0.5) * 400 + 30).clip(0, 255).astype(int)
-    colored_df.loc[~low_band, "COLOR_G"] = 230
-    colored_df.loc[~low_band, "COLOR_B"] = 0
+    colored_df.loc[low_band, "COLOR_R"] = (34 + normalized_cost[low_band] * 28).astype(int)
+    colored_df.loc[low_band, "COLOR_G"] = (94 + normalized_cost[low_band] * 104).astype(int)
+    colored_df.loc[low_band, "COLOR_B"] = (168 + (0.5 - normalized_cost[low_band]) * 96).astype(int)
+    colored_df.loc[~low_band, "COLOR_R"] = (62 + (normalized_cost[~low_band] - 0.5) * 356).clip(0, 255).astype(int)
+    colored_df.loc[~low_band, "COLOR_G"] = (198 + (0.5 - normalized_cost[~low_band]) * 120).clip(120, 220).astype(int)
+    colored_df.loc[~low_band, "COLOR_B"] = (120 - (normalized_cost[~low_band] - 0.5) * 240).clip(0, 120).astype(int)
     colored_df.loc[colored_df["IS_UNASSIGNED"], ["COLOR_R", "COLOR_G", "COLOR_B"]] = [220, 38, 38]
     return colored_df
 

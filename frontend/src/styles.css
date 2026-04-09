@@ -539,11 +539,11 @@ tbody tr:last-child td {
 }
 
 .legend-dot.is-low-cost {
-    background: #2e7fe8;
+    background: #2f6eb8;
 }
 
 .legend-dot.is-high-cost {
-    background: #f3c623;
+    background: #f59e0b;
 }
 
 .legend-dot.is-unassigned {
@@ -551,7 +551,7 @@ tbody tr:last-child td {
 }
 
 .legend-dot.is-center {
-    background: #173252;
+    background: rgba(18, 122, 142, 0.75);
 }
 
 .map-legend-metrics {
