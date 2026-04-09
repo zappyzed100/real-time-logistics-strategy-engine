@@ -70,7 +70,7 @@ function App() {
         };
     }, []);
 
-    async function handleSimulate(nextScenarioRows: ScenarioRow[]) {
+    async function handleSimulate(nextScenarioRows: ScenarioRow[], options?: { includeOrderRows?: boolean }) {
         const syncStartTime = performance.now();
         const requestId = simulateRequestIdRef.current + 1;
         const abortController = new AbortController();
@@ -82,7 +82,10 @@ function App() {
         try {
             setIsSimulating(true);
             setErrorMessage(null);
-            const nextDashboardData = await simulateDashboard(nextScenarioRows, abortController.signal);
+            const nextDashboardData = await simulateDashboard(nextScenarioRows, {
+                signal: abortController.signal,
+                includeOrderRows: options?.includeOrderRows,
+            });
             if (simulateRequestIdRef.current !== requestId) {
                 return;
             }
@@ -212,13 +215,21 @@ function App() {
         }
 
         const timeoutId = window.setTimeout(() => {
-            void handleSimulate(scenarioRows);
+            void handleSimulate(scenarioRows, { includeOrderRows: displayMode === "orders" });
         }, 250);
 
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [focusedScenarioFieldId, scenarioRows]);
+    }, [displayMode, focusedScenarioFieldId, scenarioRows]);
+
+    useEffect(() => {
+        if (displayMode !== "orders" || !dashboardData || dashboardData.order_rows.length > 0 || isSimulating) {
+            return;
+        }
+
+        void handleSimulate(scenarioRows, { includeOrderRows: true });
+    }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {
         setOrderPage(1);

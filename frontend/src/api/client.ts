@@ -96,14 +96,20 @@ export async function fetchDashboardBootstrap(): Promise<DashboardResponse> {
 }
 
 
-export async function simulateDashboard(scenarioRows: ScenarioRow[], signal?: AbortSignal): Promise<DashboardResponse> {
+export async function simulateDashboard(
+    scenarioRows: ScenarioRow[],
+    options?: { signal?: AbortSignal; includeOrderRows?: boolean },
+): Promise<DashboardResponse> {
     const response = await fetch("/api/dashboard/simulate", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        signal,
-        body: JSON.stringify({ scenario_rows: scenarioRows }),
+        signal: options?.signal,
+        body: JSON.stringify({
+            scenario_rows: scenarioRows,
+            include_order_rows: options?.includeOrderRows ?? true,
+        }),
     });
 
     if (!response.ok) {

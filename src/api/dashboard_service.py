@@ -182,7 +182,7 @@ def get_static_dashboard_data() -> DashboardStaticData:
     )
 
 
-def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
+def _build_dashboard_response(scenario_df: pd.DataFrame, include_order_rows: bool = True) -> DashboardResponse:
     static_data = get_static_dashboard_data()
     sanitized_scenario_df = sanitize_scenario_frame(scenario_df)
     centers = build_center_scenarios(sanitized_scenario_df)
@@ -265,18 +265,22 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
             )
             for row in center_summary_df.to_dict(orient="records")
         ],
-        order_rows=[
-            OrderRow(
-                order_id=str(row["ORDER_ID"]),
-                assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
-                assignment_status=str(row["ASSIGNMENT_STATUS"]),
-                fallback_center_name=str(row.get("FALLBACK_CENTER_NAME", "") or ""),
-                simulated_cost=float(row["SIMULATED_COST"]),
-                simulated_distance_km=float(row["SIMULATED_DISTANCE_KM"]),
-                weight_kg=float(row["WEIGHT_KG"]),
-            )
-            for row in order_plot_df.to_dict(orient="records")
-        ],
+        order_rows=(
+            [
+                OrderRow(
+                    order_id=str(row["ORDER_ID"]),
+                    assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
+                    assignment_status=str(row["ASSIGNMENT_STATUS"]),
+                    fallback_center_name=str(row.get("FALLBACK_CENTER_NAME", "") or ""),
+                    simulated_cost=float(row["SIMULATED_COST"]),
+                    simulated_distance_km=float(row["SIMULATED_DISTANCE_KM"]),
+                    weight_kg=float(row["WEIGHT_KG"]),
+                )
+                for row in order_plot_df.to_dict(orient="records")
+            ]
+            if include_order_rows
+            else []
+        ),
         map_order_rows=[
             MapOrderRow(
                 order_id=str(row["ORDER_ID"]),
@@ -320,8 +324,8 @@ def get_dashboard_bootstrap() -> DashboardResponse:
     return _build_dashboard_response(static_data.initial_scenario_df)
 
 
-def simulate_dashboard(scenario_rows: list[ScenarioRow]) -> DashboardResponse:
+def simulate_dashboard(scenario_rows: list[ScenarioRow], include_order_rows: bool = True) -> DashboardResponse:
     static_data = get_static_dashboard_data()
     editable_scenario_df = pd.DataFrame([row.model_dump() for row in scenario_rows])
     scenario_df = merge_scenario_frame(existing_df=editable_scenario_df, initial_df=static_data.initial_scenario_df)
-    return _build_dashboard_response(scenario_df)
+    return _build_dashboard_response(scenario_df, include_order_rows=include_order_rows)

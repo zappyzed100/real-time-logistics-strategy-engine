@@ -75,3 +75,4 @@ class DashboardResponse(BaseModel):
 
 class SimulationRequest(BaseModel):
     scenario_rows: list[ScenarioRow]
+    include_order_rows: bool = True
