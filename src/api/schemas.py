@@ -63,6 +63,8 @@ class MapCenterRow(BaseModel):
     center_lon: float
     staffing_level: int
     fixed_cost: float
+    assigned_order_count: int
+    delivery_radius_km: float
 
 
 class DashboardResponse(BaseModel):

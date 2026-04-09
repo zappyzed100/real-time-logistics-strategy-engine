@@ -1,6 +1,6 @@
 import L from "leaflet";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { memo, useEffect, useMemo, useState } from "react";
+import { Circle, GeoJSON, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapCenterRow, MapOrderRow } from "../api/client.js";
 
 type SimulationMapProps = {
@@ -12,7 +12,6 @@ type SimulationMapProps = {
 
 export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows, selectedOrderId, selectedOrder }: SimulationMapProps) {
     const [zoomLevel, setZoomLevel] = useState<number>(5);
-    const orderLayerRef = useRef<L.GeoJSON | null>(null);
     const orderFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
         () => ({
             type: "FeatureCollection",
@@ -29,52 +28,6 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
         }),
         [orderRows],
     );
-
-    const centerFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
-        () => ({
-            type: "FeatureCollection",
-            features: centerRows.map((row) => ({
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [row.center_lon, row.center_lat],
-                },
-                properties: {
-                    ...row,
-                },
-            })),
-        }),
-        [centerRows],
-    );
-
-    useEffect(() => {
-        const orderLayer = orderLayerRef.current;
-        if (!orderLayer) {
-            return;
-        }
-
-        orderLayer.eachLayer((layer) => {
-            if (!(layer instanceof L.CircleMarker)) {
-                return;
-            }
-
-            const properties = layer.feature?.properties as MapOrderRow | undefined;
-            if (!properties) {
-                return;
-            }
-
-            const isSelected = properties.order_id === selectedOrderId;
-            layer.setRadius(getOrderRadius(properties.weight_kg, zoomLevel, isSelected));
-            layer.setStyle({
-                fillColor: getOrderColor(properties),
-                color: isSelected ? "#111827" : properties.is_unassigned ? "#7f1d1d" : "rgba(11, 26, 43, 0.12)",
-                weight: isSelected ? 2.4 : properties.is_unassigned ? 1.6 : 0.9,
-                opacity: 1,
-                fillOpacity: isSelected ? 1 : properties.is_unassigned ? 0.98 : 0.72,
-            });
-        });
-    }, [orderRows, selectedOrderId, zoomLevel]);
-
     return (
         <div className="map-panel">
             <MapContainer center={[36.2, 138.2]} zoom={5} scrollWheelZoom preferCanvas className="leaflet-map">
@@ -85,16 +38,14 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <GeoJSON
-                    ref={(layer) => {
-                        orderLayerRef.current = layer;
-                    }}
+                    key={`orders-${zoomLevel}-${selectedOrderId ?? "none"}`}
                     data={orderFeatures}
                     pointToLayer={(feature, latlng) => {
                         const properties = feature.properties as MapOrderRow;
                         const isSelected = properties.order_id === selectedOrderId;
 
                         return L.circleMarker(latlng, {
-                            radius: getOrderRadius(properties.weight_kg, zoomLevel, isSelected),
+                            radius: getOrderRadius(zoomLevel, isSelected),
                             fillColor: getOrderColor(properties),
                             color: isSelected ? "#111827" : properties.is_unassigned ? "#7f1d1d" : "rgba(11, 26, 43, 0.12)",
                             weight: isSelected ? 2.4 : properties.is_unassigned ? 1.6 : 0.9,
@@ -114,31 +65,58 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                         );
                     }}
                 />
-                <GeoJSON
-                    data={centerFeatures}
-                    pointToLayer={(feature, latlng) => {
-                        const properties = feature.properties as MapCenterRow;
+                {centerRows.map((centerRow) => {
+                    const assignedOrderCount = getCenterAssignedOrderCount(centerRow);
+                    const deliveryRadiusKm = getCenterDeliveryRadiusKm(centerRow);
+                    const popupContent = (
+                        <>
+                            <strong>拠点:</strong> {centerRow.center_name}<br />
+                            <strong>担当件数:</strong> {assignedOrderCount.toLocaleString("ja-JP")} 件<br />
+                            <strong>配達半径:</strong> {deliveryRadiusKm.toFixed(1)} km<br />
+                            <strong>人員数:</strong> {centerRow.staffing_level.toLocaleString("ja-JP")} 人<br />
+                            <strong>固定費:</strong> ¥{Math.round(centerRow.fixed_cost).toLocaleString("ja-JP")}
+                        </>
+                    );
 
-                        return L.circleMarker(latlng, {
-                            radius: Math.max(9, Math.min(19, 9 + properties.staffing_level * 0.12)),
-                            fillColor: "rgba(18, 122, 142, 0.55)",
-                            color: "rgba(7, 59, 76, 0.95)",
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.78,
-                        });
-                    }}
-                    onEachFeature={(feature, layer) => {
-                        const properties = feature.properties as MapCenterRow;
-                        layer.bindPopup(
-                            [
-                                `<strong>拠点:</strong> ${properties.center_name}`,
-                                `<strong>人員数:</strong> ${properties.staffing_level.toLocaleString("ja-JP")} 人`,
-                                `<strong>固定費:</strong> ¥${Math.round(properties.fixed_cost).toLocaleString("ja-JP")}`,
-                            ].join("<br>"),
-                        );
-                    }}
-                />
+                    return (
+                        deliveryRadiusKm > 0 ? (
+                            <Circle
+                                key={`${centerRow.center_id}-range`}
+                                center={[centerRow.center_lat, centerRow.center_lon]}
+                                radius={deliveryRadiusKm * 1000}
+                                pathOptions={{
+                                    fillColor: "#ea580c",
+                                    color: "#c2410c",
+                                    weight: 2,
+                                    opacity: 0.78,
+                                    fillOpacity: 0.12,
+                                }}
+                            >
+                                <Popup>{popupContent}</Popup>
+                            </Circle>
+                        ) : null
+                    );
+                })}
+                {centerRows.map((centerRow) => {
+                    const assignedOrderCount = getCenterAssignedOrderCount(centerRow);
+                    const deliveryRadiusKm = getCenterDeliveryRadiusKm(centerRow);
+
+                    return (
+                        <Marker
+                            key={`${centerRow.center_id}-marker`}
+                            position={[centerRow.center_lat, centerRow.center_lon]}
+                            icon={getCenterMarkerIcon(centerRow.staffing_level)}
+                        >
+                            <Popup>
+                                <strong>拠点:</strong> {centerRow.center_name}<br />
+                                <strong>担当件数:</strong> {assignedOrderCount.toLocaleString("ja-JP")} 件<br />
+                                <strong>配達半径:</strong> {deliveryRadiusKm.toFixed(1)} km<br />
+                                <strong>人員数:</strong> {centerRow.staffing_level.toLocaleString("ja-JP")} 人<br />
+                                <strong>固定費:</strong> ¥{Math.round(centerRow.fixed_cost).toLocaleString("ja-JP")}
+                            </Popup>
+                        </Marker>
+                    );
+                })}
             </MapContainer>
         </div>
     );
@@ -171,9 +149,7 @@ function SelectedOrderViewport({ selectedOrder }: { selectedOrder?: MapOrderRow 
     return null;
 }
 
-function getOrderRadius(weightKg: number, zoomLevel: number, isSelected: boolean): number {
-    void weightKg;
-
+function getOrderRadius(zoomLevel: number, isSelected: boolean): number {
     if (zoomLevel <= 5) {
         return isSelected ? 4.5 : 3;
     }
@@ -191,4 +167,26 @@ function getAssignedCenterDisplayText(row: MapOrderRow): string {
     }
 
     return "未割当";
+}
+
+function getCenterAssignedOrderCount(row: MapCenterRow): number {
+    const value = (row as MapCenterRow & { assigned_order_count?: number }).assigned_order_count;
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function getCenterDeliveryRadiusKm(row: MapCenterRow): number {
+    const value = (row as MapCenterRow & { delivery_radius_km?: number }).delivery_radius_km;
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function getCenterMarkerIcon(staffingLevel: number): L.DivIcon {
+    const diameter = Math.max(14, Math.min(20, 14 + staffingLevel * 0.12));
+
+    return L.divIcon({
+        className: "center-marker-icon",
+        html: `<span style="display:block;width:${diameter}px;height:${diameter}px;border-radius:9999px;background:#9a3412;border:2px solid #7c2d12;box-shadow:0 0 0 2px rgba(255,255,255,0.9);"></span>`,
+        iconSize: [diameter, diameter],
+        iconAnchor: [diameter / 2, diameter / 2],
+        popupAnchor: [0, -diameter / 2],
+    });
 }
