@@ -346,7 +346,7 @@ h1 {
 
 .table-toolbar {
     display: grid;
-    grid-template-columns: minmax(240px, 1.3fr) repeat(2, minmax(180px, 0.7fr));
+    grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(160px, 0.6fr));
     gap: 12px;
     margin-bottom: 14px;
 }
@@ -417,6 +417,30 @@ tbody tr:last-child td {
 .table-select:focus {
     outline: 2px solid rgba(77, 132, 239, 0.28);
     border-color: #4d84ef;
+}
+
+.pagination-row {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.secondary-button {
+    border: 1px solid rgba(84, 115, 158, 0.24);
+    border-radius: 999px;
+    padding: 8px 14px;
+    background: white;
+    color: #173252;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.secondary-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
 }
 
 .order-table-shell {

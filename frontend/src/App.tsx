@@ -11,6 +11,7 @@ import { SimulationMap } from "./components/SimulationMap";
 
 type DisplayMode = "dashboard" | "orders";
 type OrderSortKey = "simulated_cost" | "simulated_distance_km" | "weight_kg" | "order_id";
+const ORDER_PAGE_SIZE = 100;
 
 function App() {
     const [healthStatus, setHealthStatus] = useState<string>("loading");
@@ -22,6 +23,8 @@ function App() {
     const [orderSearchText, setOrderSearchText] = useState<string>("");
     const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "割当済" | "未割当">("all");
     const [orderSortKey, setOrderSortKey] = useState<OrderSortKey>("simulated_cost");
+    const [orderCenterFilter, setOrderCenterFilter] = useState<string>("all");
+    const [orderPage, setOrderPage] = useState<number>(1);
     const hasBootstrappedRef = useRef<boolean>(false);
     const lastSimulatedSignatureRef = useRef<string>("");
 
@@ -104,13 +107,25 @@ function App() {
         };
     }, [scenarioRows]);
 
+    useEffect(() => {
+        setOrderPage(1);
+    }, [orderSearchText, orderStatusFilter, orderSortKey, orderCenterFilter]);
+
     const filteredOrderRows = dashboardData
         ? getFilteredOrderRows(dashboardData.order_rows, {
             searchText: orderSearchText,
             statusFilter: orderStatusFilter,
             sortKey: orderSortKey,
+            centerFilter: orderCenterFilter,
         })
         : [];
+    const orderPageCount = Math.max(1, Math.ceil(filteredOrderRows.length / ORDER_PAGE_SIZE));
+    const currentOrderPage = Math.min(orderPage, orderPageCount);
+    const paginatedOrderRows = filteredOrderRows.slice(
+        (currentOrderPage - 1) * ORDER_PAGE_SIZE,
+        currentOrderPage * ORDER_PAGE_SIZE,
+    );
+    const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
 
     return (
         <main className="app-shell">
@@ -327,7 +342,7 @@ function App() {
                             <section className="data-section">
                                 <div className="section-heading">
                                     <h2>注文別データ一覧</h2>
-                                    <span>{formatInteger(filteredOrderRows.length)} 件</span>
+                                    <span>{formatInteger(filteredOrderRows.length)} 件 / {formatInteger(currentOrderPage)} ページ</span>
                                 </div>
                                 <div className="table-toolbar">
                                     <label className="toolbar-field search-field">
@@ -352,6 +367,19 @@ function App() {
                                             <option value="all">すべて</option>
                                             <option value="割当済">割当済</option>
                                             <option value="未割当">未割当</option>
+                                        </select>
+                                    </label>
+                                    <label className="toolbar-field">
+                                        <span>担当拠点</span>
+                                        <select
+                                            className="table-select"
+                                            value={orderCenterFilter}
+                                            onChange={(event) => setOrderCenterFilter(event.target.value)}
+                                        >
+                                            <option value="all">すべて</option>
+                                            {orderCenterOptions.map((centerName) => (
+                                                <option key={centerName} value={centerName}>{centerName}</option>
+                                            ))}
                                         </select>
                                     </label>
                                     <label className="toolbar-field">
@@ -382,7 +410,7 @@ function App() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredOrderRows.map((row) => (
+                                            {paginatedOrderRows.map((row) => (
                                                 <tr key={row.order_id}>
                                                     <td>{row.order_id}</td>
                                                     <td>{row.assigned_center_name}</td>
@@ -397,6 +425,25 @@ function App() {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="pagination-row">
+                                    <button
+                                        type="button"
+                                        className="secondary-button"
+                                        onClick={() => setOrderPage((current) => Math.max(1, current - 1))}
+                                        disabled={currentOrderPage <= 1}
+                                    >
+                                        前へ
+                                    </button>
+                                    <span>{formatInteger(currentOrderPage)} / {formatInteger(orderPageCount)}</span>
+                                    <button
+                                        type="button"
+                                        className="secondary-button"
+                                        onClick={() => setOrderPage((current) => Math.min(orderPageCount, current + 1))}
+                                        disabled={currentOrderPage >= orderPageCount}
+                                    >
+                                        次へ
+                                    </button>
                                 </div>
                             </section>
                         )}
@@ -468,12 +515,14 @@ function getFilteredOrderRows(
         searchText: string;
         statusFilter: "all" | "割当済" | "未割当";
         sortKey: OrderSortKey;
+        centerFilter: string;
     },
 ): OrderRow[] {
     const normalizedSearchText = options.searchText.trim().toLowerCase();
     const filteredRows = rows.filter((row) => {
         const matchesStatus = options.statusFilter === "all" || row.assignment_status === options.statusFilter;
-        if (!matchesStatus) {
+        const matchesCenter = options.centerFilter === "all" || row.assigned_center_name === options.centerFilter;
+        if (!matchesStatus || !matchesCenter) {
             return false;
         }
 
@@ -494,6 +543,12 @@ function getFilteredOrderRows(
 
         return right[options.sortKey] - left[options.sortKey];
     });
+}
+
+function getOrderCenterOptions(rows: OrderRow[]): string[] {
+    return [...new Set(rows.map((row) => row.assigned_center_name).filter((centerName) => centerName !== ""))].sort((left, right) =>
+        left.localeCompare(right, "ja"),
+    );
 }
 
 export default App;
