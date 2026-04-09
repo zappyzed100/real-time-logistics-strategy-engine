@@ -64,6 +64,8 @@ export type MapCenterRow = {
     center_lon: number;
     staffing_level: number;
     fixed_cost: number;
+    assigned_order_count: number;
+    delivery_radius_km: number;
 };
 
 export type DashboardResponse = {

@@ -236,9 +236,28 @@ def _build_dashboard_response(
     if len(map_order_df) > MAP_SAMPLE_SIZE:
         map_order_df = map_order_df.sample(n=MAP_SAMPLE_SIZE, random_state=0).copy()
     map_order_df = _calculate_map_colors(map_order_df)
+    assigned_center_metrics_df = order_plot_df.loc[
+        (~order_plot_df["IS_UNASSIGNED"].astype(bool)) & order_plot_df["ASSIGNED_CENTER_ID"].notna()
+    ].assign(ASSIGNED_CENTER_ID=lambda df: df["ASSIGNED_CENTER_ID"].astype(str))
+    assigned_center_metrics_df = assigned_center_metrics_df.loc[assigned_center_metrics_df["ASSIGNED_CENTER_ID"] != ""]
+    assigned_center_metrics_df = assigned_center_metrics_df.groupby("ASSIGNED_CENTER_ID", as_index=False).agg(
+        assigned_order_count=("ORDER_ID", "nunique"),
+        delivery_radius_km=("SIMULATED_DISTANCE_KM", "max"),
+    )
+
     map_center_df = sanitized_scenario_df[
         ["center_id", "center_name", "center_lat", "center_lon", "staffing_level", "fixed_cost"]
     ].copy()
+    map_center_df = map_center_df.merge(
+        assigned_center_metrics_df,
+        left_on="center_id",
+        right_on="ASSIGNED_CENTER_ID",
+        how="left",
+    ).drop(columns=["ASSIGNED_CENTER_ID"], errors="ignore")
+    map_center_df["assigned_order_count"] = (
+        pd.to_numeric(map_center_df["assigned_order_count"], errors="coerce").fillna(0).astype(int)
+    )
+    map_center_df["delivery_radius_km"] = pd.to_numeric(map_center_df["delivery_radius_km"], errors="coerce").fillna(0.0)
 
     total_cost = simulation_result.total_cost
     total_orders = len(simulation_result.assignments)
@@ -316,6 +335,8 @@ def _build_dashboard_response(
                     center_lon=float(row["center_lon"]),
                     staffing_level=int(row["staffing_level"]),
                     fixed_cost=float(row["fixed_cost"]),
+                    assigned_order_count=int(row["assigned_order_count"]),
+                    delivery_radius_km=float(row["delivery_radius_km"]),
                 )
                 for row in map_center_df.to_dict(orient="records")
             ]

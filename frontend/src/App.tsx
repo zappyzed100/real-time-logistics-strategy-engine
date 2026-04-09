@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Component, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
     fetchDashboardBootstrap,
     fetchHealth,
@@ -231,10 +231,7 @@ function App() {
         }
 
         const timeoutId = window.setTimeout(() => {
-            void handleSimulate(scenarioRows, {
-                includeOrderRows: displayMode === "orders",
-                includeMapRows: displayMode === "dashboard",
-            });
+            void handleSimulate(scenarioRows);
         }, 250);
 
         return () => {
@@ -247,7 +244,7 @@ function App() {
             return;
         }
 
-        void handleSimulate(scenarioRows, { includeOrderRows: true, includeMapRows: false });
+        void handleSimulate(scenarioRows);
     }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {
@@ -255,7 +252,7 @@ function App() {
             return;
         }
 
-        void handleSimulate(scenarioRows, { includeOrderRows: false, includeMapRows: true });
+        void handleSimulate(scenarioRows);
     }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {
@@ -289,6 +286,9 @@ function App() {
     const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
     const selectedMapOrder = dashboardData?.map_order_rows.find((row) => row.order_id === selectedOrderId) ?? null;
     const scenarioGridStyle = getScenarioGridStyle(scenarioRows, scenarioDraftValues);
+    const sortedCenterSummaryRows = dashboardData
+        ? getSortedCenterSummaryRows(dashboardData.center_summary_rows, scenarioRows)
+        : [];
 
     return (
         <main className="app-shell">
@@ -433,15 +433,15 @@ function App() {
                                         <div className="chart-scroll-shell">
                                             <div
                                                 className="vertical-bar-chart"
-                                                style={{ width: `${Math.max(dashboardData.center_summary_rows.length * 44, 960)}px` }}
+                                                style={{ width: `${Math.max(sortedCenterSummaryRows.length * 44, 960)}px` }}
                                             >
-                                                {dashboardData.center_summary_rows.map((row) => (
+                                                {sortedCenterSummaryRows.map((row) => (
                                                     <div key={row.center_name} className="vertical-bar-item">
                                                         <div className="vertical-bar-value">{formatShortCurrency(row.total_cost)}</div>
                                                         <div className="vertical-bar-track">
                                                             <div
                                                                 className="vertical-bar-fill"
-                                                                style={{ height: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
+                                                                style={{ height: `${getCostBarWidth(row.total_cost, sortedCenterSummaryRows)}%` }}
                                                             />
                                                         </div>
                                                         <div className="vertical-bar-label">{row.center_name}</div>
@@ -460,18 +460,20 @@ function App() {
                                             OpenStreetMap 上に注文データを最大 10,000 件表示します。未割当は赤、低コストは青、高コストは黄です。
                                         </p>
                                         <div className="map-layout is-embedded">
-                                            <SimulationMap
-                                                orderRows={dashboardData.map_order_rows}
-                                                centerRows={dashboardData.map_center_rows}
-                                                selectedOrderId={selectedOrderId}
-                                                selectedOrder={selectedMapOrder}
-                                            />
+                                            <MapErrorBoundary>
+                                                <SimulationMap
+                                                    orderRows={dashboardData.map_order_rows}
+                                                    centerRows={dashboardData.map_center_rows}
+                                                    selectedOrderId={selectedOrderId}
+                                                    selectedOrder={selectedMapOrder}
+                                                />
+                                            </MapErrorBoundary>
                                             <aside className="map-legend">
                                                 <h3>凡例</h3>
                                                 <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
                                                 <p><span className="legend-dot is-high-cost" /> 高コスト注文</p>
                                                 <p><span className="legend-dot is-unassigned" /> 未割当注文</p>
-                                                <p><span className="legend-dot is-center" /> 物流拠点</p>
+                                                <p><span className="legend-dot is-center" /> 拠点の配送範囲</p>
                                                 <div className="map-legend-metrics">
                                                     <span>表示注文数</span>
                                                     <strong>{formatInteger(dashboardData.map_order_rows.length)} 件</strong>
@@ -504,7 +506,7 @@ function App() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {dashboardData.center_summary_rows.map((row) => (
+                                                    {sortedCenterSummaryRows.map((row) => (
                                                         <tr key={row.center_name}>
                                                             <td>{row.center_name}</td>
                                                             <td>{formatInteger(getScenarioRowByCenterName(scenarioRows, row.center_name)?.baseline_order_count ?? 0)}</td>
@@ -737,11 +739,37 @@ function isAbortError(error: unknown): boolean {
 }
 
 function getAssignmentSignature(rows: ScenarioRow[]): string {
-    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level]));
+    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level, row.fixed_cost]));
 }
 
 function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
     return rows.find((row) => row.center_name === centerName);
+}
+
+function getSortedCenterSummaryRows(
+    rows: DashboardResponse["center_summary_rows"],
+    scenarioRows: ScenarioRow[],
+): DashboardResponse["center_summary_rows"] {
+    const centerOrder = new Map(scenarioRows.map((row, index) => [row.center_name, index]));
+
+    return [...rows].sort((left, right) => {
+        const leftOrder = centerOrder.get(left.center_name);
+        const rightOrder = centerOrder.get(right.center_name);
+
+        if (leftOrder !== undefined && rightOrder !== undefined) {
+            return leftOrder - rightOrder;
+        }
+
+        if (leftOrder !== undefined) {
+            return -1;
+        }
+
+        if (rightOrder !== undefined) {
+            return 1;
+        }
+
+        return left.center_name.localeCompare(right.center_name, "ja");
+    });
 }
 
 function getScenarioFieldId(centerId: string, field: "staffing_level" | "fixed_cost"): string {
@@ -875,3 +903,38 @@ function getOrderCenterOptions(rows: OrderRow[]): string[] {
 }
 
 export default App;
+
+type MapErrorBoundaryProps = {
+    children: ReactNode;
+};
+
+type MapErrorBoundaryState = {
+    hasError: boolean;
+};
+
+class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundaryState> {
+    constructor(props: MapErrorBoundaryProps) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(): MapErrorBoundaryState {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: Error): void {
+        console.error("SimulationMap render failed", error);
+    }
+
+    render(): ReactNode {
+        if (this.state.hasError) {
+            return (
+                <div className="map-panel">
+                    <div className="error-text">地図の描画に失敗しました。画面右下の凡例以外は引き続き利用できます。</div>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
