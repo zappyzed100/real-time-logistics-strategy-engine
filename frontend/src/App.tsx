@@ -10,6 +10,7 @@ import {
 import { SimulationMap } from "./components/SimulationMap";
 
 type DisplayMode = "dashboard" | "orders" | "map";
+type OrderSortKey = "simulated_cost" | "simulated_distance_km" | "weight_kg" | "order_id";
 
 function App() {
     const [healthStatus, setHealthStatus] = useState<string>("loading");
@@ -18,6 +19,9 @@ function App() {
     const [scenarioRows, setScenarioRows] = useState<ScenarioRow[]>([]);
     const [isSimulating, setIsSimulating] = useState<boolean>(false);
     const [displayMode, setDisplayMode] = useState<DisplayMode>("dashboard");
+    const [orderSearchText, setOrderSearchText] = useState<string>("");
+    const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "割当済" | "未割当">("all");
+    const [orderSortKey, setOrderSortKey] = useState<OrderSortKey>("simulated_cost");
 
     useEffect(() => {
         let isMounted = true;
@@ -75,6 +79,14 @@ function App() {
             }),
         );
     }
+
+    const filteredOrderRows = dashboardData
+        ? getFilteredOrderRows(dashboardData.order_rows, {
+            searchText: orderSearchText,
+            statusFilter: orderStatusFilter,
+            sortKey: orderSortKey,
+        })
+        : [];
 
     return (
         <main className="app-shell">
@@ -282,7 +294,46 @@ function App() {
                             <section className="data-section">
                                 <div className="section-heading">
                                     <h2>注文別データ一覧</h2>
-                                    <span>{formatInteger(dashboardData.order_rows.length)} 件</span>
+                                    <span>{formatInteger(filteredOrderRows.length)} 件</span>
+                                </div>
+                                <div className="table-toolbar">
+                                    <label className="toolbar-field search-field">
+                                        <span>検索</span>
+                                        <input
+                                            className="table-input"
+                                            type="search"
+                                            value={orderSearchText}
+                                            placeholder="注文ID / 担当拠点"
+                                            onChange={(event) => setOrderSearchText(event.target.value)}
+                                        />
+                                    </label>
+                                    <label className="toolbar-field">
+                                        <span>割当状態</span>
+                                        <select
+                                            className="table-select"
+                                            value={orderStatusFilter}
+                                            onChange={(event) =>
+                                                setOrderStatusFilter(event.target.value as "all" | "割当済" | "未割当")
+                                            }
+                                        >
+                                            <option value="all">すべて</option>
+                                            <option value="割当済">割当済</option>
+                                            <option value="未割当">未割当</option>
+                                        </select>
+                                    </label>
+                                    <label className="toolbar-field">
+                                        <span>並び順</span>
+                                        <select
+                                            className="table-select"
+                                            value={orderSortKey}
+                                            onChange={(event) => setOrderSortKey(event.target.value as OrderSortKey)}
+                                        >
+                                            <option value="simulated_cost">配送コスト順</option>
+                                            <option value="simulated_distance_km">距離順</option>
+                                            <option value="weight_kg">重量順</option>
+                                            <option value="order_id">注文ID順</option>
+                                        </select>
+                                    </label>
                                 </div>
                                 <div className="table-shell order-table-shell">
                                     <table>
@@ -298,7 +349,7 @@ function App() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {dashboardData.order_rows.map((row) => (
+                                            {filteredOrderRows.map((row) => (
                                                 <tr key={row.order_id}>
                                                     <td>{row.order_id}</td>
                                                     <td>{row.assigned_center_name}</td>
@@ -386,6 +437,40 @@ function getCostBarWidth(totalCost: number, rows: DashboardResponse["center_summ
     }
 
     return (totalCost / maxCost) * 100;
+}
+
+function getFilteredOrderRows(
+    rows: OrderRow[],
+    options: {
+        searchText: string;
+        statusFilter: "all" | "割当済" | "未割当";
+        sortKey: OrderSortKey;
+    },
+): OrderRow[] {
+    const normalizedSearchText = options.searchText.trim().toLowerCase();
+    const filteredRows = rows.filter((row) => {
+        const matchesStatus = options.statusFilter === "all" || row.assignment_status === options.statusFilter;
+        if (!matchesStatus) {
+            return false;
+        }
+
+        if (!normalizedSearchText) {
+            return true;
+        }
+
+        return [row.order_id, row.assigned_center_name, row.fallback_center_name]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedSearchText);
+    });
+
+    return [...filteredRows].sort((left, right) => {
+        if (options.sortKey === "order_id") {
+            return left.order_id.localeCompare(right.order_id, "ja");
+        }
+
+        return right[options.sortKey] - left[options.sortKey];
+    });
 }
 
 export default App;
