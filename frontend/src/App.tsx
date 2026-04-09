@@ -289,6 +289,9 @@ function App() {
     const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
     const selectedMapOrder = dashboardData?.map_order_rows.find((row) => row.order_id === selectedOrderId) ?? null;
     const scenarioGridStyle = getScenarioGridStyle(scenarioRows, scenarioDraftValues);
+    const sortedCenterSummaryRows = dashboardData
+        ? getSortedCenterSummaryRows(dashboardData.center_summary_rows, scenarioRows)
+        : [];
 
     return (
         <main className="app-shell">
@@ -433,15 +436,15 @@ function App() {
                                         <div className="chart-scroll-shell">
                                             <div
                                                 className="vertical-bar-chart"
-                                                style={{ width: `${Math.max(dashboardData.center_summary_rows.length * 44, 960)}px` }}
+                                                style={{ width: `${Math.max(sortedCenterSummaryRows.length * 44, 960)}px` }}
                                             >
-                                                {dashboardData.center_summary_rows.map((row) => (
+                                                {sortedCenterSummaryRows.map((row) => (
                                                     <div key={row.center_name} className="vertical-bar-item">
                                                         <div className="vertical-bar-value">{formatShortCurrency(row.total_cost)}</div>
                                                         <div className="vertical-bar-track">
                                                             <div
                                                                 className="vertical-bar-fill"
-                                                                style={{ height: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
+                                                                style={{ height: `${getCostBarWidth(row.total_cost, sortedCenterSummaryRows)}%` }}
                                                             />
                                                         </div>
                                                         <div className="vertical-bar-label">{row.center_name}</div>
@@ -504,7 +507,7 @@ function App() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {dashboardData.center_summary_rows.map((row) => (
+                                                    {sortedCenterSummaryRows.map((row) => (
                                                         <tr key={row.center_name}>
                                                             <td>{row.center_name}</td>
                                                             <td>{formatInteger(getScenarioRowByCenterName(scenarioRows, row.center_name)?.baseline_order_count ?? 0)}</td>
@@ -742,6 +745,32 @@ function getAssignmentSignature(rows: ScenarioRow[]): string {
 
 function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
     return rows.find((row) => row.center_name === centerName);
+}
+
+function getSortedCenterSummaryRows(
+    rows: DashboardResponse["center_summary_rows"],
+    scenarioRows: ScenarioRow[],
+): DashboardResponse["center_summary_rows"] {
+    const centerOrder = new Map(scenarioRows.map((row, index) => [row.center_name, index]));
+
+    return [...rows].sort((left, right) => {
+        const leftOrder = centerOrder.get(left.center_name);
+        const rightOrder = centerOrder.get(right.center_name);
+
+        if (leftOrder !== undefined && rightOrder !== undefined) {
+            return leftOrder - rightOrder;
+        }
+
+        if (leftOrder !== undefined) {
+            return -1;
+        }
+
+        if (rightOrder !== undefined) {
+            return 1;
+        }
+
+        return left.center_name.localeCompare(right.center_name, "ja");
+    });
 }
 
 function getScenarioFieldId(centerId: string, field: "staffing_level" | "fixed_cost"): string {
