@@ -1,6 +1,6 @@
 import L from "leaflet";
 import { memo, useEffect, useMemo, useState } from "react";
-import { Circle, GeoJSON, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, GeoJSON, MapContainer, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapCenterRow, MapOrderRow } from "../api/client.js";
 
 type SimulationMapProps = {
@@ -97,26 +97,6 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                         ) : null
                     );
                 })}
-                {centerRows.map((centerRow) => {
-                    const assignedOrderCount = getCenterAssignedOrderCount(centerRow);
-                    const deliveryRadiusKm = getCenterDeliveryRadiusKm(centerRow);
-
-                    return (
-                        <Marker
-                            key={`${centerRow.center_id}-marker`}
-                            position={[centerRow.center_lat, centerRow.center_lon]}
-                            icon={getCenterMarkerIcon(centerRow.staffing_level)}
-                        >
-                            <Popup>
-                                <strong>拠点:</strong> {centerRow.center_name}<br />
-                                <strong>担当件数:</strong> {assignedOrderCount.toLocaleString("ja-JP")} 件<br />
-                                <strong>配達半径:</strong> {deliveryRadiusKm.toFixed(1)} km<br />
-                                <strong>人員数:</strong> {centerRow.staffing_level.toLocaleString("ja-JP")} 人<br />
-                                <strong>固定費:</strong> ¥{Math.round(centerRow.fixed_cost).toLocaleString("ja-JP")}
-                            </Popup>
-                        </Marker>
-                    );
-                })}
             </MapContainer>
         </div>
     );
@@ -177,16 +157,4 @@ function getCenterAssignedOrderCount(row: MapCenterRow): number {
 function getCenterDeliveryRadiusKm(row: MapCenterRow): number {
     const value = (row as MapCenterRow & { delivery_radius_km?: number }).delivery_radius_km;
     return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function getCenterMarkerIcon(staffingLevel: number): L.DivIcon {
-    const diameter = Math.max(14, Math.min(20, 14 + staffingLevel * 0.12));
-
-    return L.divIcon({
-        className: "center-marker-icon",
-        html: `<span style="display:block;width:${diameter}px;height:${diameter}px;border-radius:9999px;background:#9a3412;border:2px solid #7c2d12;box-shadow:0 0 0 2px rgba(255,255,255,0.9);"></span>`,
-        iconSize: [diameter, diameter],
-        iconAnchor: [diameter / 2, diameter / 2],
-        popupAnchor: [0, -diameter / 2],
-    });
 }

@@ -476,7 +476,7 @@ function App() {
                                                 <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
                                                 <p><span className="legend-dot is-high-cost" /> 高コスト注文</p>
                                                 <p><span className="legend-dot is-unassigned" /> 未割当注文</p>
-                                                <p><span className="legend-dot is-center" /> 物流拠点</p>
+                                                <p><span className="legend-dot is-center" /> 拠点の配送範囲</p>
                                                 <div className="map-legend-metrics">
                                                     <span>表示注文数</span>
                                                     <strong>{formatInteger(dashboardData.map_order_rows.length)} 件</strong>
