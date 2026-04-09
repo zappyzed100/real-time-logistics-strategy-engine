@@ -1,7 +1,7 @@
 import L from "leaflet";
 import { memo, useEffect, useMemo, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import type { MapCenterRow, MapOrderRow } from "../api/client";
+import type { MapCenterRow, MapOrderRow } from "../api/client.js";
 
 type SimulationMapProps = {
     orderRows: MapOrderRow[];

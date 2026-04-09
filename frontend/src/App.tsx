@@ -6,8 +6,8 @@ import {
     type DashboardResponse,
     type OrderRow,
     type ScenarioRow,
-} from "./api/client";
-import { SimulationMap } from "./components/SimulationMap";
+} from "./api/client.js";
+import { SimulationMap } from "./components/SimulationMap.js";
 
 type DisplayMode = "dashboard" | "orders";
 type OrderSortKey = "simulated_cost" | "simulated_distance_km" | "weight_kg" | "order_id";
