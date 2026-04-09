@@ -322,7 +322,7 @@ function App() {
                                     <span>{formatInteger(dashboardData.map_order_rows.length)} 件を表示</span>
                                 </div>
                                 <p className="map-caption">
-                                    OpenStreetMap 上に注文サンプルと拠点を重ねています。未割当は赤、低コストは青、高コストは黄です。
+                                    OpenStreetMap 上に注文データを最大 10,000 件表示します。未割当は赤、低コストは青、高コストは黄です。
                                 </p>
                                 <div className="map-layout">
                                     <SimulationMap orderRows={dashboardData.map_order_rows} centerRows={dashboardData.map_center_rows} />

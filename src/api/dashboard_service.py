@@ -135,6 +135,29 @@ def _get_precomputed_candidate_data(session: Session) -> pd.DataFrame:
     return candidate_df
 
 
+def _calculate_map_colors(plot_df: pd.DataFrame) -> pd.DataFrame:
+    colored_df = plot_df.copy()
+    cost = colored_df["SIMULATED_COST"].astype(float)
+    value_min = float(cost.min())
+    value_max = float(cost.quantile(0.95))
+    if value_max == value_min:
+        value_max = value_min + 1.0
+
+    normalized_cost = ((cost - value_min) / (value_max - value_min)).clip(0, 1)
+    low_band = normalized_cost <= 0.5
+    colored_df["COLOR_R"] = 0
+    colored_df["COLOR_G"] = 0
+    colored_df["COLOR_B"] = 0
+    colored_df.loc[low_band, "COLOR_R"] = 30
+    colored_df.loc[low_band, "COLOR_G"] = (140 + normalized_cost[low_band] * 180).astype(int)
+    colored_df.loc[low_band, "COLOR_B"] = (220 - normalized_cost[low_band] * 220).astype(int)
+    colored_df.loc[~low_band, "COLOR_R"] = ((normalized_cost[~low_band] - 0.5) * 400 + 30).clip(0, 255).astype(int)
+    colored_df.loc[~low_band, "COLOR_G"] = 230
+    colored_df.loc[~low_band, "COLOR_B"] = 0
+    colored_df.loc[colored_df["IS_UNASSIGNED"], ["COLOR_R", "COLOR_G", "COLOR_B"]] = [220, 38, 38]
+    return colored_df
+
+
 @lru_cache(maxsize=1)
 def get_static_dashboard_data() -> DashboardStaticData:
     _load_env_files()
@@ -207,6 +230,7 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
     ).copy()
     if len(map_order_df) > MAP_SAMPLE_SIZE:
         map_order_df = map_order_df.sample(n=MAP_SAMPLE_SIZE, random_state=0).copy()
+    map_order_df = _calculate_map_colors(map_order_df)
     map_center_df = sanitized_scenario_df[
         ["center_id", "center_name", "center_lat", "center_lon", "staffing_level", "fixed_cost"]
     ].copy()
@@ -263,6 +287,9 @@ def _build_dashboard_response(scenario_df: pd.DataFrame) -> DashboardResponse:
                 simulated_cost=float(row["SIMULATED_COST"]),
                 weight_kg=float(row["WEIGHT_KG"]),
                 is_unassigned=bool(row["IS_UNASSIGNED"]),
+                color_r=int(row["COLOR_R"]),
+                color_g=int(row["COLOR_G"]),
+                color_b=int(row["COLOR_B"]),
             )
             for row in map_order_df.to_dict(orient="records")
         ],

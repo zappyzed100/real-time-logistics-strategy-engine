@@ -51,6 +51,9 @@ export type MapOrderRow = {
     simulated_cost: number;
     weight_kg: number;
     is_unassigned: boolean;
+    color_r: number;
+    color_g: number;
+    color_b: number;
 };
 
 export type MapCenterRow = {

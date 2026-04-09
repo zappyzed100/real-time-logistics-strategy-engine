@@ -105,13 +105,5 @@ function getOrderRadius(weightKg: number): number {
 }
 
 function getOrderColor(row: MapOrderRow): string {
-    if (row.is_unassigned) {
-        return "#dc2626";
-    }
-    const normalizedCost = Math.max(0, Math.min(1, row.simulated_cost / 12000));
-    const red = Math.round(30 + normalizedCost * 220);
-    const green = Math.round(150 + (1 - normalizedCost) * 80);
-    const blue = Math.round(220 - normalizedCost * 220);
-
-    return `rgb(${red}, ${green}, ${blue})`;
+    return `rgb(${row.color_r}, ${row.color_g}, ${row.color_b})`;
 }

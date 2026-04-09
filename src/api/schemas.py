@@ -50,6 +50,9 @@ class MapOrderRow(BaseModel):
     simulated_cost: float
     weight_kg: float
     is_unassigned: bool
+    color_r: int
+    color_g: int
+    color_b: int
 
 
 class MapCenterRow(BaseModel):
