@@ -231,10 +231,7 @@ function App() {
         }
 
         const timeoutId = window.setTimeout(() => {
-            void handleSimulate(scenarioRows, {
-                includeOrderRows: displayMode === "orders",
-                includeMapRows: displayMode === "dashboard",
-            });
+            void handleSimulate(scenarioRows);
         }, 250);
 
         return () => {
@@ -247,7 +244,7 @@ function App() {
             return;
         }
 
-        void handleSimulate(scenarioRows, { includeOrderRows: true, includeMapRows: false });
+        void handleSimulate(scenarioRows);
     }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {
@@ -255,7 +252,7 @@ function App() {
             return;
         }
 
-        void handleSimulate(scenarioRows, { includeOrderRows: false, includeMapRows: true });
+        void handleSimulate(scenarioRows);
     }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {
@@ -742,7 +739,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function getAssignmentSignature(rows: ScenarioRow[]): string {
-    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level]));
+    return JSON.stringify(rows.map((row) => [row.center_id, row.staffing_level, row.fixed_cost]));
 }
 
 function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
