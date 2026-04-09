@@ -103,3 +103,96 @@ h1 {
     color: #a83324;
     font-size: 0.95rem;
 }
+
+.metrics-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.metric-card {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: #f7faff;
+    border: 1px solid rgba(84, 115, 158, 0.12);
+}
+
+.metric-card strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1.1rem;
+}
+
+.metric-label {
+    color: #516b88;
+    font-size: 0.85rem;
+}
+
+.data-section {
+    margin-top: 28px;
+}
+
+.section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.section-heading h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.section-heading span {
+    color: #5b748f;
+    font-size: 0.9rem;
+}
+
+.table-shell {
+    overflow-x: auto;
+    border-radius: 20px;
+    border: 1px solid rgba(84, 115, 158, 0.12);
+    background: rgba(255, 255, 255, 0.86);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(84, 115, 158, 0.1);
+    text-align: left;
+    white-space: nowrap;
+}
+
+th {
+    background: #eef4fb;
+    font-size: 0.85rem;
+    color: #58708b;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+@media (max-width: 900px) {
+    .hero-card {
+        padding: 24px;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+}

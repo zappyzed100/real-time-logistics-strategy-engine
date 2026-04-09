@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.dashboard_service import get_dashboard_bootstrap, simulate_dashboard
+from src.api.schemas import DashboardResponse, SimulationRequest
+
 app = FastAPI(title="real-time-logistics-strategy-engine API")
 
 app.add_middleware(
@@ -20,3 +23,13 @@ def root() -> dict[str, str]:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/dashboard/bootstrap", response_model=DashboardResponse)
+def dashboard_bootstrap() -> DashboardResponse:
+    return get_dashboard_bootstrap()
+
+
+@app.post("/dashboard/simulate", response_model=DashboardResponse)
+def dashboard_simulate(request: SimulationRequest) -> DashboardResponse:
+    return simulate_dashboard(request.scenario_rows)
