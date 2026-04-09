@@ -17,17 +17,9 @@ shipping_costs as (
 candidate_costs as (
     select
         o.order_id,
-        o.ordered_at,
-        o.quantity,
-        p.product_name,
-        p.weight_kg,
+        o.prefecture,
         c.center_id,
         c.center_name,
-        sc.shipping_cost,
-        o.customer_lat,
-        o.customer_lon,
-        c.latitude as center_lat,
-        c.longitude as center_lon,
         (
             6371 * 2 * asin(
                 sqrt(

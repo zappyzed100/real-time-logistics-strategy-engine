@@ -8,6 +8,10 @@ models:
         tests:
           - unique
           - not_null
+      - name: prefecture
+        description: "注文の都道府県。orders から引き継ぐ。"
+        tests:
+          - not_null
       - name: delivery_cost
         description: "計算された配送コスト（円）。"
         tests:
@@ -16,6 +20,10 @@ models:
     description: "拠点ごと・注文ごとに順位付けした事前計算済み配送候補。Streamlit の再配賦シミュレーションで利用する。"
     columns:
       - name: order_id
+        tests:
+          - not_null
+      - name: prefecture
+        description: "注文の都道府県。候補テーブルにも保持する。"
         tests:
           - not_null
       - name: center_id
