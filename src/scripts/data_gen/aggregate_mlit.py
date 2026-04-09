@@ -163,12 +163,12 @@ def write_filtered_intermediates() -> None:
             if extract_cols is None:
                 continue
             municipality_col = extract_cols[0]
-            for row in reader:
-                if len(row) <= max(extract_cols):
+            for csv_row in reader:
+                if len(csv_row) <= max(extract_cols):
                     continue
-                if row[municipality_col].strip() not in common:
+                if csv_row[municipality_col].strip() not in common:
                     continue
-                mlit_rows.append([row[col].strip() for col in extract_cols])
+                mlit_rows.append([csv_row[col].strip() for col in extract_cols])
 
     mlit_out = OUT_DIR / "mlit_a_filtered.csv"
     mlit_out.parent.mkdir(parents=True, exist_ok=True)
