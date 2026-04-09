@@ -36,6 +36,8 @@ function App() {
     const [syncDurationMs, setSyncDurationMs] = useState<number | null>(null);
     const hasBootstrappedRef = useRef<boolean>(false);
     const lastSimulatedAssignmentSignatureRef = useRef<string>("");
+    const simulateAbortControllerRef = useRef<AbortController | null>(null);
+    const simulateRequestIdRef = useRef<number>(0);
     const mapSectionRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
@@ -64,24 +66,40 @@ function App() {
 
         return () => {
             isMounted = false;
+            simulateAbortControllerRef.current?.abort();
         };
     }, []);
 
     async function handleSimulate(nextScenarioRows: ScenarioRow[]) {
         const syncStartTime = performance.now();
+        const requestId = simulateRequestIdRef.current + 1;
+        const abortController = new AbortController();
+
+        simulateRequestIdRef.current = requestId;
+        simulateAbortControllerRef.current?.abort();
+        simulateAbortControllerRef.current = abortController;
 
         try {
             setIsSimulating(true);
             setErrorMessage(null);
-            const nextDashboardData = await simulateDashboard(nextScenarioRows);
+            const nextDashboardData = await simulateDashboard(nextScenarioRows, abortController.signal);
+            if (simulateRequestIdRef.current !== requestId) {
+                return;
+            }
             setSyncDurationMs(Math.round(performance.now() - syncStartTime));
             lastSimulatedAssignmentSignatureRef.current = getAssignmentSignature(nextDashboardData.scenario_rows);
             setDashboardData(nextDashboardData);
             setScenarioRows(nextDashboardData.scenario_rows);
         } catch (error: unknown) {
+            if (isAbortError(error)) {
+                return;
+            }
             setErrorMessage(error instanceof Error ? error.message : "unknown error");
         } finally {
-            setIsSimulating(false);
+            if (simulateRequestIdRef.current === requestId) {
+                setIsSimulating(false);
+                simulateAbortControllerRef.current = null;
+            }
         }
     }
 
@@ -646,6 +664,10 @@ function normalizeScenarioValue(field: "staffing_level" | "fixed_cost", value: s
     const numericValue = Number(value);
     const nextValue = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
     return field === "staffing_level" ? Math.round(nextValue) : nextValue;
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof DOMException && error.name === "AbortError";
 }
 
 function getAssignmentSignature(rows: ScenarioRow[]): string {

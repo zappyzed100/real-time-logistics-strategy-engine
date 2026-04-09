@@ -96,12 +96,13 @@ export async function fetchDashboardBootstrap(): Promise<DashboardResponse> {
 }
 
 
-export async function simulateDashboard(scenarioRows: ScenarioRow[]): Promise<DashboardResponse> {
+export async function simulateDashboard(scenarioRows: ScenarioRow[], signal?: AbortSignal): Promise<DashboardResponse> {
     const response = await fetch("/api/dashboard/simulate", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
+        signal,
         body: JSON.stringify({ scenario_rows: scenarioRows }),
     });
 
