@@ -1,5 +1,14 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+
+def sync_estat_lite(filtered_path: str, lite_path: str) -> None:
+    filtered = pd.read_csv(filtered_path)
+    Path(lite_path).parent.mkdir(parents=True, exist_ok=True)
+    filtered.to_csv(lite_path, index=False, encoding="utf-8-sig")
+    print(f"ファイルを作成しました: {lite_path} (行数: {len(filtered)})")
 
 
 def create_mlit_a_lite(b_file_path: str, m_file_path: str, output_path: str) -> None:
@@ -62,8 +71,10 @@ def create_mlit_a_lite(b_file_path: str, m_file_path: str, output_path: str) -> 
 
 
 if __name__ == "__main__":
+    b_01_01_filtered_path = "data/02_intermediate/estat/b01_01_filtered.csv"
     b_01_01_lite_path = "data/02_intermediate/estat/b01_01_lite.csv"
     mlint_a_lite_path = "data/02_intermediate/mlit/mlit_a_lite.csv"
     mlint_filtered_path = "data/02_intermediate/mlit/mlit_a_filtered.csv"
 
+    sync_estat_lite(b_01_01_filtered_path, b_01_01_lite_path)
     create_mlit_a_lite(b_01_01_lite_path, mlint_filtered_path, mlint_a_lite_path)

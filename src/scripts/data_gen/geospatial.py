@@ -15,7 +15,8 @@ JITTER_METERS = 500.0
 DatasetMode = Literal["lite", "strict"]
 LocationPoint = tuple[float, float, str, str]
 WeightedContext = tuple[list[str], list[int], int]
-GenerationContext = tuple[list[str], list[int], int, dict[str, list[LocationPoint]]]
+PrefectureByMunicipality = dict[str, str]
+GenerationContext = tuple[list[str], list[int], int, dict[str, list[LocationPoint]], PrefectureByMunicipality]
 
 DATASET_PATHS: dict[DatasetMode, tuple[Path, Path]] = {
     "lite": (
@@ -55,25 +56,42 @@ def load_weighted_municipalities(csv_path: Path) -> WeightedContext:
     households: list[int] = []
 
     with open(csv_path, encoding="utf-8-sig", newline="") as file_obj:
-        reader = csv.reader(file_obj)
-        next(reader, None)
+        reader = csv.DictReader(file_obj)
         for row in reader:
-            if len(row) < 3:
+            municipality_name = str(row.get("市区町村", "") or "").strip()
+            household_value = str(row.get("世帯人員", "") or "").strip()
+            cumulative_value = str(row.get("ここまでの合計世帯人員", "") or "").strip()
+            if not municipality_name:
                 continue
             try:
-                household_count = int(row[1].strip())
-                cumulative_value = int(row[2].strip())
+                household_count = int(household_value)
+                cumulative_count = int(cumulative_value)
             except ValueError:
                 continue
-            names.append(row[0].strip())
+            names.append(municipality_name)
             households.append(household_count)
-            cumulative.append(cumulative_value)
+            cumulative.append(cumulative_count)
 
     if not names:
         raise ValueError("市区町村データが空です")
 
     total = cumulative[-1] + households[-1]
     return names, cumulative, total
+
+
+@lru_cache(maxsize=4)
+def load_prefectures_by_municipality(csv_path: Path) -> PrefectureByMunicipality:
+    prefectures_by_municipality: PrefectureByMunicipality = {}
+
+    with open(csv_path, encoding="utf-8-sig", newline="") as file_obj:
+        reader = csv.DictReader(file_obj)
+        for row in reader:
+            municipality_name = str(row.get("市区町村", "") or "").strip()
+            prefecture_name = str(row.get("都道府県", "") or "").strip()
+            if municipality_name and prefecture_name:
+                prefectures_by_municipality[municipality_name] = prefecture_name
+
+    return prefectures_by_municipality
 
 
 def sample_municipality(names: list[str], cumulative: list[int], total: int) -> str:
@@ -126,6 +144,7 @@ def generate_random_location(
     cumulative: list[int],
     total: int,
     points_by_city: dict[str, list[LocationPoint]],
+    prefectures_by_city: PrefectureByMunicipality,
     max_jitter_meters: float = JITTER_METERS,
 ) -> dict[str, str | float]:
     municipality = sample_municipality(names, cumulative, total)
@@ -134,10 +153,15 @@ def generate_random_location(
     if not candidates:
         raise ValueError(f"座標候補がありません: {municipality}")
 
+    prefecture = prefectures_by_city.get(municipality)
+    if not prefecture:
+        raise ValueError(f"都道府県がありません: {municipality}")
+
     base_lat, base_lon, oaza, koaza = random.choice(candidates)
     lat, lon = jitter_lat_lon(base_lat, base_lon, max_jitter_meters)
 
     return {
+        "prefecture": prefecture,
         "municipality": municipality,
         "oaza_chome": oaza,
         "koaza_alias": koaza,
@@ -154,6 +178,7 @@ def generate_random_locations(
     cumulative: list[int],
     total: int,
     points_by_city: dict[str, list[LocationPoint]],
+    prefectures_by_city: PrefectureByMunicipality,
     max_jitter_meters: float = JITTER_METERS,
 ) -> list[dict[str, str | float]]:
     if n <= 0:
@@ -167,6 +192,7 @@ def generate_random_locations(
                 cumulative,
                 total,
                 points_by_city,
+                prefectures_by_city,
                 max_jitter_meters=max_jitter_meters,
             )
             locations.append(location)
@@ -181,6 +207,7 @@ def build_generation_context(mode: str = "lite") -> GenerationContext:
     estat_path, mlit_path = get_dataset_paths(mode)
     names, cumulative, total = load_weighted_municipalities(estat_path)
     points_by_city = load_mlit_points_by_municipality(mlit_path)
+    prefectures_by_municipality = load_prefectures_by_municipality(estat_path)
 
     filtered_names: list[str] = []
     filtered_households: list[int] = []
@@ -210,7 +237,7 @@ def build_generation_context(mode: str = "lite") -> GenerationContext:
         filtered_cumulative.append(running_total)
         running_total += households
 
-    return filtered_names, filtered_cumulative, running_total, points_by_city
+    return filtered_names, filtered_cumulative, running_total, points_by_city, prefectures_by_municipality
 
 
 __all__ = [
@@ -218,6 +245,7 @@ __all__ = [
     "GenerationContext",
     "JITTER_METERS",
     "LocationPoint",
+    "PrefectureByMunicipality",
     "build_generation_context",
     "generate_random_location",
     "generate_random_locations",

@@ -45,7 +45,7 @@ def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
     products_df = pd.read_csv("data/03_seed/products.csv")
     product_ids = products_df["product_id"].to_numpy()
 
-    names, cumulative, total, points_by_city = build_generation_context(geo_mode)
+    names, cumulative, total, points_by_city, prefectures_by_city = build_generation_context(geo_mode)
 
     output_path = "data/04_out/orders.csv"
     total_written = 0
@@ -60,6 +60,7 @@ def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
                 "quantity",
                 "customer_lat",
                 "customer_lon",
+                "prefecture",
                 "order_date",
             ]
         )
@@ -74,6 +75,7 @@ def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
                 cumulative=cumulative,
                 total=total,
                 points_by_city=points_by_city,
+                prefectures_by_city=prefectures_by_city,
             )
 
             chunk_product_ids = np.random.choice(product_ids, size=current_chunk)
@@ -89,6 +91,7 @@ def write_orders_csv(num_records=10000, geo_mode="lite", chunk_size=100000):
                         int(chunk_quantities[i]),
                         float(location["lat"]),
                         float(location["lon"]),
+                        str(location["prefecture"]),
                         chunk_dates[i],
                     ]
                 )

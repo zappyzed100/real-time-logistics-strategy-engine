@@ -16,6 +16,8 @@ models:
               arguments:
                 to: ref('stg_products')
                 field: product_id
+      - name: prefecture
+        description: "注文発生地点の都道府県名。地理データ生成時に付与される。"
 
   - name: stg_products
     description: "商品マスターデータ。"

@@ -20,7 +20,30 @@ ESTAT_INTERMEDIATE_DIR = Path(__file__).parents[3] / "data" / "02_intermediate" 
 
 OUT_HEADER = ["市区町村名", "大字・丁目名", "小字・通称名", "緯度", "経度"]
 REQUIRED_SOURCE_COLUMNS = OUT_HEADER.copy()
-ESTAT_FILTERED_HEADER = ["市区町村", "世帯人員", "ここまでの合計世帯人員"]
+ESTAT_FILTERED_HEADER = ["都道府県", "市区町村", "世帯人員", "ここまでの合計世帯人員"]
+
+
+def iter_estat_rows() -> list[dict[str, str]]:
+    """e-Stat CSV を列名ベースで読み込み、必要項目だけを返す。"""
+    rows: list[dict[str, str]] = []
+
+    with open(ESTAT_PATH, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            municipality_name = str(row.get("市区町村", "") or "").strip()
+            households = str(row.get("世帯人員", "") or "").strip()
+            prefecture = str(row.get("都道府県", "") or "").strip()
+            if not municipality_name:
+                continue
+            rows.append(
+                {
+                    "都道府県": prefecture,
+                    "市区町村": municipality_name,
+                    "世帯人員": households,
+                }
+            )
+
+    return rows
 
 
 def iter_source_csvs() -> list[tuple[Path, Path]]:
@@ -74,20 +97,7 @@ def iter_rows() -> list[list[str]]:
 
 def load_estat_municipalities() -> set[str]:
     """e-Statの市区町村一覧を返す。"""
-    municipalities: set[str] = set()
-
-    with open(ESTAT_PATH, encoding="utf-8-sig", newline="") as f:
-        reader = csv.reader(f)
-        next(reader, None)
-
-        for row in reader:
-            if not row:
-                continue
-            municipality_name = row[0].strip()
-            if municipality_name:
-                municipalities.add(municipality_name)
-
-    return municipalities
+    return {row["市区町村"] for row in iter_estat_rows()}
 
 
 def load_mlit_municipalities() -> set[str]:
@@ -125,18 +135,15 @@ def write_filtered_intermediates() -> None:
     # --- estat filtered (累積列を再計算) ---
     estat_rows: list[list] = []
     cumulative = 0
-    with open(ESTAT_PATH, encoding="utf-8-sig", newline="") as f:
-        reader = csv.reader(f)
-        next(reader)  # ヘッダースキップ
-        for row in reader:
-            if not row or row[0].strip() not in common:
-                continue
-            try:
-                households = int(row[1].strip())
-            except ValueError:
-                continue
-            estat_rows.append([row[0].strip(), households, cumulative])
-            cumulative += households
+    for row in iter_estat_rows():
+        if row["市区町村"] not in common:
+            continue
+        try:
+            households = int(row["世帯人員"])
+        except ValueError:
+            continue
+        estat_rows.append([row["都道府県"], row["市区町村"], households, cumulative])
+        cumulative += households
 
     estat_out = ESTAT_INTERMEDIATE_DIR / "b01_01_filtered.csv"
     estat_out.parent.mkdir(parents=True, exist_ok=True)
@@ -156,12 +163,12 @@ def write_filtered_intermediates() -> None:
             if extract_cols is None:
                 continue
             municipality_col = extract_cols[0]
-            for row in reader:
-                if len(row) <= max(extract_cols):
+            for csv_row in reader:
+                if len(csv_row) <= max(extract_cols):
                     continue
-                if row[municipality_col].strip() not in common:
+                if csv_row[municipality_col].strip() not in common:
                     continue
-                mlit_rows.append([row[col].strip() for col in extract_cols])
+                mlit_rows.append([csv_row[col].strip() for col in extract_cols])
 
     mlit_out = OUT_DIR / "mlit_a_filtered.csv"
     mlit_out.parent.mkdir(parents=True, exist_ok=True)

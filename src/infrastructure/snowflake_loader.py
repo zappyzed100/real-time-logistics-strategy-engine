@@ -24,6 +24,7 @@ class LoadSpec:
     file_path: Path
     table_name: str
     select_list: tuple[str, ...]
+    target_columns: tuple[str, ...] | None = None
     truncate_before_load: bool = False
 
 
@@ -115,11 +116,15 @@ class SnowflakeLoader:
         file_format_fqn = self._qualify(self.file_format_name)
         staged_file_name = file_path.name
         select_clause = ",\n".join(f"        {select_item}" for select_item in spec.select_list)
+        target_clause = ""
+        if spec.target_columns:
+            target_columns = ", ".join(spec.target_columns)
+            target_clause = f"({target_columns})"
 
         put_command = f"PUT 'file://{file_uri}' @{stage_fqn} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
         copy_command = "\n".join(
             [
-                f"COPY INTO {table_fqn}",
+                f"COPY INTO {table_fqn}{target_clause}",
                 "FROM (",
                 "    SELECT",
                 select_clause,
@@ -202,8 +207,20 @@ class SnowflakeLoader:
                     "$4::STRING",
                     "$5::STRING",
                     "$6::STRING",
+                    "$7::STRING",
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
+                ),
+                target_columns=(
+                    "ORDER_ID",
+                    "PRODUCT_ID",
+                    "QUANTITY",
+                    "CUSTOMER_LAT",
+                    "CUSTOMER_LON",
+                    "PREFECTURE",
+                    "ORDER_DATE",
+                    "SOURCE_FILE",
+                    "LOADED_AT",
                 ),
                 truncate_before_load=True,
             ),

@@ -305,6 +305,11 @@ resource "snowflake_table" "orders" {
     type     = "STRING"
     nullable = true
   }
+  column {
+    name     = "PREFECTURE"
+    type     = "STRING"
+    nullable = true
+  }
   # 日付もフォーマット違いを許容するために STRING
   column {
     name     = "ORDER_DATE"
