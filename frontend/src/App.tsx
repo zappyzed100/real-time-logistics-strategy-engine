@@ -118,6 +118,32 @@ function App() {
 
                         {displayMode === "dashboard" ? (
                             <>
+                                <section className="metrics-grid metrics-grid-overview">
+                                    <article className="metric-card">
+                                        <span className="metric-label">対象拠点数</span>
+                                        <strong>{formatInteger(scenarioRows.length)} 拠点</strong>
+                                    </article>
+                                    <article className="metric-card">
+                                        <span className="metric-label">設定人員合計</span>
+                                        <strong>{formatInteger(sumScenarioValues(scenarioRows, "staffing_level"))} 人</strong>
+                                    </article>
+                                    <article className="metric-card">
+                                        <span className="metric-label">固定費合計</span>
+                                        <strong>{formatCurrency(sumScenarioValues(scenarioRows, "fixed_cost"))}</strong>
+                                    </article>
+                                    <article className="metric-card">
+                                        <span className="metric-label">人件費合計</span>
+                                        <strong>{formatCurrency(dashboardData.metrics.total_labor_cost)}</strong>
+                                    </article>
+                                </section>
+
+                                <section className="data-section">
+                                    <div className="section-heading">
+                                        <h2>Key Performance Indicators</h2>
+                                        <span>シミュレーション結果</span>
+                                    </div>
+                                </section>
+
                                 <section className="metrics-grid">
                                     <article className="metric-card">
                                         <span className="metric-label">総コスト</span>
@@ -197,8 +223,31 @@ function App() {
 
                                 <section className="data-section">
                                     <div className="section-heading">
+                                        <h2>分析詳細</h2>
+                                        <span>拠点別総コスト</span>
+                                    </div>
+                                    <div className="cost-bar-list">
+                                        {dashboardData.center_summary_rows.map((row) => (
+                                            <div key={row.center_name} className="cost-bar-row">
+                                                <div className="cost-bar-header">
+                                                    <strong>{row.center_name}</strong>
+                                                    <span>{formatCurrency(row.total_cost)}</span>
+                                                </div>
+                                                <div className="cost-bar-track">
+                                                    <div
+                                                        className="cost-bar-fill"
+                                                        style={{ width: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="data-section">
+                                    <div className="section-heading">
                                         <h2>拠点別コスト集計</h2>
-                                        <span>初期表示</span>
+                                        <span>分析詳細</span>
                                     </div>
                                     <div className="table-shell">
                                         <table>
@@ -208,7 +257,10 @@ function App() {
                                                     <th>配送係数</th>
                                                     <th>担当注文数</th>
                                                     <th>人員数</th>
+                                                    <th>処理可能件数</th>
                                                     <th>固定費</th>
+                                                    <th>人件費</th>
+                                                    <th>配送費</th>
                                                     <th>総コスト</th>
                                                 </tr>
                                             </thead>
@@ -219,7 +271,10 @@ function App() {
                                                         <td>{row.shipping_cost.toFixed(3)}</td>
                                                         <td>{formatInteger(row.assigned_orders)}</td>
                                                         <td>{formatInteger(row.staffing_level)}</td>
+                                                        <td>{formatInteger(row.capacity)}</td>
                                                         <td>{formatCurrency(row.fixed_cost)}</td>
+                                                        <td>{formatCurrency(row.labor_cost)}</td>
+                                                        <td>{formatCurrency(row.variable_cost)}</td>
                                                         <td>{formatCurrency(row.total_cost)}</td>
                                                     </tr>
                                                 ))}
@@ -323,6 +378,19 @@ function formatDistance(value: number): string {
 
 function formatWeight(value: number): string {
     return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 1 }).format(value)} kg`;
+}
+
+function sumScenarioValues(rows: ScenarioRow[], field: "staffing_level" | "fixed_cost"): number {
+    return rows.reduce((total, row) => total + row[field], 0);
+}
+
+function getCostBarWidth(totalCost: number, rows: DashboardResponse["center_summary_rows"]): number {
+    const maxCost = rows.reduce((currentMax, row) => Math.max(currentMax, row.total_cost), 0);
+    if (maxCost <= 0) {
+        return 0;
+    }
+
+    return (totalCost / maxCost) * 100;
 }
 
 export default App;
