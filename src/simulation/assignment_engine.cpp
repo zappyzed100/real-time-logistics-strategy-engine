@@ -39,7 +39,6 @@ extern "C" int run_assignment_engine(
 
     const std::int32_t bit_word_count = (order_count + 63) >> 6;
     auto assigned_bits = new std::uint64_t[bit_word_count > 0 ? bit_word_count : 1]();
-
     std::int32_t max_staffing_level = 0;
     for (std::int32_t center_index = 0; center_index < center_count; ++center_index) {
         if (center_staffing_levels[center_index] > max_staffing_level) {

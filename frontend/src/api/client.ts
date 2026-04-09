@@ -74,25 +74,67 @@ export type DashboardResponse = {
     metrics: DashboardMetrics;
 };
 
+const API_CONFIGURATION = resolveApiConfiguration();
+
+function resolveApiConfiguration(): { baseUrl: string; pathPrefix: string } {
+    const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+    if (configuredBaseUrl) {
+        return {
+            baseUrl: configuredBaseUrl.replace(/\/$/, ""),
+            pathPrefix: "",
+        };
+    }
+
+    if (typeof window === "undefined") {
+        return { baseUrl: "", pathPrefix: "/api" };
+    }
+
+    const { hostname, port, protocol } = window.location;
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+    if (isLocalhost && port !== "8000") {
+        return {
+            baseUrl: `${protocol}//${hostname}:8000`,
+            pathPrefix: "",
+        };
+    }
+
+    return { baseUrl: "", pathPrefix: "/api" };
+}
+
+function buildApiUrl(path: string): string {
+    return `${API_CONFIGURATION.baseUrl}${API_CONFIGURATION.pathPrefix}${path}`;
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (contentType.includes("application/json")) {
+        return (await response.json()) as T;
+    }
+
+    const responseText = await response.text();
+    const snippet = responseText.slice(0, 120).replace(/\s+/g, " ").trim();
+    throw new Error(`API returned non-JSON response: ${snippet || response.status}`);
+}
+
 export async function fetchHealth(): Promise<HealthResponse> {
-    const response = await fetch("/api/health");
+    const response = await fetch(buildApiUrl("/health"));
 
     if (!response.ok) {
         throw new Error(`health request failed: ${response.status}`);
     }
 
-    return (await response.json()) as HealthResponse;
+    return await readJsonResponse<HealthResponse>(response);
 }
 
 
 export async function fetchDashboardBootstrap(): Promise<DashboardResponse> {
-    const response = await fetch("/api/dashboard/bootstrap");
+    const response = await fetch(buildApiUrl("/dashboard/bootstrap"));
 
     if (!response.ok) {
         throw new Error(`dashboard bootstrap failed: ${response.status}`);
     }
 
-    return (await response.json()) as DashboardResponse;
+    return await readJsonResponse<DashboardResponse>(response);
 }
 
 
@@ -100,7 +142,7 @@ export async function simulateDashboard(
     scenarioRows: ScenarioRow[],
     options?: { signal?: AbortSignal; includeOrderRows?: boolean; includeMapRows?: boolean },
 ): Promise<DashboardResponse> {
-    const response = await fetch("/api/dashboard/simulate", {
+    const response = await fetch(buildApiUrl("/dashboard/simulate"), {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -117,5 +159,5 @@ export async function simulateDashboard(
         throw new Error(`dashboard simulate failed: ${response.status}`);
     }
 
-    return (await response.json()) as DashboardResponse;
+    return await readJsonResponse<DashboardResponse>(response);
 }
