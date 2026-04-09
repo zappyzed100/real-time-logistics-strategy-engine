@@ -25,8 +25,10 @@ function App() {
     const [orderSortKey, setOrderSortKey] = useState<OrderSortKey>("simulated_cost");
     const [orderCenterFilter, setOrderCenterFilter] = useState<string>("all");
     const [orderPage, setOrderPage] = useState<number>(1);
+    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const hasBootstrappedRef = useRef<boolean>(false);
     const lastSimulatedSignatureRef = useRef<string>("");
+    const mapSectionRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -111,6 +113,14 @@ function App() {
         setOrderPage(1);
     }, [orderSearchText, orderStatusFilter, orderSortKey, orderCenterFilter]);
 
+    useEffect(() => {
+        if (displayMode !== "dashboard" || !selectedOrderId) {
+            return;
+        }
+
+        mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [displayMode, selectedOrderId]);
+
     const filteredOrderRows = dashboardData
         ? getFilteredOrderRows(dashboardData.order_rows, {
             searchText: orderSearchText,
@@ -126,6 +136,7 @@ function App() {
         currentOrderPage * ORDER_PAGE_SIZE,
     );
     const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
+    const selectedMapOrder = dashboardData?.map_order_rows.find((row) => row.order_id === selectedOrderId) ?? null;
 
     return (
         <main className="app-shell">
@@ -270,7 +281,7 @@ function App() {
                                         </div>
                                     </section>
 
-                                    <section className="data-section">
+                                    <section className="data-section" ref={mapSectionRef}>
                                         <div className="section-heading">
                                             <h2>地図</h2>
                                             <span>{formatInteger(dashboardData.map_order_rows.length)} 件を表示</span>
@@ -279,7 +290,12 @@ function App() {
                                             OpenStreetMap 上に注文データを最大 10,000 件表示します。未割当は赤、低コストは青、高コストは黄です。
                                         </p>
                                         <div className="map-layout is-embedded">
-                                            <SimulationMap orderRows={dashboardData.map_order_rows} centerRows={dashboardData.map_center_rows} />
+                                            <SimulationMap
+                                                orderRows={dashboardData.map_order_rows}
+                                                centerRows={dashboardData.map_center_rows}
+                                                selectedOrderId={selectedOrderId}
+                                                selectedOrder={selectedMapOrder}
+                                            />
                                             <aside className="map-legend">
                                                 <h3>凡例</h3>
                                                 <p><span className="legend-dot is-low-cost" /> 低コスト注文</p>
@@ -407,6 +423,7 @@ function App() {
                                                 <th>配送コスト</th>
                                                 <th>距離</th>
                                                 <th>重量</th>
+                                                <th>地図</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -421,6 +438,18 @@ function App() {
                                                     <td>{formatCurrency(row.simulated_cost)}</td>
                                                     <td>{formatDistance(row.simulated_distance_km)}</td>
                                                     <td>{formatWeight(row.weight_kg)}</td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            className="link-button"
+                                                            onClick={() => {
+                                                                setSelectedOrderId(row.order_id);
+                                                                setDisplayMode("dashboard");
+                                                            }}
+                                                        >
+                                                            地図で見る
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

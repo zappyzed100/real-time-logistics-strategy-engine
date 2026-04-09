@@ -443,6 +443,20 @@ tbody tr:last-child td {
     opacity: 0.45;
 }
 
+.link-button {
+    border: none;
+    background: transparent;
+    color: #2158c9;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+}
+
+.link-button:hover {
+    text-decoration: underline;
+}
+
 .order-table-shell {
     max-height: 70vh;
 }

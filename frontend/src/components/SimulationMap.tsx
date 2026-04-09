@@ -1,14 +1,16 @@
 import L from "leaflet";
-import { memo, useMemo, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer, useMapEvents } from "react-leaflet";
+import { memo, useEffect, useMemo, useState } from "react";
+import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapCenterRow, MapOrderRow } from "../api/client";
 
 type SimulationMapProps = {
     orderRows: MapOrderRow[];
     centerRows: MapCenterRow[];
+    selectedOrderId?: string | null;
+    selectedOrder?: MapOrderRow | null;
 };
 
-export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows }: SimulationMapProps) {
+export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows, selectedOrderId, selectedOrder }: SimulationMapProps) {
     const [zoomLevel, setZoomLevel] = useState<number>(5);
     const orderFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
         () => ({
@@ -48,6 +50,7 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
         <div className="map-panel">
             <MapContainer center={[36.2, 138.2]} zoom={5} scrollWheelZoom preferCanvas className="leaflet-map">
                 <MapZoomTracker onZoomChange={setZoomLevel} />
+                <SelectedOrderViewport selectedOrder={selectedOrder} />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -56,14 +59,15 @@ export const SimulationMap = memo(function SimulationMap({ orderRows, centerRows
                     data={orderFeatures}
                     pointToLayer={(feature, latlng) => {
                         const properties = feature.properties as MapOrderRow;
+                        const isSelected = properties.order_id === selectedOrderId;
 
                         return L.circleMarker(latlng, {
-                            radius: getOrderRadius(properties.weight_kg, zoomLevel),
+                            radius: getOrderRadius(properties.weight_kg, zoomLevel, isSelected),
                             fillColor: getOrderColor(properties),
-                            color: properties.is_unassigned ? "#7f1d1d" : "rgba(11, 26, 43, 0.12)",
-                            weight: properties.is_unassigned ? 1.6 : 0.9,
+                            color: isSelected ? "#111827" : properties.is_unassigned ? "#7f1d1d" : "rgba(11, 26, 43, 0.12)",
+                            weight: isSelected ? 2.4 : properties.is_unassigned ? 1.6 : 0.9,
                             opacity: 1,
-                            fillOpacity: properties.is_unassigned ? 0.98 : 0.72,
+                            fillOpacity: isSelected ? 1 : properties.is_unassigned ? 0.98 : 0.72,
                         });
                     }}
                     onEachFeature={(feature, layer) => {
@@ -119,10 +123,27 @@ function MapZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void
     return null;
 }
 
-function getOrderRadius(weightKg: number, zoomLevel: number): number {
+function SelectedOrderViewport({ selectedOrder }: { selectedOrder?: MapOrderRow | null }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!selectedOrder) {
+            return;
+        }
+
+        map.flyTo([selectedOrder.customer_lat, selectedOrder.customer_lon], Math.max(map.getZoom(), 9), {
+            animate: true,
+            duration: 0.6,
+        });
+    }, [map, selectedOrder]);
+
+    return null;
+}
+
+function getOrderRadius(weightKg: number, zoomLevel: number, isSelected: boolean): number {
     const weightRadius = Math.max(4.5, Math.min(10.5, 4.5 + weightKg / 18));
     const zoomBonus = Math.max(0, zoomLevel - 5) * 0.35;
-    return Math.min(13, weightRadius + zoomBonus);
+    return Math.min(isSelected ? 17 : 13, weightRadius + zoomBonus + (isSelected ? 3.5 : 0));
 }
 
 function getOrderColor(row: MapOrderRow): string {
