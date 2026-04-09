@@ -364,12 +364,12 @@ def simulate_assignments(
             capacity=center.capacity(options),
             assigned_orders=assigned_orders_by_center[center.center_id],
             overflow_orders=overflow_orders_by_center[center.center_id],
-            fixed_cost=center.fixed_cost,
+            fixed_cost=get_effective_fixed_cost(center),
             labor_cost=round(center.staffing_level * options.labor_cost_per_staff, 2),
             variable_cost=round(variable_cost_by_center[center.center_id], 2),
             total_cost=round(
                 variable_cost_by_center[center.center_id]
-                + center.fixed_cost
+                + get_effective_fixed_cost(center)
                 + center.staffing_level * options.labor_cost_per_staff,
                 2,
             ),
@@ -377,7 +377,7 @@ def simulate_assignments(
         for center in sorted(centers, key=lambda current: (current.center_name, current.center_id))
     )
 
-    total_fixed_cost = round(sum(center.fixed_cost for center in centers), 2)
+    total_fixed_cost = round(sum(get_effective_fixed_cost(center) for center in centers), 2)
     total_labor_cost = round(sum(center.staffing_level * options.labor_cost_per_staff for center in centers), 2)
     ordered_assignments = tuple(assignments_by_order[order.order_id] for order in static_prepared_data.ordered_orders)
     total_variable_cost = round(sum(assignment.delivery_cost for assignment in ordered_assignments), 2)
@@ -391,3 +391,7 @@ def simulate_assignments(
         unassigned_order_count=sum(1 for assignment in ordered_assignments if assignment.is_unassigned),
         unassigned_total_cost=round(unassigned_total_cost, 2),
     )
+
+
+def get_effective_fixed_cost(center: CenterScenario) -> float:
+    return 0.0 if center.staffing_level <= 0 else center.fixed_cost
