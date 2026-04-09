@@ -202,6 +202,7 @@ class SnowflakeLoader:
                     "$4::STRING",
                     "$5::STRING",
                     "$6::STRING",
+                    "$7::STRING",
                     "METADATA$FILENAME::STRING",
                     "CURRENT_TIMESTAMP()::TIMESTAMP_NTZ",
                 ),
