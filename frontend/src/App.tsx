@@ -70,7 +70,10 @@ function App() {
         };
     }, []);
 
-    async function handleSimulate(nextScenarioRows: ScenarioRow[], options?: { includeOrderRows?: boolean }) {
+    async function handleSimulate(
+        nextScenarioRows: ScenarioRow[],
+        options?: { includeOrderRows?: boolean; includeMapRows?: boolean },
+    ) {
         const syncStartTime = performance.now();
         const requestId = simulateRequestIdRef.current + 1;
         const abortController = new AbortController();
@@ -85,6 +88,7 @@ function App() {
             const nextDashboardData = await simulateDashboard(nextScenarioRows, {
                 signal: abortController.signal,
                 includeOrderRows: options?.includeOrderRows,
+                includeMapRows: options?.includeMapRows,
             });
             if (simulateRequestIdRef.current !== requestId) {
                 return;
@@ -215,7 +219,10 @@ function App() {
         }
 
         const timeoutId = window.setTimeout(() => {
-            void handleSimulate(scenarioRows, { includeOrderRows: displayMode === "orders" });
+            void handleSimulate(scenarioRows, {
+                includeOrderRows: displayMode === "orders",
+                includeMapRows: displayMode === "dashboard",
+            });
         }, 250);
 
         return () => {
@@ -228,7 +235,15 @@ function App() {
             return;
         }
 
-        void handleSimulate(scenarioRows, { includeOrderRows: true });
+        void handleSimulate(scenarioRows, { includeOrderRows: true, includeMapRows: false });
+    }, [dashboardData, displayMode, isSimulating, scenarioRows]);
+
+    useEffect(() => {
+        if (displayMode !== "dashboard" || !dashboardData || dashboardData.map_order_rows.length > 0 || isSimulating) {
+            return;
+        }
+
+        void handleSimulate(scenarioRows, { includeOrderRows: false, includeMapRows: true });
     }, [dashboardData, displayMode, isSimulating, scenarioRows]);
 
     useEffect(() => {

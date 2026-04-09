@@ -98,7 +98,7 @@ export async function fetchDashboardBootstrap(): Promise<DashboardResponse> {
 
 export async function simulateDashboard(
     scenarioRows: ScenarioRow[],
-    options?: { signal?: AbortSignal; includeOrderRows?: boolean },
+    options?: { signal?: AbortSignal; includeOrderRows?: boolean; includeMapRows?: boolean },
 ): Promise<DashboardResponse> {
     const response = await fetch("/api/dashboard/simulate", {
         method: "POST",
@@ -109,6 +109,7 @@ export async function simulateDashboard(
         body: JSON.stringify({
             scenario_rows: scenarioRows,
             include_order_rows: options?.includeOrderRows ?? true,
+            include_map_rows: options?.includeMapRows ?? true,
         }),
     });
 

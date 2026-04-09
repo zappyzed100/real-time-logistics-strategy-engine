@@ -182,7 +182,11 @@ def get_static_dashboard_data() -> DashboardStaticData:
     )
 
 
-def _build_dashboard_response(scenario_df: pd.DataFrame, include_order_rows: bool = True) -> DashboardResponse:
+def _build_dashboard_response(
+    scenario_df: pd.DataFrame,
+    include_order_rows: bool = True,
+    include_map_rows: bool = True,
+) -> DashboardResponse:
     static_data = get_static_dashboard_data()
     sanitized_scenario_df = sanitize_scenario_frame(scenario_df)
     centers = build_center_scenarios(sanitized_scenario_df)
@@ -281,33 +285,41 @@ def _build_dashboard_response(scenario_df: pd.DataFrame, include_order_rows: boo
             if include_order_rows
             else []
         ),
-        map_order_rows=[
-            MapOrderRow(
-                order_id=str(row["ORDER_ID"]),
-                customer_lat=float(row["CUSTOMER_LAT"]),
-                customer_lon=float(row["CUSTOMER_LON"]),
-                assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
-                assignment_status=str(row["ASSIGNMENT_STATUS"]),
-                simulated_cost=float(row["SIMULATED_COST"]),
-                weight_kg=float(row["WEIGHT_KG"]),
-                is_unassigned=bool(row["IS_UNASSIGNED"]),
-                color_r=int(row["COLOR_R"]),
-                color_g=int(row["COLOR_G"]),
-                color_b=int(row["COLOR_B"]),
-            )
-            for row in map_order_df.to_dict(orient="records")
-        ],
-        map_center_rows=[
-            MapCenterRow(
-                center_id=str(row["center_id"]),
-                center_name=str(row["center_name"]),
-                center_lat=float(row["center_lat"]),
-                center_lon=float(row["center_lon"]),
-                staffing_level=int(row["staffing_level"]),
-                fixed_cost=float(row["fixed_cost"]),
-            )
-            for row in map_center_df.to_dict(orient="records")
-        ],
+        map_order_rows=(
+            [
+                MapOrderRow(
+                    order_id=str(row["ORDER_ID"]),
+                    customer_lat=float(row["CUSTOMER_LAT"]),
+                    customer_lon=float(row["CUSTOMER_LON"]),
+                    assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
+                    assignment_status=str(row["ASSIGNMENT_STATUS"]),
+                    simulated_cost=float(row["SIMULATED_COST"]),
+                    weight_kg=float(row["WEIGHT_KG"]),
+                    is_unassigned=bool(row["IS_UNASSIGNED"]),
+                    color_r=int(row["COLOR_R"]),
+                    color_g=int(row["COLOR_G"]),
+                    color_b=int(row["COLOR_B"]),
+                )
+                for row in map_order_df.to_dict(orient="records")
+            ]
+            if include_map_rows
+            else []
+        ),
+        map_center_rows=(
+            [
+                MapCenterRow(
+                    center_id=str(row["center_id"]),
+                    center_name=str(row["center_name"]),
+                    center_lat=float(row["center_lat"]),
+                    center_lon=float(row["center_lon"]),
+                    staffing_level=int(row["staffing_level"]),
+                    fixed_cost=float(row["fixed_cost"]),
+                )
+                for row in map_center_df.to_dict(orient="records")
+            ]
+            if include_map_rows
+            else []
+        ),
         metrics=DashboardMetrics(
             total_cost=total_cost,
             total_orders=total_orders,
@@ -324,8 +336,16 @@ def get_dashboard_bootstrap() -> DashboardResponse:
     return _build_dashboard_response(static_data.initial_scenario_df)
 
 
-def simulate_dashboard(scenario_rows: list[ScenarioRow], include_order_rows: bool = True) -> DashboardResponse:
+def simulate_dashboard(
+    scenario_rows: list[ScenarioRow],
+    include_order_rows: bool = True,
+    include_map_rows: bool = True,
+) -> DashboardResponse:
     static_data = get_static_dashboard_data()
     editable_scenario_df = pd.DataFrame([row.model_dump() for row in scenario_rows])
     scenario_df = merge_scenario_frame(existing_df=editable_scenario_df, initial_df=static_data.initial_scenario_df)
-    return _build_dashboard_response(scenario_df, include_order_rows=include_order_rows)
+    return _build_dashboard_response(
+        scenario_df,
+        include_order_rows=include_order_rows,
+        include_map_rows=include_map_rows,
+    )

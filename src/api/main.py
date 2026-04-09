@@ -32,4 +32,8 @@ def dashboard_bootstrap() -> DashboardResponse:
 
 @app.post("/dashboard/simulate", response_model=DashboardResponse)
 def dashboard_simulate(request: SimulationRequest) -> DashboardResponse:
-    return simulate_dashboard(request.scenario_rows, include_order_rows=request.include_order_rows)
+    return simulate_dashboard(
+        request.scenario_rows,
+        include_order_rows=request.include_order_rows,
+        include_map_rows=request.include_map_rows,
+    )
