@@ -165,7 +165,7 @@ h1 {
 .dashboard-layout {
     margin-top: 28px;
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
+    grid-template-columns: 440px minmax(0, 1fr);
     gap: 24px;
     align-items: start;
 }
@@ -199,6 +199,24 @@ h1 {
     margin-bottom: 16px;
 }
 
+.scenario-sidebar-column-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 72px 112px;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(10, 25, 47, 0.78);
+    backdrop-filter: blur(10px);
+    color: #dbeafe;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
 .scenario-sidebar-header h2 {
     margin: 0;
     font-size: 1.1rem;
@@ -224,7 +242,7 @@ h1 {
 
 .scenario-sidebar-row.is-inline {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 88px 140px;
+    grid-template-columns: minmax(0, 1fr) 72px 112px;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
@@ -294,6 +312,19 @@ h1 {
 .sync-chip.is-active {
     background: rgba(253, 230, 138, 0.2);
     color: #fde68a;
+}
+
+.scenario-compact-input {
+    min-width: 0;
+    text-align: right;
+}
+
+.scenario-compact-input.is-staffing {
+    width: 72px;
+}
+
+.scenario-compact-input.is-fixed-cost {
+    width: 112px;
 }
 
 .section-heading {
@@ -680,7 +711,16 @@ tbody tr:last-child td {
         align-items: stretch;
     }
 
+    .scenario-sidebar-column-header {
+        grid-template-columns: minmax(0, 1fr) 72px 112px;
+    }
+
     .scenario-sidebar-row.is-inline {
         grid-template-columns: 1fr;
+    }
+
+    .scenario-compact-input.is-staffing,
+    .scenario-compact-input.is-fixed-cost {
+        width: 100%;
     }
 }

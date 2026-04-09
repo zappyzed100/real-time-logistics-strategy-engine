@@ -26,6 +26,8 @@ function App() {
     const [orderCenterFilter, setOrderCenterFilter] = useState<string>("all");
     const [orderPage, setOrderPage] = useState<number>(1);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+    const [scenarioDraftValues, setScenarioDraftValues] = useState<Record<string, string>>({});
+    const [focusedScenarioFieldId, setFocusedScenarioFieldId] = useState<string | null>(null);
     const hasBootstrappedRef = useRef<boolean>(false);
     const lastSimulatedSignatureRef = useRef<string>("");
     const mapSectionRef = useRef<HTMLElement | null>(null);
@@ -90,13 +92,42 @@ function App() {
         );
     }
 
+    function handleScenarioFieldFocus(centerId: string, field: "staffing_level" | "fixed_cost", currentValue: number) {
+        const fieldId = getScenarioFieldId(centerId, field);
+        setFocusedScenarioFieldId(fieldId);
+        setScenarioDraftValues((currentDrafts) => ({
+            ...currentDrafts,
+            [fieldId]: String(currentValue),
+        }));
+    }
+
+    function handleScenarioFieldChange(centerId: string, field: "staffing_level" | "fixed_cost", value: string) {
+        const fieldId = getScenarioFieldId(centerId, field);
+        setScenarioDraftValues((currentDrafts) => ({
+            ...currentDrafts,
+            [fieldId]: value,
+        }));
+    }
+
+    function handleScenarioFieldBlur(centerId: string, field: "staffing_level" | "fixed_cost") {
+        const fieldId = getScenarioFieldId(centerId, field);
+        const draftValue = scenarioDraftValues[fieldId] ?? "";
+        handleScenarioNumberChange(centerId, field, draftValue);
+        setScenarioDraftValues((currentDrafts) => {
+            const nextDrafts = { ...currentDrafts };
+            delete nextDrafts[fieldId];
+            return nextDrafts;
+        });
+        setFocusedScenarioFieldId((currentFocusedFieldId) => (currentFocusedFieldId === fieldId ? null : currentFocusedFieldId));
+    }
+
     useEffect(() => {
         if (!hasBootstrappedRef.current) {
             return;
         }
 
         const nextSignature = getScenarioSignature(scenarioRows);
-        if (nextSignature === lastSimulatedSignatureRef.current) {
+        if (focusedScenarioFieldId !== null || nextSignature === lastSimulatedSignatureRef.current) {
             return;
         }
 
@@ -107,7 +138,7 @@ function App() {
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [scenarioRows]);
+    }, [focusedScenarioFieldId, scenarioRows]);
 
     useEffect(() => {
         setOrderPage(1);
@@ -180,29 +211,44 @@ function App() {
                                         </div>
                                         <span className={`sync-chip ${isSimulating ? "is-active" : ""}`}>{isSimulating ? "反映中..." : "同期済み"}</span>
                                     </div>
+                                    <div className="scenario-sidebar-column-header" aria-hidden="true">
+                                        <span>拠点名</span>
+                                        <span>配置人員数</span>
+                                        <span>固定費</span>
+                                    </div>
                                     <div className="scenario-sidebar-grid">
                                         {scenarioRows.map((row) => (
                                             <article key={row.center_id} className="scenario-sidebar-row is-inline">
                                                 <strong>{row.center_name}</strong>
                                                 <input
-                                                    className="table-input"
+                                                    className="table-input scenario-compact-input is-staffing"
                                                     type="number"
                                                     min="0"
                                                     step="1"
-                                                    value={row.staffing_level}
-                                                    onChange={(event) =>
-                                                        handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
-                                                    }
+                                                    value={getScenarioDraftValue(scenarioDraftValues, row, "staffing_level")}
+                                                    onFocus={() => handleScenarioFieldFocus(row.center_id, "staffing_level", row.staffing_level)}
+                                                    onChange={(event) => handleScenarioFieldChange(row.center_id, "staffing_level", event.target.value)}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, "staffing_level")}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === "Enter") {
+                                                            event.currentTarget.blur();
+                                                        }
+                                                    }}
                                                 />
                                                 <input
-                                                    className="table-input"
+                                                    className="table-input scenario-compact-input is-fixed-cost"
                                                     type="number"
                                                     min="0"
                                                     step="1000000"
-                                                    value={row.fixed_cost}
-                                                    onChange={(event) =>
-                                                        handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
-                                                    }
+                                                    value={getScenarioDraftValue(scenarioDraftValues, row, "fixed_cost")}
+                                                    onFocus={() => handleScenarioFieldFocus(row.center_id, "fixed_cost", row.fixed_cost)}
+                                                    onChange={(event) => handleScenarioFieldChange(row.center_id, "fixed_cost", event.target.value)}
+                                                    onBlur={() => handleScenarioFieldBlur(row.center_id, "fixed_cost")}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === "Enter") {
+                                                            event.currentTarget.blur();
+                                                        }
+                                                    }}
                                                 />
                                             </article>
                                         ))}
@@ -536,6 +582,19 @@ function getScenarioSignature(rows: ScenarioRow[]): string {
 
 function getScenarioRowByCenterName(rows: ScenarioRow[], centerName: string): ScenarioRow | undefined {
     return rows.find((row) => row.center_name === centerName);
+}
+
+function getScenarioFieldId(centerId: string, field: "staffing_level" | "fixed_cost"): string {
+    return `${centerId}:${field}`;
+}
+
+function getScenarioDraftValue(
+    drafts: Record<string, string>,
+    row: ScenarioRow,
+    field: "staffing_level" | "fixed_cost",
+): string {
+    const fieldId = getScenarioFieldId(row.center_id, field);
+    return drafts[fieldId] ?? String(row[field]);
 }
 
 function getFilteredOrderRows(
