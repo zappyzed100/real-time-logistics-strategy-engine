@@ -28,6 +28,7 @@ function App() {
     const [orderSearchText, setOrderSearchText] = useState<string>("");
     const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "割当済" | "未割当">("all");
     const [orderSortKey, setOrderSortKey] = useState<OrderSortKey>("simulated_cost");
+    const [orderPrefectureFilter, setOrderPrefectureFilter] = useState<string>("all");
     const [orderCenterFilter, setOrderCenterFilter] = useState<string>("all");
     const [orderPage, setOrderPage] = useState<number>(1);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -259,7 +260,7 @@ function App() {
 
     useEffect(() => {
         setOrderPage(1);
-    }, [orderSearchText, orderStatusFilter, orderSortKey, orderCenterFilter]);
+    }, [orderSearchText, orderStatusFilter, orderSortKey, orderPrefectureFilter, orderCenterFilter]);
 
     useEffect(() => {
         if (displayMode !== "dashboard" || !selectedOrderId) {
@@ -274,6 +275,7 @@ function App() {
             searchText: orderSearchText,
             statusFilter: orderStatusFilter,
             sortKey: orderSortKey,
+            prefectureFilter: orderPrefectureFilter,
             centerFilter: orderCenterFilter,
         })
         : [];
@@ -283,6 +285,7 @@ function App() {
         (currentOrderPage - 1) * ORDER_PAGE_SIZE,
         currentOrderPage * ORDER_PAGE_SIZE,
     );
+    const orderPrefectureOptions = dashboardData ? getOrderPrefectureOptions(dashboardData.order_rows) : [];
     const orderCenterOptions = dashboardData ? getOrderCenterOptions(dashboardData.order_rows) : [];
     const selectedMapOrder = dashboardData?.map_order_rows.find((row) => row.order_id === selectedOrderId) ?? null;
     const scenarioGridStyle = getScenarioGridStyle(scenarioRows, scenarioDraftValues);
@@ -534,7 +537,7 @@ function App() {
                                             className="table-input"
                                             type="search"
                                             value={orderSearchText}
-                                            placeholder="注文ID / 担当拠点"
+                                            placeholder="注文ID / 都道府県 / 担当拠点"
                                             onChange={(event) => setOrderSearchText(event.target.value)}
                                         />
                                     </label>
@@ -550,6 +553,19 @@ function App() {
                                             <option value="all">すべて</option>
                                             <option value="割当済">割当済</option>
                                             <option value="未割当">未割当</option>
+                                        </select>
+                                    </label>
+                                    <label className="toolbar-field">
+                                        <span>都道府県</span>
+                                        <select
+                                            className="table-select"
+                                            value={orderPrefectureFilter}
+                                            onChange={(event) => setOrderPrefectureFilter(event.target.value)}
+                                        >
+                                            <option value="all">すべて</option>
+                                            {orderPrefectureOptions.map((prefecture) => (
+                                                <option key={prefecture} value={prefecture}>{prefecture}</option>
+                                            ))}
                                         </select>
                                     </label>
                                     <label className="toolbar-field">
@@ -584,6 +600,7 @@ function App() {
                                         <thead>
                                             <tr>
                                                 <th>注文ID</th>
+                                                <th>都道府県</th>
                                                 <th>担当拠点</th>
                                                 <th>割当状態</th>
                                                 <th>代替拠点</th>
@@ -597,6 +614,7 @@ function App() {
                                             {paginatedOrderRows.map((row) => (
                                                 <tr key={row.order_id}>
                                                     <td>{row.order_id}</td>
+                                                    <td>{row.prefecture || "-"}</td>
                                                     <td>{row.assigned_center_name}</td>
                                                     <td>
                                                         <AssignmentStatusBadge row={row} />
@@ -812,14 +830,16 @@ function getFilteredOrderRows(
         searchText: string;
         statusFilter: "all" | "割当済" | "未割当";
         sortKey: OrderSortKey;
+        prefectureFilter: string;
         centerFilter: string;
     },
 ): OrderRow[] {
     const normalizedSearchText = options.searchText.trim().toLowerCase();
     const filteredRows = rows.filter((row) => {
         const matchesStatus = options.statusFilter === "all" || row.assignment_status === options.statusFilter;
+        const matchesPrefecture = options.prefectureFilter === "all" || row.prefecture === options.prefectureFilter;
         const matchesCenter = options.centerFilter === "all" || row.assigned_center_name === options.centerFilter;
-        if (!matchesStatus || !matchesCenter) {
+        if (!matchesStatus || !matchesPrefecture || !matchesCenter) {
             return false;
         }
 
@@ -827,7 +847,7 @@ function getFilteredOrderRows(
             return true;
         }
 
-        return [row.order_id, row.assigned_center_name, row.fallback_center_name]
+        return [row.order_id, row.prefecture, row.assigned_center_name, row.fallback_center_name]
             .join(" ")
             .toLowerCase()
             .includes(normalizedSearchText);
@@ -840,6 +860,12 @@ function getFilteredOrderRows(
 
         return right[options.sortKey] - left[options.sortKey];
     });
+}
+
+function getOrderPrefectureOptions(rows: OrderRow[]): string[] {
+    return [...new Set(rows.map((row) => row.prefecture).filter((prefecture) => prefecture !== ""))].sort((left, right) =>
+        left.localeCompare(right, "ja"),
+    );
 }
 
 function getOrderCenterOptions(rows: OrderRow[]): string[] {

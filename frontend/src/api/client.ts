@@ -34,6 +34,7 @@ export type CenterSummaryRow = {
 
 export type OrderRow = {
     order_id: string;
+    prefecture: string;
     assigned_center_name: string;
     assignment_status: string;
     fallback_center_name: string;

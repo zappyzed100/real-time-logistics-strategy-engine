@@ -33,6 +33,7 @@ class CenterSummaryRow(BaseModel):
 
 class OrderRow(BaseModel):
     order_id: str
+    prefecture: str
     assigned_center_name: str
     assignment_status: str
     fallback_center_name: str

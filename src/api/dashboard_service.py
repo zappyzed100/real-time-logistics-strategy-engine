@@ -43,6 +43,7 @@ from src.utils.env_policy import assert_prod_access_allowed
 PRECOMPUTED_CANDIDATE_TABLE = "FCT_DELIVERY_CANDIDATE_RANKINGS"
 ANALYSIS_COLUMNS = [
     "ORDER_ID",
+    "PREFECTURE",
     "CENTER_NAME",
     "CUSTOMER_LAT",
     "CUSTOMER_LON",
@@ -273,6 +274,7 @@ def _build_dashboard_response(
             [
                 OrderRow(
                     order_id=str(row["ORDER_ID"]),
+                    prefecture=str(row.get("PREFECTURE", "") or ""),
                     assigned_center_name=str(row["ASSIGNED_CENTER_NAME"]),
                     assignment_status=str(row["ASSIGNMENT_STATUS"]),
                     fallback_center_name=str(row.get("FALLBACK_CENTER_NAME", "") or ""),
