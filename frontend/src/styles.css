@@ -41,6 +41,10 @@ body {
     width: min(1240px, 100%);
 }
 
+.hero-card.is-dashboard {
+    width: min(1440px, 100%);
+}
+
 .eyebrow {
     margin: 0 0 12px;
     font-size: 0.85rem;
@@ -165,6 +169,108 @@ h1 {
 
 .data-section {
     margin-top: 28px;
+}
+
+.dashboard-layout {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.dashboard-main {
+    min-width: 0;
+}
+
+.dashboard-main .data-section:first-child,
+.dashboard-main .metrics-grid:first-child {
+    margin-top: 0;
+}
+
+.scenario-sidebar-card {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    padding: 20px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, #173252 0%, #214d86 100%);
+    box-shadow: 0 20px 50px rgba(23, 50, 82, 0.24);
+    color: #f8fafc;
+}
+
+.scenario-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.scenario-sidebar-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.scenario-sidebar-header p {
+    margin: 6px 0 0;
+    color: rgba(248, 250, 252, 0.76);
+    font-size: 0.9rem;
+}
+
+.scenario-sidebar-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.scenario-sidebar-row {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scenario-sidebar-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.scenario-sidebar-title-row strong {
+    font-size: 0.95rem;
+}
+
+.scenario-sidebar-title-row span {
+    color: #dbeafe;
+    font-size: 0.88rem;
+}
+
+.scenario-sidebar-subtext {
+    display: block;
+    margin-top: 4px;
+    color: rgba(248, 250, 252, 0.72);
+    font-size: 0.84rem;
+}
+
+.scenario-sidebar-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.scenario-sidebar-inputs label {
+    display: grid;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #dbeafe;
+}
+
+.scenario-sidebar-inputs .table-input {
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.94);
 }
 
 .section-heading {
@@ -428,6 +534,15 @@ tbody tr:last-child td {
     .map-layout {
         grid-template-columns: 1fr;
     }
+
+    .dashboard-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .scenario-sidebar-card {
+        position: static;
+        max-height: none;
+    }
 }
 
 @media (max-width: 640px) {
@@ -439,5 +554,17 @@ tbody tr:last-child td {
     .map-panel {
         min-height: 58vh;
         height: 58vh;
+    }
+
+    .scenario-sidebar-header,
+    .scenario-sidebar-title-row,
+    .section-heading,
+    .section-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .scenario-sidebar-inputs {
+        grid-template-columns: 1fr;
     }
 }

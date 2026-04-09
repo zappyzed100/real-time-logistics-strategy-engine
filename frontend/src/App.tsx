@@ -78,7 +78,7 @@ function App() {
 
     return (
         <main className="app-shell">
-            <section className={`hero-card ${displayMode === "map" ? "is-wide" : ""}`}>
+            <section className={`hero-card ${displayMode === "dashboard" ? "is-dashboard" : "is-wide"}`}>
                 <p className="eyebrow">Issue #223</p>
                 <h1>FastAPI + React migration</h1>
                 <p className="lead">
@@ -117,172 +117,167 @@ function App() {
                         </section>
 
                         {displayMode === "dashboard" ? (
-                            <>
-                                <section className="metrics-grid metrics-grid-overview">
-                                    <article className="metric-card">
-                                        <span className="metric-label">対象拠点数</span>
-                                        <strong>{formatInteger(scenarioRows.length)} 拠点</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">設定人員合計</span>
-                                        <strong>{formatInteger(sumScenarioValues(scenarioRows, "staffing_level"))} 人</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">固定費合計</span>
-                                        <strong>{formatCurrency(sumScenarioValues(scenarioRows, "fixed_cost"))}</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">人件費合計</span>
-                                        <strong>{formatCurrency(dashboardData.metrics.total_labor_cost)}</strong>
-                                    </article>
-                                </section>
-
-                                <section className="data-section">
-                                    <div className="section-heading">
-                                        <h2>Key Performance Indicators</h2>
-                                        <span>シミュレーション結果</span>
-                                    </div>
-                                </section>
-
-                                <section className="metrics-grid">
-                                    <article className="metric-card">
-                                        <span className="metric-label">総コスト</span>
-                                        <strong>{formatCurrency(dashboardData.metrics.total_cost)}</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">総注文数</span>
-                                        <strong>{formatInteger(dashboardData.metrics.total_orders)} 件</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">平均配送単価</span>
-                                        <strong>{formatCurrency(dashboardData.metrics.avg_unit_cost)}</strong>
-                                    </article>
-                                    <article className="metric-card">
-                                        <span className="metric-label">未割当注文</span>
-                                        <strong>{formatInteger(dashboardData.metrics.unassigned_order_count)} 件</strong>
-                                    </article>
-                                </section>
-
-                                <section className="data-section">
-                                    <div className="section-heading">
-                                        <h2>拠点シナリオ</h2>
-                                        <div className="section-actions">
-                                            <span>{formatInteger(scenarioRows.length)} 拠点</span>
-                                            <button type="button" className="primary-button" onClick={handleSimulate} disabled={isSimulating}>
-                                                {isSimulating ? "再計算中..." : "再計算"}
-                                            </button>
+                            <div className="dashboard-layout">
+                                <aside className="scenario-sidebar-card">
+                                    <div className="scenario-sidebar-header">
+                                        <div>
+                                            <h2>拠点情報</h2>
+                                            <p>固定費は 100 万円単位です。</p>
                                         </div>
+                                        <button type="button" className="primary-button" onClick={handleSimulate} disabled={isSimulating}>
+                                            {isSimulating ? "再計算中..." : "再計算"}
+                                        </button>
                                     </div>
-                                    <div className="table-shell">
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>拠点</th>
-                                                    <th>配送係数</th>
-                                                    <th>基準注文数</th>
-                                                    <th>人員数</th>
-                                                    <th>固定費</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {scenarioRows.map((row) => (
-                                                    <tr key={row.center_id}>
-                                                        <td>{row.center_name}</td>
-                                                        <td>{row.shipping_cost.toFixed(3)}</td>
-                                                        <td>{formatInteger(row.baseline_order_count)}</td>
-                                                        <td>
-                                                            <input
-                                                                className="table-input"
-                                                                type="number"
-                                                                min="0"
-                                                                step="1"
-                                                                value={row.staffing_level}
-                                                                onChange={(event) =>
-                                                                    handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
-                                                                }
-                                                            />
-                                                        </td>
-                                                        <td>
-                                                            <input
-                                                                className="table-input"
-                                                                type="number"
-                                                                min="0"
-                                                                step="1000000"
-                                                                value={row.fixed_cost}
-                                                                onChange={(event) =>
-                                                                    handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
-                                                                }
-                                                            />
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </section>
-
-                                <section className="data-section">
-                                    <div className="section-heading">
-                                        <h2>分析詳細</h2>
-                                        <span>拠点別総コスト</span>
-                                    </div>
-                                    <div className="cost-bar-list">
-                                        {dashboardData.center_summary_rows.map((row) => (
-                                            <div key={row.center_name} className="cost-bar-row">
-                                                <div className="cost-bar-header">
+                                    <div className="scenario-sidebar-grid">
+                                        {scenarioRows.map((row) => (
+                                            <article key={row.center_id} className="scenario-sidebar-row">
+                                                <div className="scenario-sidebar-title-row">
                                                     <strong>{row.center_name}</strong>
-                                                    <span>{formatCurrency(row.total_cost)}</span>
+                                                    <span>{row.shipping_cost.toFixed(3)}</span>
                                                 </div>
-                                                <div className="cost-bar-track">
-                                                    <div
-                                                        className="cost-bar-fill"
-                                                        style={{ width: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
-                                                    />
+                                                <span className="scenario-sidebar-subtext">基準注文数 {formatInteger(row.baseline_order_count)} 件</span>
+                                                <div className="scenario-sidebar-inputs">
+                                                    <label>
+                                                        <span>人員数</span>
+                                                        <input
+                                                            className="table-input"
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            value={row.staffing_level}
+                                                            onChange={(event) =>
+                                                                handleScenarioNumberChange(row.center_id, "staffing_level", event.target.value)
+                                                            }
+                                                        />
+                                                    </label>
+                                                    <label>
+                                                        <span>固定費</span>
+                                                        <input
+                                                            className="table-input"
+                                                            type="number"
+                                                            min="0"
+                                                            step="1000000"
+                                                            value={row.fixed_cost}
+                                                            onChange={(event) =>
+                                                                handleScenarioNumberChange(row.center_id, "fixed_cost", event.target.value)
+                                                            }
+                                                        />
+                                                    </label>
                                                 </div>
-                                            </div>
+                                            </article>
                                         ))}
                                     </div>
-                                </section>
+                                </aside>
 
-                                <section className="data-section">
-                                    <div className="section-heading">
-                                        <h2>拠点別コスト集計</h2>
-                                        <span>分析詳細</span>
-                                    </div>
-                                    <div className="table-shell">
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>拠点</th>
-                                                    <th>配送係数</th>
-                                                    <th>担当注文数</th>
-                                                    <th>人員数</th>
-                                                    <th>処理可能件数</th>
-                                                    <th>固定費</th>
-                                                    <th>人件費</th>
-                                                    <th>配送費</th>
-                                                    <th>総コスト</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {dashboardData.center_summary_rows.map((row) => (
-                                                    <tr key={row.center_name}>
-                                                        <td>{row.center_name}</td>
-                                                        <td>{row.shipping_cost.toFixed(3)}</td>
-                                                        <td>{formatInteger(row.assigned_orders)}</td>
-                                                        <td>{formatInteger(row.staffing_level)}</td>
-                                                        <td>{formatInteger(row.capacity)}</td>
-                                                        <td>{formatCurrency(row.fixed_cost)}</td>
-                                                        <td>{formatCurrency(row.labor_cost)}</td>
-                                                        <td>{formatCurrency(row.variable_cost)}</td>
-                                                        <td>{formatCurrency(row.total_cost)}</td>
+                                <div className="dashboard-main">
+                                    <section className="metrics-grid metrics-grid-overview">
+                                        <article className="metric-card">
+                                            <span className="metric-label">対象拠点数</span>
+                                            <strong>{formatInteger(scenarioRows.length)} 拠点</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">設定人員合計</span>
+                                            <strong>{formatInteger(sumScenarioValues(scenarioRows, "staffing_level"))} 人</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">固定費合計</span>
+                                            <strong>{formatCurrency(sumScenarioValues(scenarioRows, "fixed_cost"))}</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">人件費合計</span>
+                                            <strong>{formatCurrency(dashboardData.metrics.total_labor_cost)}</strong>
+                                        </article>
+                                    </section>
+
+                                    <section className="data-section">
+                                        <div className="section-heading">
+                                            <h2>Key Performance Indicators</h2>
+                                            <span>シミュレーション結果</span>
+                                        </div>
+                                    </section>
+
+                                    <section className="metrics-grid">
+                                        <article className="metric-card">
+                                            <span className="metric-label">総コスト</span>
+                                            <strong>{formatCurrency(dashboardData.metrics.total_cost)}</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">総注文数</span>
+                                            <strong>{formatInteger(dashboardData.metrics.total_orders)} 件</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">平均配送単価</span>
+                                            <strong>{formatCurrency(dashboardData.metrics.avg_unit_cost)}</strong>
+                                        </article>
+                                        <article className="metric-card">
+                                            <span className="metric-label">未割当注文</span>
+                                            <strong>{formatInteger(dashboardData.metrics.unassigned_order_count)} 件</strong>
+                                        </article>
+                                    </section>
+
+                                    <section className="data-section">
+                                        <div className="section-heading">
+                                            <h2>分析詳細</h2>
+                                            <span>拠点別総コスト</span>
+                                        </div>
+                                        <div className="cost-bar-list">
+                                            {dashboardData.center_summary_rows.map((row) => (
+                                                <div key={row.center_name} className="cost-bar-row">
+                                                    <div className="cost-bar-header">
+                                                        <strong>{row.center_name}</strong>
+                                                        <span>{formatCurrency(row.total_cost)}</span>
+                                                    </div>
+                                                    <div className="cost-bar-track">
+                                                        <div
+                                                            className="cost-bar-fill"
+                                                            style={{ width: `${getCostBarWidth(row.total_cost, dashboardData.center_summary_rows)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    <section className="data-section">
+                                        <div className="section-heading">
+                                            <h2>拠点別コスト集計</h2>
+                                            <span>分析詳細</span>
+                                        </div>
+                                        <div className="table-shell">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>拠点</th>
+                                                        <th>配送係数</th>
+                                                        <th>担当注文数</th>
+                                                        <th>人員数</th>
+                                                        <th>処理可能件数</th>
+                                                        <th>固定費</th>
+                                                        <th>人件費</th>
+                                                        <th>配送費</th>
+                                                        <th>総コスト</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </section>
-                            </>
+                                                </thead>
+                                                <tbody>
+                                                    {dashboardData.center_summary_rows.map((row) => (
+                                                        <tr key={row.center_name}>
+                                                            <td>{row.center_name}</td>
+                                                            <td>{row.shipping_cost.toFixed(3)}</td>
+                                                            <td>{formatInteger(row.assigned_orders)}</td>
+                                                            <td>{formatInteger(row.staffing_level)}</td>
+                                                            <td>{formatInteger(row.capacity)}</td>
+                                                            <td>{formatCurrency(row.fixed_cost)}</td>
+                                                            <td>{formatCurrency(row.labor_cost)}</td>
+                                                            <td>{formatCurrency(row.variable_cost)}</td>
+                                                            <td>{formatCurrency(row.total_cost)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
                         ) : displayMode === "orders" ? (
                             <section className="data-section">
                                 <div className="section-heading">
