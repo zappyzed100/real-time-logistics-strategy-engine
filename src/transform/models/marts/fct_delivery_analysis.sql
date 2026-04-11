@@ -1,4 +1,7 @@
-{{ config(materialized='table') }}
+{{ config(
+    materialized='table',
+    cluster_by=['prefecture', 'center_name']
+) }}
 
 with ranked_candidates as (
     select * from {{ ref('fct_delivery_candidate_rankings') }}
