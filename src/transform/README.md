@@ -131,11 +131,24 @@ uv run python src/scripts/deploy/run_dbt.py test
 対象ファイル。
 
 - `models/marts/fct_delivery_analysis.sql`
+- `models/marts/fct_delivery_candidate_rankings.sql`
 
 主な役割。
 
 - `int_delivery_cost_candidates` から注文ごとの最安候補を 1 件選択
-- Gold 層の分析用ビューとして公開
+- Streamlit / API から直接参照する Gold 層の公開テーブルとして保持
+
+materialization / clustering 方針。
+
+- `fct_delivery_analysis` は `materialized='table'` を採用
+- `cluster_by=['prefecture', 'center_name']` を指定し、都道府県別・拠点別の分析参照を優先
+- `fct_delivery_candidate_rankings` も `materialized='table'` を採用
+- `cluster_by=['order_candidate_rank', 'center_id']` を指定し、`order_candidate_rank = 1` の抽出と拠点軸の候補参照を優先
+
+補足。
+
+- `staging` / `intermediate` の既定値は `view` のまま維持
+- Gold の主要マートだけを table 化し、Streamlit / BI の参照性能と Snowflake の再計算コストを両立する
 
 ## 6. よくあるエラーと対処
 

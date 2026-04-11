@@ -1,4 +1,7 @@
-{{ config(materialized='table') }}
+{{ config(
+    materialized='table',
+    cluster_by=['order_candidate_rank', 'center_id']
+) }}
 
 with candidate_costs as (
     select * from {{ ref('int_delivery_cost_candidates') }}
